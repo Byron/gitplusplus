@@ -1,11 +1,11 @@
-#ifndef GIT_MODEL_ODB_MEM_HPP
-#define GIT_MODEL_ODB_MEM_HPP
+#ifndef GITMODEL_ODB_MEM_HPP
+#define GITMODEL_ODB_MEM_HPP
 
-#include <git/model/modelconfig.h>
-#include <git/model/db/odb.hpp>
+#include <gitmodel/config.h>
+#include <gitmodel/db/odb.hpp>
 
-GIT_HEADER_BEGIN
-GIT_MODEL_NAMESPACE_BEGIN
+GITMODEL_HEADER_BEGIN
+GITMODEL_NAMESPACE_BEGIN
 
 /** \class odb_memory
   * \brief Class providing access to objects which are cached in memory
@@ -14,7 +14,7 @@ GIT_MODEL_NAMESPACE_BEGIN
   */
 //template <class Key, class T>
 		
-GIT_MODEL_NAMESPACE_END
-GIT_HEADER_END
+GITMODEL_NAMESPACE_END
+GITMODEL_HEADER_END
 
-#endif // GIT_MODEL_ODB_MEM_HPP
+#endif // GITMODEL_ODB_MEM_HPP

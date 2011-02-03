@@ -29,12 +29,12 @@ include(fun.cmake)
 
 # CONFIGURE INCLUDE
 ####################
-include_directories(include SYSTEM)
-configure_file(include/git/global.h.in include/git/global.h)
+include_directories(src model SYSTEM)
+configure_file(src/git/config.h.in src/git/config.h)
 
 # CONFIGURE LIBRARIES
 #####################
-add_library(gitpp STATIC src/git/lib/db/odb.cpp)
+add_library(gitpp STATIC src/git/db/odb.cpp)
 
 # CONFIGURE EXECUTABLES
 ########################
@@ -44,7 +44,7 @@ add_library(gitpp STATIC src/git/lib/db/odb.cpp)
 ############
 enable_testing()
 add_model_test_executable(model_odb_test model_odb 
-					test/git/model/db/model_odb_test.cpp)
+					test/gitmodel/db/model_odb_test.cpp)
 add_lib_test_executable(lib_odb_test lib_odb
-					test/git/lib/db/lib_odb_test.cpp)
+					test/git/db/lib_odb_test.cpp)
 

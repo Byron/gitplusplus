@@ -1,13 +1,13 @@
-#ifndef GIT_MODEL_ODB_STREAM_HPP
-#define GIT_MODEL_ODB_STREAM_HPP
+#ifndef GITMODEL_ODB_STREAM_HPP
+#define GITMODEL_ODB_STREAM_HPP
 /** \defgroup ODBStream Streams as part of the object database
   * Classes modeling the object concept
   */
 
-#include <git/model/db/odb_obj.hpp>
+#include <gitmodel/db/odb_obj.hpp>
 
-GIT_HEADER_BEGIN
-GIT_MODEL_NAMESPACE_BEGIN
+GITMODEL_HEADER_BEGIN
+GITMODEL_NAMESPACE_BEGIN
 
 /** \class odb_ostream
   * \brief A handle to a stream of object information for reading
@@ -25,7 +25,7 @@ struct odb_ostream : public odb_info<TypeID, SizeType>
 };
 
 		
-GIT_MODEL_NAMESPACE_END
-GIT_HEADER_END
+GITMODEL_NAMESPACE_END
+GITMODEL_HEADER_END
 
-#endif // GIT_MODEL_ODB_STREAM_HPP
+#endif // GITMODEL_ODB_STREAM_HPP

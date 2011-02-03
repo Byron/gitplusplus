@@ -1,20 +1,38 @@
 INCLUDEPATH = /usr/include \
-include
+model \
+src
 
 HEADERS += \
     include/git/model/db/odb.hpp \
     include/git/global.h.in \
-    include/git/model/modelconfig.h \
     include/git/model/db/odb_alloc.hpp \
     include/git/model/db/odb_mem.hpp \
     include/git/model/db/odb_iter.hpp \
     include/git/model/db/odb_obj.hpp \
     include/git/model/db/odb_stream.hpp \
     include/git/lib/db/odb.h \
-    include/git/lib/libconfig.h
+    include/git/lib/libconfig.h \
+    model/git/gitmodelconfig.h \
+    model/git/db/odb_stream.hpp \
+    model/git/db/odb_obj.hpp \
+    model/git/db/odb_mem.hpp \
+    model/git/db/odb_iter.hpp \
+    model/git/db/odb_alloc.hpp \
+    model/git/db/odb.hpp \
+    src/git/db/odb.h \
+    src/gitmodel/db/odb_stream.hpp \
+    src/gitmodel/db/odb_obj.hpp \
+    src/gitmodel/db/odb_mem.hpp \
+    src/gitmodel/db/odb_iter.hpp \
+    src/gitmodel/db/odb_alloc.hpp \
+    src/gitmodel/db/odb.hpp \
+    src/gitmodel/config.h \
+    src/git/config.h.in
 
 SOURCES += \
     test/git/model/db/odb_test.cpp \
     src/git/lib/db/odb.cpp \
-    test/git/lib/db/lib_odb_test.cpp \
-    test/git/model/db/model_odb_test.cpp
+    test/git/model/db/model_odb_test.cpp \
+    src/git/db/odb.cpp \
+    test/git/db/lib_odb_test.cpp \
+    test/gitmodel/db/model_odb_test.cpp

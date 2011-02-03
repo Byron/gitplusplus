@@ -1,14 +1,14 @@
-#ifndef GIT_MODEL_ODB_ITERATOR_HPP
-#define GIT_MODEL_ODB_ITERATOR_HPP
+#ifndef GITMODEL_ODB_ITERATOR_HPP
+#define GITMODEL_ODB_ITERATOR_HPP
 /** \defgroup ODBIter Object Database Iterators
   * Classes modeling the concept of an object database iterator
   */
 
-#include <git/model/modelconfig.h>
+#include <gitmodel/config.h>
 #include <iterator>
 
-GIT_HEADER_BEGIN
-GIT_MODEL_NAMESPACE_BEGIN
+GITMODEL_HEADER_BEGIN
+GITMODEL_NAMESPACE_BEGIN
 	
 /** \class odb_input_iterator
   * \ingroup ODBIter
@@ -20,7 +20,7 @@ class odb_input_iterator : public std::iterator<typename std::input_iterator_tag
 	
 };
 		
-GIT_MODEL_NAMESPACE_END
-GIT_HEADER_END
+GITMODEL_NAMESPACE_END
+GITMODEL_HEADER_END
 
-#endif // GIT_MODEL_ODB_ITERATOR_HPP
+#endif // GITMODEL_ODB_ITERATOR_HPP

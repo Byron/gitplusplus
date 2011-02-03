@@ -1,17 +1,17 @@
-#ifndef GIT_MODEL_ODB_HPP
-#define GIT_MODEL_ODB_HPP
+#ifndef GITMODEL_ODB_HPP
+#define GITMODEL_ODB_HPP
 /** \defgroup ODB Object Databases
   * Classes modeling the object database concept
   */
 
-#include <git/model/modelconfig.h>
-#include <git/model/db/odb_alloc.hpp>
-#include <git/model/db/odb_iter.hpp>
+#include <gitmodel/config.h>
+#include <gitmodel/db/odb_alloc.hpp>
+#include <gitmodel/db/odb_iter.hpp>
 
 #include <type_traits>
 
-GIT_HEADER_BEGIN
-GIT_MODEL_NAMESPACE_BEGIN
+GITMODEL_HEADER_BEGIN
+GITMODEL_NAMESPACE_BEGIN
 	
 /** \class odb_base
   * \brief Class providing a basic interface for all derived object database implementations
@@ -37,7 +37,7 @@ public:
 };
 
 		
-GIT_MODEL_NAMESPACE_END
-GIT_HEADER_END
+GITMODEL_NAMESPACE_END
+GITMODEL_HEADER_END
 
-#endif // GIT_MODEL_ODB_HPP
+#endif // GITMODEL_ODB_HPP

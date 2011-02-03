@@ -1,14 +1,14 @@
-#ifndef GIT_MODEL_ODB_OBJ_HPP
-#define GIT_MODEL_ODB_OBJ_HPP
+#ifndef GITMODEL_ODB_OBJ_HPP
+#define GITMODEL_ODB_OBJ_HPP
 /** \defgroup ODBObject Objects for Object Databases
   * Classes modeling the object concept
   */
 
-#include <git/model/modelconfig.h>
+#include <gitmodel/config.h>
 #include <stddef.h>
 
-GIT_HEADER_BEGIN
-GIT_MODEL_NAMESPACE_BEGIN
+GITMODEL_HEADER_BEGIN
+GITMODEL_NAMESPACE_BEGIN
 
 
 /** \class odb_info
@@ -46,7 +46,7 @@ struct odb_object : public odb_info<TypeID, SizeType>
 };
 
 		
-GIT_MODEL_NAMESPACE_END
-GIT_HEADER_END
+GITMODEL_NAMESPACE_END
+GITMODEL_HEADER_END
 
-#endif // GIT_MODEL_ODB_OBJ_HPP
+#endif // GITMODEL_ODB_OBJ_HPP

@@ -9,5 +9,5 @@ Testing/
 bin/
 doc/
 Doxyfile
-include/git/global.h
+src/git/config.h
 

@@ -1,4 +1,4 @@
-#include <git/lib/db/odb.h>
+#include <git/db/odb.h>
 
 int main(int argc, char* argv[])
 {
