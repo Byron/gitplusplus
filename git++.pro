@@ -3,7 +3,11 @@ include
 
 HEADERS += \
     include/git/model/db/odb.hpp \
-    include/git/global.h
+    include/git/global.h.in \
+    include/git/model/modelconfig.h \
+    include/git/model/db/odb_alloc.hpp \
+    include/git/model/db/odb_mem.hpp \
+    include/git/model/db/odb_iter.hpp
 
 SOURCES += \
     test/git/model/db/odb_test.cpp \

@@ -30,6 +30,7 @@ include(fun.cmake)
 # CONFIGURE INCLUDE
 ####################
 include_directories(include SYSTEM)
+configure_file(include/git/global.h.in include/git/global.h)
 
 # CONFIGURE LIBRARIES
 #####################

@@ -1,0 +1,14 @@
+#ifndef GIT_GLOBAL_H
+#define GIT_GLOBAL_H
+
+#define GIT_HEADER_BEGIN
+#define GIT_HEADER_END
+
+/** \namespace git
+  * \brief Contains all git related types
+  */
+#define GIT_NAMESPACE_BEGIN namespace git {
+#define GIT_NAMESPACE_END }
+
+
+#endif // GIT_GLOBAL_H
