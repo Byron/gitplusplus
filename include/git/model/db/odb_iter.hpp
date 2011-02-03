@@ -1,7 +1,7 @@
 #ifndef GIT_MODEL_ODB_ITERATOR_HPP
 #define GIT_MODEL_ODB_ITERATOR_HPP
 /** \defgroup ODBIter Object Database Iterators
-  * Iterators to access the object database
+  * Classes modeling the concept of an object database iterator
   */
 
 #include <git/model/modelconfig.h>

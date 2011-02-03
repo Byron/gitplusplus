@@ -1,7 +1,7 @@
 #ifndef GIT_MODEL_ODB_HPP
 #define GIT_MODEL_ODB_HPP
 /** \defgroup ODB Object Databases
-  * Classes implementing an object database
+  * Classes modeling the object database concept
   */
 
 #include <git/model/modelconfig.h>

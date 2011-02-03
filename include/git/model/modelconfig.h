@@ -1,5 +1,5 @@
-#ifndef MODELCONFIG_H
-#define MODELCONFIG_H
+#ifndef GIT_MODEL_CONFIG_H
+#define GIT_MODEL_CONFIG_H
 
 #include <git/global.h>
 
@@ -9,4 +9,4 @@
 #define GIT_MODEL_NAMESPACE_BEGIN GIT_NAMESPACE_BEGIN namespace model {
 #define GIT_MODEL_NAMESPACE_END GIT_NAMESPACE_END }
 
-#endif // MODELCONFIG_H
+#endif // GIT_MODEL_CONFIG_H
