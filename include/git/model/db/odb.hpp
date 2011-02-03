@@ -1,4 +1,4 @@
-#ifndef GIT_MODEL_ODB_H
-#define GIT_MODEL_ODB_H
+#ifndef GIT_MODEL_ODB_HPP
+#define GIT_MODEL_ODB_HPP
 
-#endif // GIT_MODEL_ODB_H
+#endif // GIT_MODEL_ODB_HPP
