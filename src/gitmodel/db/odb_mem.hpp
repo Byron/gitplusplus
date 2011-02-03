@@ -12,7 +12,11 @@ GITMODEL_NAMESPACE_BEGIN
   * \ingroup ODB
   * The memory object database acts as an adapter to a map which keeps the actual items
   */
-//template <class Key, class T>
+template <class Key, class T, class ObjectAllocator=std::allocator<T> >
+class odb_mem
+{
+	
+};
 		
 GITMODEL_NAMESPACE_END
 GITMODEL_HEADER_END

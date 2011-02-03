@@ -12,6 +12,14 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY lib)
 # setup modules
 include(FindDoxygen DOXYGEN_SKIP_DOT)
 
+set(Boost_USE_STATIC_LIBS        ON)
+
+find_package(Boost 1.36.0 COMPONENTS date_time filesystem system unit_test_framework) 
+
+if(NOT Boost_FOUND)
+	message(SEND_FAILURE "Require boost libraryies")
+endif(NOT Boost_FOUND)
+
 # setup compiler
 if(UNIX)
 	set(CMAKE_CXX_FLAGS -std=c++0x)
@@ -29,7 +37,7 @@ include(fun.cmake)
 
 # CONFIGURE INCLUDE
 ####################
-include_directories(src model SYSTEM)
+include_directories(src test SYSTEM)
 configure_file(src/git/config.h.in src/git/config.h)
 
 # CONFIGURE LIBRARIES

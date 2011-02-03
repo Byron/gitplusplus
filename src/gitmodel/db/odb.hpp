@@ -29,11 +29,13 @@ public:
 	typedef T value_type;
 	typedef ObjectAllocator allocator_type;
 	
-	typedef const odb_input_iterator<Key, T> const_iterator;
-	typedef odb_input_iterator<Key, T> iterator;
+	typedef const odb_input_iterator<Key, T> const_input_iterator;
+	typedef odb_input_iterator<Key, T> input_iterator;
 	 
 public:
-	const_iterator find(typename std::add_rvalue_reference<const Key>::type const k) const throw();
+	const_input_iterator find(typename std::add_rvalue_reference<const Key>::type const k) const throw();
+	
+	
 };
 
 		

@@ -12,12 +12,27 @@ GITMODEL_NAMESPACE_BEGIN
 	
 /** \class odb_input_iterator
   * \ingroup ODBIter
-  * \brief Iterator allowing read-only access to the underlying container
+  * \brief input iterator allowing read-only access to the underlying value.
   */
 template <class Key, class T>
 class odb_input_iterator : public std::iterator<typename std::input_iterator_tag, T>
 {
+protected:
+	odb_input_iterator(){}
+	~odb_input_iterator(){}
 	
+public:
+	bool operator==(const odb_input_iterator<Key, T>& rhs) const;
+	bool operator!=(const odb_input_iterator<Key, T>& rhs) const;
+	template <typename OtherIterator>
+	bool operator==(const OtherIterator&){ return false; }
+	template <typename OtherIterator>
+	bool operator!=(const OtherIterator&){ return true; }
+	
+	T& operator->() { return 0; }
+	const T& operator->() const;
+	T& operator*();
+	const T& operator*() const;
 };
 		
 GITMODEL_NAMESPACE_END

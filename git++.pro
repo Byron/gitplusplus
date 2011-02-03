@@ -1,5 +1,5 @@
 INCLUDEPATH = /usr/include \
-model \
+test \
 src
 
 HEADERS += \
@@ -27,7 +27,10 @@ HEADERS += \
     src/gitmodel/db/odb_alloc.hpp \
     src/gitmodel/db/odb.hpp \
     src/gitmodel/config.h \
-    src/git/config.h.in
+    src/git/config.h.in \
+    test/git/util.hpp \
+    test/gitmodel/testutil.hpp \
+    test/git/testutil.hpp
 
 SOURCES += \
     test/git/model/db/odb_test.cpp \
