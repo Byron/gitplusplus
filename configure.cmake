@@ -7,19 +7,40 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY lib)
 
+#CMAKE SETUP AND CONFIGURATION
+###############################
+# setup modules
+include(FindDoxygen DOXYGEN_SKIP_DOT)
+
+# setup compiler
+if(UNIX)
+	set(CMAKE_CXX_FLAGS -std=c++0x)
+endif(UNIX)
+
+
+if(DOXYGEN)
+	include(UseDoxygen.cmake)
+else(DOXYGEN)
+	message(WARNING "Doxygen was not found - documentation will not be built")
+endif(DOXYGEN)
+
 include(fun.cmake)
 
 
 # CONFIGURE INCLUDE
+####################
 include_directories(include SYSTEM)
 
 # CONFIGURE LIBRARIES
+#####################
 add_library(gitpp STATIC src/git/lib/db/odb.cpp)
 
 # CONFIGURE EXECUTABLES
+########################
 
 
 # TEST SETUP
+############
 enable_testing()
 add_model_test_executable(model_odb_test model_odb 
 					test/git/model/db/model_odb_test.cpp)

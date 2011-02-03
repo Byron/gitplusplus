@@ -7,3 +7,7 @@ cmake_install.cmake
 CTestTestfile.cmake
 Testing/
 bin/
+doc/
+Doxyfile
+include/git/global.h
+
