@@ -31,11 +31,12 @@ public:
 	
 	typedef const odb_input_iterator<Key, T> const_input_iterator;
 	typedef odb_input_iterator<Key, T> input_iterator;
+	typedef odb_forward_iterator<Key, T> forward_iterator;
 	 
 public:
+	forward_iterator begin() const throw();
+	const forward_iterator end() const throw();
 	const_input_iterator find(typename std::add_rvalue_reference<const Key>::type const k) const throw();
-	
-	
 };
 
 		

@@ -29,10 +29,31 @@ public:
 	template <typename OtherIterator>
 	bool operator!=(const OtherIterator&){ return true; }
 	
-	T& operator->() { return 0; }
+	T& operator->();
 	const T& operator->() const;
 	T& operator*();
 	const T& operator*() const;
+	
+	
+};
+
+/** \class odb_forward_iterator
+  * \brief input iterator which can iterate in one direction.
+  * The iteration is unordered, which is why it can only be equality compared against the end
+  * iterator.
+  * Dereferencing the iterator yields a pair whose first item in the key, the second is the actual
+  * item in the iteration.
+  */
+template <class Key, class T>
+class odb_forward_iterator : public odb_input_iterator<Key, T>
+{
+	typedef std::pair<Key, T> value_type;
+	
+	odb_forward_iterator& operator++();		// prefix
+	odb_forward_iterator& operator++(int);	// postfix
+	
+	const value_type& operator->() const;
+	const value_type& operator*() const;
 };
 		
 GITMODEL_NAMESPACE_END

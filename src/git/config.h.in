@@ -10,5 +10,8 @@
 #define GIT_NAMESPACE_BEGIN namespace git {
 #define GIT_NAMESPACE_END }
 
+// Types
+typedef unsigned int uint32;
+typedef unsigned char uchar;
 
 #endif // GIT_CONFIG_H

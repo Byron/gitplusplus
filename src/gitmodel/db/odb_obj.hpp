@@ -45,7 +45,7 @@ struct odb_object : public odb_info<TypeID, SizeType>
 	value_type value();
 };
 
-		
+
 GITMODEL_NAMESPACE_END
 GITMODEL_HEADER_END
 

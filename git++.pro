@@ -30,7 +30,9 @@ HEADERS += \
     src/git/config.h.in \
     test/git/util.hpp \
     test/gitmodel/testutil.hpp \
-    test/git/testutil.hpp
+    test/git/testutil.hpp \
+    src/git/db/sha1.h \
+    src/git/db/sha1_gen.h
 
 SOURCES += \
     test/git/model/db/odb_test.cpp \
@@ -38,4 +40,6 @@ SOURCES += \
     test/git/model/db/model_odb_test.cpp \
     src/git/db/odb.cpp \
     test/git/db/lib_odb_test.cpp \
-    test/gitmodel/db/model_odb_test.cpp
+    test/gitmodel/db/model_odb_test.cpp \
+    src/git/db/sha1.cpp \
+    src/git/db/sha1_gen.cpp
