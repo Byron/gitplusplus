@@ -42,4 +42,5 @@ SOURCES += \
     test/git/db/lib_odb_test.cpp \
     test/gitmodel/db/model_odb_test.cpp \
     src/git/db/sha1.cpp \
-    src/git/db/sha1_gen.cpp
+    src/git/db/sha1_gen.cpp \
+    test/git/db/sha1_performance_test.cpp

@@ -58,4 +58,6 @@ add_model_test_executable(model_odb_test model_odb
 					test/gitmodel/db/model_odb_test.cpp)
 add_lib_test_executable(lib_odb_test lib_odb
 					test/git/db/lib_odb_test.cpp)
+add_lib_test_executable(lib_sha1_performance_test lib_sha1_perf
+					test/git/db/sha1_performance_test.cpp)
 
