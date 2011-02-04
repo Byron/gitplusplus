@@ -10,8 +10,7 @@
 GITMODEL_HEADER_BEGIN
 GITMODEL_NAMESPACE_BEGIN
 	
-/** \class odb_input_iterator
-  * \ingroup ODBIter
+/** \ingroup ODBIter
   * \brief input iterator allowing read-only access to the underlying value.
   */
 template <class Key, class T>
@@ -36,7 +35,7 @@ public:
 	
 };
 
-/** \class odb_forward_iterator
+/** \ingroup ODBIter
   * \brief input iterator which can iterate in one direction.
   * The iteration is unordered, which is why it can only be equality compared against the end
   * iterator.

@@ -2,21 +2,25 @@
 #define GIT_ODB_H
 
 #include <git/config.h>
-
 #include <gitmodel/db/odb_mem.hpp>
 
-using namespace gitmodel;
+GIT_HEADER_BEGIN
+GIT_NAMESPACE_BEGIN
 
-/** \class MemoryODB
-  * \ingroup ODB
+
+/** \ingroup ODB
   * \brief Database storing git objects in memory only
   * 
   * Use this specialization to quickly cache objects in memory to later dump
   * them to disk at once.
   */
-class MemoryODB : public odb_mem<int, int>
+class MemoryODB : public gitmodel::odb_mem<int, int>
 {
 public:
 };
+
+
+GIT_NAMESPACE_END
+GIT_HEADER_END
 
 #endif // GIT_ODB_H

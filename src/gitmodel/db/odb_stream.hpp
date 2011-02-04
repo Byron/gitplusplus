@@ -9,8 +9,7 @@
 GITMODEL_HEADER_BEGIN
 GITMODEL_NAMESPACE_BEGIN
 
-/** \class odb_ostream
-  * \brief A handle to a stream of object information for reading
+/** \brief A handle to a stream of object information for reading
   * \ingroup ODBStream
   * Objects are simple structures which only know their data size, 
   * their type and their value.

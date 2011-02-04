@@ -14,8 +14,7 @@ GITMODEL_HEADER_BEGIN
 GITMODEL_NAMESPACE_BEGIN
 
 	
-/** \class odb_base
-  * \brief Class providing a basic interface for all derived object database implementations
+/** \brief Class providing a basic interface for all derived object database implementations
   * \ingroup ODB
   * An object database behaves much like a map, which uses keys to refer to object streams.
   * An stl container interface is provided.

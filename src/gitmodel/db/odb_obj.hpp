@@ -11,8 +11,7 @@ GITMODEL_HEADER_BEGIN
 GITMODEL_NAMESPACE_BEGIN
 
 
-/** \class odb_info
-  * \brief structure providing information about an object
+/** \brief structure providing information about an object
   * \ingroup ODBObject
   */
 template <class TypeID, class SizeType=size_t>
@@ -28,8 +27,7 @@ struct odb_info
 };
 
 
-/** \class odb_object
-  * \brief An object as possible member of an object database
+/** \brief An object as possible member of an object database
   * \ingroup ODBObject
   * Objects are simple structures which only know their data size, 
   * their type and their value.

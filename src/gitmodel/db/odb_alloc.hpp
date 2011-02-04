@@ -10,8 +10,7 @@
 GITMODEL_HEADER_BEGIN
 GITMODEL_NAMESPACE_BEGIN
 	
-/** \class vmem_allocator
-  * \brief handles memory allocation using virtual memory if necessary
+/** \brief handles memory allocation using virtual memory if necessary
   * \ingroup ODBAlloc
   * Allows definition of a gap, under which the normal heap will be used instead
   * The gap keyword is used to determine when it should use normal new memory allocation, 

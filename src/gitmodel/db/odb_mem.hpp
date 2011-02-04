@@ -73,8 +73,7 @@ public:
 };
 
 
-/** \class odb_memory
-  * \brief Class providing access to objects which are cached in memory
+/** \brief Class providing access to objects which are cached in memory
   * \ingroup ODB
   * The memory object database acts as an adapter to a map which keeps the actual items.
   * Hence it is nothing more than map with different functionality  and special iterators

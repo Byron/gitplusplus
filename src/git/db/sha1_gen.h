@@ -16,8 +16,7 @@ GIT_NAMESPACE_BEGIN
 #define SHA1_LITTLE_ENDIAN
 #endif
 
-/** \class
-  * \brief generator which creates SHA1 instances from raw input data
+/** \brief generator which creates SHA1 instances from raw input data
   * \ingroup ODB
   * Each instance of a generator by default produces only one sha1 instance.
   * If you want to produce more, call reset() inbetween the different runs

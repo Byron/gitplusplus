@@ -8,8 +8,7 @@
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
 
-/** \class SHA1
-  * \brief represents a SHA1 hash and provides common functionality.
+/** \brief represents a SHA1 hash and provides common functionality.
   * \ingroup ODB
   *
   * The instance represents a 20 byte sha1 hash and provides common functionality to convert
