@@ -12,6 +12,7 @@
 
 GITMODEL_HEADER_BEGIN
 GITMODEL_NAMESPACE_BEGIN
+
 	
 /** \class odb_base
   * \brief Class providing a basic interface for all derived object database implementations
@@ -34,12 +35,15 @@ public:
 	typedef odb_forward_iterator<Key, T> forward_iterator;
 	 
 public:
+	//! \return iterator pointing to the first item in the database
 	forward_iterator begin() const throw();
+	//! \return iterator pointing to the end of the database, which is one past the last item
 	const forward_iterator end() const throw();
+	//! \return iterator pointing to the object at the given key, or an iterator pointing to the end
+	//! of the database
 	const_input_iterator find(typename std::add_rvalue_reference<const Key>::type const k) const throw();
 };
 
-		
 GITMODEL_NAMESPACE_END
 GITMODEL_HEADER_END
 

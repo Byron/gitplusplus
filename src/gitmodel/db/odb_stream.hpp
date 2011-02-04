@@ -1,7 +1,7 @@
 #ifndef GITMODEL_ODB_STREAM_HPP
 #define GITMODEL_ODB_STREAM_HPP
-/** \defgroup ODBStream Streams as part of the object database
-  * Classes modeling the object concept
+/** \defgroup ODBStream Object Streams
+  * Streams as part of the object database which allow streamed access to an object
   */
 
 #include <gitmodel/db/odb_obj.hpp>

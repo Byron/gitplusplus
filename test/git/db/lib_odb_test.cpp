@@ -54,8 +54,9 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	
 }
 
-BOOST_AUTO_TEST_CASE(lib_base_test)
+BOOST_AUTO_TEST_CASE(mem_db_test)
 {
-	int i = 0;
-	auto x = i;
+	MemoryODB modb;
+	
+	
 }

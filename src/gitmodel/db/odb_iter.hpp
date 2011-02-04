@@ -34,7 +34,6 @@ public:
 	T& operator*();
 	const T& operator*() const;
 	
-	
 };
 
 /** \class odb_forward_iterator
@@ -50,7 +49,7 @@ class odb_forward_iterator : public odb_input_iterator<Key, T>
 	typedef std::pair<Key, T> value_type;
 	
 	odb_forward_iterator& operator++();		// prefix
-	odb_forward_iterator& operator++(int);	// postfix
+	odb_forward_iterator operator++(int);	// postfix
 	
 	const value_type& operator->() const;
 	const value_type& operator*() const;
