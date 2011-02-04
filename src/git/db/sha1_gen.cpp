@@ -12,14 +12,14 @@ GIT_NAMESPACE_BEGIN
 #endif
 
 #ifdef SHA1_LITTLE_ENDIAN
-#define SHABLK0(i) (m_block[i] = \
-	(ROL32(m_block[i],24) & 0xFF00FF00) | (ROL32(m_block[i],8) & 0x00FF00FF))
+#define SHABLK0(i) (m_block->l[i] = \
+	(ROL32(m_block->l[i],24) & 0xFF00FF00) | (ROL32(m_block->l[i],8) & 0x00FF00FF))
 #else
-#define SHABLK0(i) (m_block[i])
+#define SHABLK0(i) (m_block->l[i])
 #endif
 
-#define SHABLK(i) (m_block[i&15] = ROL32(m_block[(i+13)&15] ^ m_block[(i+8)&15] \
-	^ m_block[(i+2)&15] ^ m_block[i&15],1))
+#define SHABLK(i) (m_block->l[i&15] = ROL32(m_block->l[(i+13)&15] ^ m_block->l[(i+8)&15] \
+	^ m_block->l[(i+2)&15] ^ m_block->l[i&15],1))
 
 // SHA-1 rounds
 #define _R0(v,w,x,y,z,i) {z+=((w&(x^y))^y)+SHABLK0(i)+0x5A827999+ROL32(v,5);w=ROL32(w,30);}
@@ -29,6 +29,7 @@ GIT_NAMESPACE_BEGIN
 #define _R4(v,w,x,y,z,i) {z+=(w^x^y)+SHABLK(i)+0xCA62C1D6+ROL32(v,5);w=ROL32(w,30);}
 
 SHA1Generator::SHA1Generator()
+	: m_block((WorkspaceBlock*)m_workspace)
 {
 	static_assert(sizeof(uint32) == 4, "int must be 32 bit");
 	static_assert(sizeof(uchar) == 1, "char must be 8 bit");

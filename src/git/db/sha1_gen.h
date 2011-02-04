@@ -26,7 +26,11 @@ GIT_NAMESPACE_BEGIN
   */
 class SHA1Generator
 {
-	public:
+	private:
+	union WorkspaceBlock
+	{
+		uint32 l[16];
+	};
 		
 	public:
 		SHA1Generator();
@@ -66,7 +70,8 @@ class SHA1Generator
 		uint32 m_reserved1[3]; // Memory alignment padding
 		
 		// Member variables
-		uint32 m_block[16];
+		uint32 m_workspace[16];
+		WorkspaceBlock* m_block; // SHA1 pointer to the byte array above
 };
 
 GIT_HEADER_END
