@@ -1,14 +1,14 @@
-#ifndef GITMODEL_ODB_ALLOC_HPP
-#define GITMODEL_ODB_ALLOC_HPP
+#ifndef GTL_ODB_ALLOC_HPP
+#define GTL_ODB_ALLOC_HPP
 /** \defgroup ODBAlloc Object Allocators
   * Classes implementing different allocators for objects
   */
 
-#include <gitmodel/config.h>
+#include <gtl/config.h>
 #include <memory>
 
-GITMODEL_HEADER_BEGIN
-GITMODEL_NAMESPACE_BEGIN
+GTL_HEADER_BEGIN
+GTL_NAMESPACE_BEGIN
 	
 /** \brief handles memory allocation using virtual memory if necessary
   * \ingroup ODBAlloc
@@ -35,7 +35,7 @@ public:
 template <class T, size_t gap>
 const size_t vmem_allocator<T, gap>::gGap(gap);
 		
-GITMODEL_NAMESPACE_END
-GITMODEL_HEADER_END
+GTL_NAMESPACE_END
+GTL_HEADER_END
 
-#endif // GITMODEL_ODB_ALLOC_HPP
+#endif // GTL_ODB_ALLOC_HPP

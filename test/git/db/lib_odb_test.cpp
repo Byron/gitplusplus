@@ -1,5 +1,5 @@
 #define BOOST_TEST_MODULE GitLibraryTest
-#include <gitmodel/testutil.hpp>
+#include <gtl/testutil.hpp>
 #include <git/db/odb.h>
 
 #include <git/db/sha1.h>

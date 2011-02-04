@@ -23,16 +23,22 @@ HEADERS += \
     src/gitmodel/db/odb_stream.hpp \
     src/gitmodel/db/odb_obj.hpp \
     src/gitmodel/db/odb_mem.hpp \
-    src/gitmodel/db/odb_iter.hpp \
     src/gitmodel/db/odb_alloc.hpp \
     src/gitmodel/db/odb.hpp \
     src/gitmodel/config.h \
     src/git/config.h.in \
     test/git/util.hpp \
-    test/gitmodel/testutil.hpp \
     test/git/testutil.hpp \
     src/git/db/sha1.h \
-    src/git/db/sha1_gen.h
+    src/git/db/sha1_gen.h \
+    test/gtl/testutil.hpp \
+    src/gtl/config.h \
+    src/gtl/db/odb_stream.hpp \
+    src/gtl/db/odb_obj.hpp \
+    src/gtl/db/odb_mem.hpp \
+    src/gtl/db/odb_iter.hpp \
+    src/gtl/db/odb_alloc.hpp \
+    src/gtl/db/odb.hpp
 
 SOURCES += \
     test/git/model/db/odb_test.cpp \
@@ -43,4 +49,5 @@ SOURCES += \
     test/gitmodel/db/model_odb_test.cpp \
     src/git/db/sha1.cpp \
     src/git/db/sha1_gen.cpp \
-    test/git/db/sha1_performance_test.cpp
+    test/git/db/sha1_performance_test.cpp \
+    test/gtl/db/model_odb_test.cpp

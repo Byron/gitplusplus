@@ -1,14 +1,14 @@
-#ifndef GITMODEL_ODB_OBJ_HPP
-#define GITMODEL_ODB_OBJ_HPP
+#ifndef GTL_ODB_OBJ_HPP
+#define GTL_ODB_OBJ_HPP
 /** \defgroup ODBObject Objects for Object Databases
   * Classes modeling the object concept
   */
 
-#include <gitmodel/config.h>
+#include <gtl/config.h>
 #include <stddef.h>
 
-GITMODEL_HEADER_BEGIN
-GITMODEL_NAMESPACE_BEGIN
+GTL_HEADER_BEGIN
+GTL_NAMESPACE_BEGIN
 
 
 /** \brief structure providing information about an object
@@ -44,7 +44,7 @@ struct odb_object : public odb_info<TypeID, SizeType>
 };
 
 
-GITMODEL_NAMESPACE_END
-GITMODEL_HEADER_END
+GTL_NAMESPACE_END
+GTL_HEADER_END
 
-#endif // GITMODEL_ODB_OBJ_HPP
+#endif // GTL_ODB_OBJ_HPP

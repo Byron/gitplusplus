@@ -1,14 +1,14 @@
-#ifndef GITMODEL_ODB_ITERATOR_HPP
-#define GITMODEL_ODB_ITERATOR_HPP
+#ifndef GTL_ODB_ITERATOR_HPP
+#define GTL_ODB_ITERATOR_HPP
 /** \defgroup ODBIter Object Database Iterators
   * Classes modeling the concept of an object database iterator
   */
 
-#include <gitmodel/config.h>
+#include <gtl/config.h>
 #include <iterator>
 
-GITMODEL_HEADER_BEGIN
-GITMODEL_NAMESPACE_BEGIN
+GTL_HEADER_BEGIN
+GTL_NAMESPACE_BEGIN
 	
 /** \ingroup ODBIter
   * \brief input iterator allowing read-only access to the underlying value.
@@ -54,7 +54,7 @@ class odb_forward_iterator : public odb_input_iterator<Key, T>
 	const value_type& operator*() const;
 };
 		
-GITMODEL_NAMESPACE_END
-GITMODEL_HEADER_END
+GTL_NAMESPACE_END
+GTL_HEADER_END
 
-#endif // GITMODEL_ODB_ITERATOR_HPP
+#endif // GTL_ODB_ITERATOR_HPP

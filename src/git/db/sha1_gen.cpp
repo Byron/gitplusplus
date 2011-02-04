@@ -1,4 +1,6 @@
 #include "git/db/sha1_gen.h"
+#include <git/config.h>	// for doxygen
+
 #include "memory.h"
 
 GIT_NAMESPACE_BEGIN

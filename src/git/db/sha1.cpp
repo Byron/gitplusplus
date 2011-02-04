@@ -1,4 +1,5 @@
 #include <git/db/sha1.h>
+#include <git/config.h>	// for doxygen
 
 GIT_NAMESPACE_BEGIN
 
@@ -18,4 +19,5 @@ std::ostream& operator << (std::ostream& out, const git::SHA1& rhs)
 	}
 	return out;
 }
+
 

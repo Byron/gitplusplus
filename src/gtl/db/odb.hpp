@@ -1,17 +1,17 @@
-#ifndef GITMODEL_ODB_HPP
-#define GITMODEL_ODB_HPP
+#ifndef GTL_ODB_HPP
+#define GTL_ODB_HPP
 /** \defgroup ODB Object Databases
   * Classes modeling the object database concept
   */
 
-#include <gitmodel/config.h>
-#include <gitmodel/db/odb_alloc.hpp>
-#include <gitmodel/db/odb_iter.hpp>
+#include <gtl/config.h>
+#include <gtl/db/odb_alloc.hpp>
+#include <gtl/db/odb_iter.hpp>
 
 #include <type_traits>
 
-GITMODEL_HEADER_BEGIN
-GITMODEL_NAMESPACE_BEGIN
+GTL_HEADER_BEGIN
+GTL_NAMESPACE_BEGIN
 
 	
 /** \brief Class providing a basic interface for all derived object database implementations
@@ -43,7 +43,7 @@ public:
 	const_input_iterator find(typename std::add_rvalue_reference<const Key>::type const k) const throw();
 };
 
-GITMODEL_NAMESPACE_END
-GITMODEL_HEADER_END
+GTL_NAMESPACE_END
+GTL_HEADER_END
 
-#endif // GITMODEL_ODB_HPP
+#endif // GTL_ODB_HPP

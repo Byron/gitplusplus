@@ -1,13 +1,13 @@
-#ifndef GITMODEL_ODB_STREAM_HPP
-#define GITMODEL_ODB_STREAM_HPP
+#ifndef GTL_ODB_STREAM_HPP
+#define GTL_ODB_STREAM_HPP
 /** \defgroup ODBStream Object Streams
   * Streams as part of the object database which allow streamed access to an object
   */
 
-#include <gitmodel/db/odb_obj.hpp>
+#include <gtl/db/odb_obj.hpp>
 
-GITMODEL_HEADER_BEGIN
-GITMODEL_NAMESPACE_BEGIN
+GTL_HEADER_BEGIN
+GTL_NAMESPACE_BEGIN
 
 /** \brief A handle to a stream of object information for reading
   * \ingroup ODBStream
@@ -24,7 +24,7 @@ struct odb_ostream : public odb_info<TypeID, SizeType>
 };
 
 		
-GITMODEL_NAMESPACE_END
-GITMODEL_HEADER_END
+GTL_NAMESPACE_END
+GTL_HEADER_END
 
-#endif // GITMODEL_ODB_STREAM_HPP
+#endif // GTL_ODB_STREAM_HPP

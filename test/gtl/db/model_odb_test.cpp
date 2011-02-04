@@ -1,14 +1,14 @@
-#define BOOST_TEST_MODULE GitModelODBTest
-#include <gitmodel/testutil.hpp>
+#define BOOST_TEST_MODULE gtlODBTest
+#include <gtl/testutil.hpp>
 
-#include <gitmodel/db/odb.hpp>
-#include <gitmodel/db/odb_mem.hpp>
+#include <gtl/db/odb.hpp>
+#include <gtl/db/odb_mem.hpp>
 
 #include <type_traits>
 #include <vector>
 #include <utility>
 
-using namespace gitmodel;
+using namespace gtl;
 
 // force full instantiation
 template class odb_base<int, int>;

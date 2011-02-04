@@ -2,7 +2,7 @@
 #define GIT_ODB_H
 
 #include <git/config.h>
-#include <gitmodel/db/odb_mem.hpp>
+#include <gtl/db/odb_mem.hpp>
 
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
@@ -14,7 +14,7 @@ GIT_NAMESPACE_BEGIN
   * Use this specialization to quickly cache objects in memory to later dump
   * them to disk at once.
   */
-class MemoryODB : public gitmodel::odb_mem<int, int>
+class MemoryODB : public gtl::odb_mem<int, int>
 {
 public:
 };

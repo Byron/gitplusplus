@@ -1,5 +1,5 @@
 #define BOOST_TEST_MODULE GitSHA1PerformanceTests
-#include <gitmodel/testutil.hpp>
+#include <gtl/testutil.hpp>
 
 #include <git/db/sha1_gen.h>
 #include <boost/scoped_array.hpp>

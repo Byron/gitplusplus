@@ -1,13 +1,13 @@
-#ifndef GITMODEL_ODB_MEM_HPP
-#define GITMODEL_ODB_MEM_HPP
+#ifndef GTL_ODB_MEM_HPP
+#define GTL_ODB_MEM_HPP
 
-#include <gitmodel/config.h>
-#include <gitmodel/db/odb.hpp>
+#include <gtl/config.h>
+#include <gtl/db/odb.hpp>
 
 #include <map>
 
-GITMODEL_HEADER_BEGIN
-GITMODEL_NAMESPACE_BEGIN
+GTL_HEADER_BEGIN
+GTL_NAMESPACE_BEGIN
 
 
 template <class Key, class T>
@@ -98,7 +98,7 @@ public:
 	
 };
 		
-GITMODEL_NAMESPACE_END
-GITMODEL_HEADER_END
+GTL_NAMESPACE_END
+GTL_HEADER_END
 
-#endif // GITMODEL_ODB_MEM_HPP
+#endif // GTL_ODB_MEM_HPP
