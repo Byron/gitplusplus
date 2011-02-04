@@ -2,7 +2,7 @@
 #include "memory.h"
 
 GIT_NAMESPACE_BEGIN
-
+		
 #ifndef ROL32
 #ifdef _MSC_VER
 #define ROL32(_val32,_nBits) _rotl(_val32,_nBits)
@@ -46,7 +46,7 @@ void SHA1Generator::reset()
 
 	m_count[0] = 0;
 	m_count[1] = 0;
-	
+
 	memset(m_digest, 0, 20);
 }
 
@@ -90,27 +90,30 @@ void SHA1Generator::update(const uchar* pbData, uint32 uLen)
 {
 	uint32 j = ((m_count[0] >> 3) & 0x3F);
 
-	if((m_count[0] += (uLen << 3)) < (uLen << 3))
-		++m_count[1]; // Overflow
+	if ((m_count[0] += (uLen << 3)) < (uLen << 3)) {
+		++m_count[1];        // Overflow
+	}
 
 	m_count[1] += (uLen >> 29);
 
 	uint32 i;
-	if((j + uLen) > 63)
-	{
+	if ((j + uLen) > 63) {
 		i = 64 - j;
 		memcpy(&m_buffer[j], pbData, i);
 		transform(m_buffer);
 
-		for( ; (i + 63) < uLen; i += 64)
+		for (; (i + 63) < uLen; i += 64) {
 			transform(&pbData[i]);
+		}
 
 		j = 0;
+	} else {
+		i = 0;
 	}
-	else i = 0;
 
-	if((uLen - i) != 0)
+	if ((uLen - i) != 0) {
 		memcpy(&m_buffer[j], &pbData[i], uLen - i);
+	}
 }
 
 void SHA1Generator::finalize()
@@ -118,19 +121,22 @@ void SHA1Generator::finalize()
 	uint32 i;
 
 	uchar finalcount[8];
-	for(i = 0; i < 8; ++i)
+	for (i = 0; i < 8; ++i) {
 		finalcount[i] = (uchar)((m_count[((i >= 4) ? 0 : 1)]
-			>> ((3 - (i & 3)) * 8) ) & 255); // Endian independent
+		                         >> ((3 - (i & 3)) * 8)) & 255);  // Endian independent
+	}
 
 	update((uchar*)"\200", 1);
 
-	while ((m_count[0] & 504) != 448)
+	while ((m_count[0] & 504) != 448) {
 		update((uchar*)"\0", 1);
+	}
 
 	update(finalcount, 8); // Cause a SHA1transform()
 
-	for(i = 0; i < 20; ++i)
+	for (i = 0; i < 20; ++i) {
 		m_digest[i] = (uchar)((m_state[i >> 2] >> ((3 - (i & 3)) * 8)) & 0xFF);
+	}
 }
 
 GIT_NAMESPACE_END

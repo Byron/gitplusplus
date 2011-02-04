@@ -26,44 +26,47 @@ GIT_NAMESPACE_BEGIN
   */
 class SHA1Generator
 {
-public:
-	SHA1Generator();
-	~SHA1Generator(){}
+	public:
+		
+	public:
+		SHA1Generator();
+		~SHA1Generator() {}
 
-	//! Prepare generator for new sha
-	void reset();
+		//! Prepare generator for new sha
+		void reset();
 
-	//! Update the hash value
-	//! \param pbData location to read bytes from
-	//! \param uLen number of bytes to read
-	void update(const uchar* pbData, uint32 uLen);
+		//! Update the hash value
+		//! \param pbData location to read bytes from
+		//! \param uLen number of bytes to read
+		void update(const uchar* pbData, uint32 uLen);
 
-	//! Finalize hash, call before using digest() method
-	void finalize();
+		//! Finalize hash, call before using digest() method
+		void finalize();
 
-	//! \return 20 byte digest buffer
-	inline const uchar* digest() const {
-		return m_digest;
-	}
-	
-	//! \return the hash produced so far as SHA1 instance
-	//! \param sha1 destination of the 20 byte hash
-	const void hash(SHA1& sha1) const {
-		sha1 = m_digest;
-	}
+		//! \return 20 byte digest buffer
+		inline const uchar* digest() const {
+			return m_digest;
+		}
 
-private:
-	// Private SHA-1 transformation
-	inline void transform(const uchar* pBuffer);
+		//! \return the hash produced so far as SHA1 instance
+		//! \param sha1 destination of the 20 byte hash
+		const void hash(SHA1& sha1) const {
+			sha1 = m_digest;
+		}
 
-	// Member variables
-	uint32 m_block[16];
-	uint32 m_state[5];
-	uint32 m_count[2];
-	uint32 m_reserved0[1]; // Memory alignment padding
-	uchar m_buffer[64];
-	uchar m_digest[20];
-	uint32 m_reserved1[3]; // Memory alignment padding
+	private:
+		// Private SHA-1 transformation
+		inline void transform(const uchar* pBuffer);
+		
+		uint32 m_state[5];
+		uint32 m_count[2];
+		uint32 m_reserved0[1]; // Memory alignment padding
+		uchar m_buffer[64];
+		uchar m_digest[20];
+		uint32 m_reserved1[3]; // Memory alignment padding
+		
+		// Member variables
+		uint32 m_block[16];
 };
 
 GIT_HEADER_END

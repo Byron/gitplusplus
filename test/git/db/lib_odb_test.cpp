@@ -5,6 +5,12 @@
 #include <git/db/sha1.h>
 #include <git/db/sha1_gen.h>
 
+#include <iostream>
+#include <sstream>
+#include <stdio.h>
+#include <string>
+
+using namespace std;
 using namespace git;
 
 BOOST_AUTO_TEST_CASE(lib_sha1_facility)
@@ -13,6 +19,8 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	uchar raw[20] = {'a','b','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a'};
 	SHA1 s;
 	SHA1 o(raw);
+	SHA1 a('x');
+	BOOST_CHECK(a[0] == 'x');
 	BOOST_CHECK(s == s);
 	BOOST_CHECK(s != o);
 	s = raw;
@@ -21,16 +29,28 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	BOOST_CHECK(s[1] == 'b');
 	
 	
-	// Test sha1 generator
+	// GENERATOR
+	////////////
 	SHA1Generator sgen;
-	sgen.update((uchar*)"hello", 4);
+	const std::string hello_sha("aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d");
+	const std::string null_sha("0000000000000000000000000000000000000000");
+	std::stringstream buf;
+	sgen.update((uchar*)"hello", 5);
 	sgen.finalize();
 	sgen.hash(s);
+	
+	buf << s;
+	BOOST_CHECK(buf.str() == hello_sha);
+	buf.seekp(0, std::ios_base::beg);
+	
 	sgen.reset();
 	// after a reset, the state changes
 	sgen.hash(o);
-	
 	BOOST_CHECK(s!=o);
+	buf << o;
+	cerr << buf.str() << endl;
+	BOOST_CHECK(o == SHA1::null_sha);
+	BOOST_CHECK(buf.str() == null_sha);
 	
 }
 
