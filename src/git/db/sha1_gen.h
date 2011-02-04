@@ -21,6 +21,8 @@ GIT_NAMESPACE_BEGIN
   * \ingroup ODB
   * Each instance of a generator by default produces only one sha1 instance.
   * If you want to produce more, call reset() inbetween the different runs
+  * \note performance tests indicate that this algorithm performs only 10% worse than
+  * the highly optimized original git version.
   * \note Based on 100% free public domain implementation of the SHA-1 algorithm
   * by Dominik Reichl Web: http://www.dominik-reichl.de/
   */
@@ -71,6 +73,9 @@ class SHA1Generator
 		
 		// Member variables
 		uint32 m_workspace[16];
+		// Keep this indirection, as it forces proper aliasing
+		// This is a side-effect of casting through a union, and speeds up
+		// the whole thing by 25%
 		WorkspaceBlock* m_block; // SHA1 pointer to the byte array above
 };
 

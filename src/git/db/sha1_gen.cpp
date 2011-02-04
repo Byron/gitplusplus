@@ -96,13 +96,11 @@ void SHA1Generator::update(const uchar* pbData, uint32 uLen)
 	}
 
 	m_count[1] += (uLen >> 29);
-
 	uint32 i;
 	if ((j + uLen) > 63) {
 		i = 64 - j;
 		memcpy(&m_buffer[j], pbData, i);
 		transform(m_buffer);
-
 		for (; (i + 63) < uLen; i += 64) {
 			transform(&pbData[i]);
 		}
@@ -120,7 +118,6 @@ void SHA1Generator::update(const uchar* pbData, uint32 uLen)
 void SHA1Generator::finalize()
 {
 	uint32 i;
-
 	uchar finalcount[8];
 	for (i = 0; i < 8; ++i) {
 		finalcount[i] = (uchar)((m_count[((i >= 4) ? 0 : 1)]
@@ -128,13 +125,11 @@ void SHA1Generator::finalize()
 	}
 
 	update((uchar*)"\200", 1);
-
 	while ((m_count[0] & 504) != 448) {
 		update((uchar*)"\0", 1);
 	}
 
 	update(finalcount, 8); // Cause a SHA1transform()
-
 	for (i = 0; i < 20; ++i) {
 		m_digest[i] = (uchar)((m_state[i >> 2] >> ((3 - (i & 3)) * 8)) & 0xFF);
 	}
