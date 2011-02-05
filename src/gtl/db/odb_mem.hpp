@@ -28,14 +28,6 @@ public:
 		return m_iter != rhs.m_iter;
 	}
 	
-	inline T& operator->() {
-		return m_iter->second;
-	}
-
-	inline const T& operator->() const {
-		return m_iter->second;
-	}
-	
 	inline T& operator*() {
 		return m_iter->second;
 	}
@@ -46,16 +38,16 @@ public:
 	
 };
 
-template <class Key, class T>
+template <class Key, class OST>
 class mem_forward_iterator : public mem_input_iterator<Key, T>
 {
 public:
-	typedef std::map<Key, T> map_type;
+	typedef std::map<Key, OST> map_type;
 	typedef typename map_type::value_type value_type;
 	
 	template <class Iterator>
 	mem_forward_iterator(const Iterator& it)
-		: mem_input_iterator<Key, T>(it) {}
+		: mem_input_iterator<Key, OST>(it) {}
 	
 	mem_forward_iterator& operator++() {
 		++(this->m_iter); return *this;
@@ -64,8 +56,6 @@ public:
 		mem_forward_iterator cpy(*this); ++(*this); return cpy;
 	}
 	
-	const value_type& operator->() const {
-		return *(this->m_iter);
 	}
 	const value_type& operator*() const {
 		return *(this->m_iter);
@@ -78,22 +68,22 @@ public:
   * The memory object database acts as an adapter to a map which keeps the actual items.
   * Hence it is nothing more than map with different functionality  and special iterators
   */
-template <class Key, class T, class ObjectAllocator=std::allocator<T> >
-class odb_mem : public odb_base<Key, T, ObjectAllocator>
+template <class Key, class OST, class ObjectAllocator=std::allocator<OST> >
+class odb_mem : public odb_base<Key, OST, ObjectAllocator>
 {
 private:
-	std::map<Key, T> m_objs;
+	std::map<Key, OST> m_objs;
 	
 public:
-	typedef const mem_input_iterator<Key, T> const_input_iterator;
-	typedef mem_input_iterator<Key, T> input_iterator;
-	typedef mem_forward_iterator<Key, T> forward_iterator;
+	typedef const mem_input_iterator<Key, OST> const_input_iterator;
+	typedef mem_input_iterator<Key, OST> input_iterator;
+	typedef mem_forward_iterator<Key, OST> forward_iterator;
 	
 	const_input_iterator find(const typename std::add_rvalue_reference<const Key>::type k) const{
-		return mem_input_iterator<Key, T>(m_objs.find(k));
+		return mem_input_iterator<Key, OST>(m_objs.find(k));
 	}
 	forward_iterator end() const {
-		return mem_forward_iterator<Key, T>(m_objs.end());
+		return mem_forward_iterator<Key, OST>(m_objs.end());
 	}
 	
 };

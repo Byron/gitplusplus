@@ -13,6 +13,7 @@
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
 
+
 	
 /** \brief Class providing a basic interface for all derived object database implementations
   * \ingroup ODB
@@ -21,17 +22,17 @@ GTL_NAMESPACE_BEGIN
   * 
   * Iterators allow access to the objects of the database. Objects are always immutable.
   */
-template <class Key, class T, class ObjectAllocator=std::allocator<T> >
+template <class Key, class OST, class ObjectAllocator=std::allocator<T> >
 class odb_base
 {
 public:
 	typedef Key key_type;
-	typedef T value_type;
+	typedef OST ostream_type;
 	typedef ObjectAllocator allocator_type;
 	
-	typedef const odb_input_iterator<Key, T> const_input_iterator;
-	typedef odb_input_iterator<Key, T> input_iterator;
-	typedef odb_forward_iterator<Key, T> forward_iterator;
+	typedef const odb_input_iterator<Key, OST> const_input_iterator;
+	typedef odb_input_iterator<Key, OST> input_iterator;
+	typedef odb_forward_iterator<Key, OST> forward_iterator;
 	 
 public:
 	//! \return iterator pointing to the first item in the database
