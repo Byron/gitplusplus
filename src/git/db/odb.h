@@ -4,9 +4,8 @@
 #include <git/config.h>
 #include <gtl/db/odb_mem.hpp>
 #include <git/obj/object.hpp>
-
-#include <string>
-#include <boost/iostreams/device/back_inserter.hpp>
+#include <boost/iostreams/stream.hpp>
+#include <sstream>
 
 namespace io = boost::iostreams;
 
@@ -15,7 +14,7 @@ GIT_NAMESPACE_BEGIN
 
 /** \brief Configures output streams used in memory databases
   */
-class git_memory_output_object_traits
+struct git_output_object_traits
 {
 	//! Type allowing to classify the stored object
 	typedef Object::Type object_type;
@@ -23,8 +22,10 @@ class git_memory_output_object_traits
 	typedef Object* return_type;
 	//! Type used to return values by reference
 	typedef void*& output_reference_type;
+	//! Read data from streams
+	typedef io::stream<std::stringstream> istream_type;
 	//! Put data directly into memory
-	typedef io::stream<io::stream_buffer<io::back_insert_device<std::string> > > stream_type;
+	typedef io::stream<std::stringstream> ostream_type;
 };
 
 
@@ -34,7 +35,7 @@ class git_memory_output_object_traits
   * Use this specialization to quickly cache objects in memory to later dump
   * them to disk at once.
   */
-class MemoryODB : public gtl::odb_mem<int, int>
+class MemoryODB : public gtl::odb_mem<int, git_output_object_traits>
 {
 public:
 };

@@ -25,16 +25,16 @@ GTL_NAMESPACE_BEGIN
   * This base serves as ideological basis for derived types which add an actual implementation of their 
   * specialized model.
   */
-template <class Key, class ObjectType>
+template <class Key, class ObjectTraits>
 class odb_base
 {
 public:
 	typedef Key key_type;
-	typedef ObjectType object_type;
+	typedef ObjectTraits object_traits;
 	
-	typedef const odb_input_iterator<key_type, object_type> const_input_iterator;
-	typedef odb_input_iterator<key_type, object_type> input_iterator;
-	typedef odb_forward_iterator<key_type, object_type> forward_iterator;
+	typedef const odb_input_iterator<key_type, object_traits> const_input_iterator;
+	typedef odb_input_iterator<key_type, object_traits> input_iterator;
+	typedef odb_forward_iterator<key_type, object_traits> forward_iterator;
 	 
 public:
 	//! \return iterator pointing to the first item in the database

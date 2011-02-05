@@ -12,9 +12,9 @@
 using namespace gtl;
 
 // force full instantiation
-typedef odb_ostream<bool> ostream_type;
-template class odb_base<int, ostream_type>;
-template class odb_mem<int, ostream_type>;
+typedef odb_ostream<odb_object_traits> ostream_type;
+template class odb_base<int, odb_object_traits>;
+template class odb_mem<int, odb_object_traits>;
 
 
 /** Test behaviour of relaxed unions and unions in general

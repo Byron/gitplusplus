@@ -15,19 +15,19 @@ GTL_NAMESPACE_BEGIN
   * It is considered to be nothing more than a pointer to a specific stream, the iterator
   * should not contain any additional information.
   */
-template <class Key, class OST>
-class odb_input_iterator : public std::iterator<typename std::input_iterator_tag, OST>
+template <class Key, class ObjectTraits>
+class odb_input_iterator : public std::iterator<typename std::input_iterator_tag, ObjectTraits>
 {
 protected:
 	odb_input_iterator(){}
 	~odb_input_iterator(){}
 	
 	typedef Key key_type;
-	typedef OST stream_type;
+	typedef ObjectTraits traits_type;
 	
 public:
-	bool operator==(const odb_input_iterator<Key, OST>& rhs) const;
-	bool operator!=(const odb_input_iterator<Key, OST>& rhs) const;
+	bool operator==(const odb_input_iterator<Key, ObjectTraits>& rhs) const;
+	bool operator!=(const odb_input_iterator<Key, ObjectTraits>& rhs) const;
 	template <typename OtherIterator>
 	bool operator==(const OtherIterator&){ return false; }
 	template <typename OtherIterator>
@@ -38,16 +38,16 @@ public:
 	//! \return a new instance of an output stream which allows accessing the data
 	//! \note the implementor is supposed to decuple the stream as much as possible from 
 	//! the iteration
-	//! \note -> semantics not supported intentionally, as querying the stream can be costly,
+	//! \note -> semantics not supported intentionally, as querying the stream can be expensive,
 	//! hence the implementor gets the chance to implement the size() and type() methods
 	//! directly in-iterator.
-	stream_type operator*();
+	typename traits_type::istream_type operator*();
 	
 	//! \return size of the data store in the stream
 	size_t size() const;
 	
 	//! \return type id identifying the type of object contained in the stream
-	typename stream_type::traits_type::object_type type() const;
+	typename traits_type::object_type type() const;
 	
 };
 
@@ -58,12 +58,12 @@ public:
   * Dereferencing the iterator yields a pair whose first item in the key, the second is the actual
   * item in the iteration.
   */
-template <class Key, class OST>
-class odb_forward_iterator : public odb_input_iterator<Key, OST>
+template <class Key, class ObjectTraits>
+class odb_forward_iterator : public odb_input_iterator<Key, ObjectTraits>
 {
-	typedef odb_input_iterator<Key, OST> parent_type;
+	typedef odb_input_iterator<Key, ObjectTraits> parent_type;
 	odb_forward_iterator& operator++();		// prefix
-	odb_forward_iterator operator++(int);	// postfix
+	odb_forward_iterator operator++(int);	// pObjectTraitsfix
 	
 	//! \return key identifying the current position in the iteration
 	typename parent_type::key_type key() const;
