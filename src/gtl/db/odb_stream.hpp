@@ -16,6 +16,8 @@ GTL_NAMESPACE_BEGIN
 namespace io = boost::iostreams;
 
 /** Basic traits type to further specify properties of objects stored in the database
+  * Types using odb facilities need to fully specialize this trait for their respective object
+  * database type
   * \ingroup ODBItem
   */
 template <class ObjectType>

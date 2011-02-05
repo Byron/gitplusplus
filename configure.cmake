@@ -42,7 +42,8 @@ configure_file(src/git/config.h.in src/git/config.h)
 
 # CONFIGURE LIBRARIES
 #####################
-add_library(gitpp STATIC 
+add_library(gitpp STATIC
+			src/git/obj/tree.cpp
 			src/git/db/odb.cpp 
 			src/git/db/sha1.cpp 
 			src/git/db/sha1_gen.cpp)

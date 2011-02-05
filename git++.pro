@@ -34,11 +34,13 @@ HEADERS += \
     test/gtl/testutil.hpp \
     src/gtl/config.h \
     src/gtl/db/odb_stream.hpp \
-    src/gtl/db/odb_obj.hpp \
     src/gtl/db/odb_mem.hpp \
     src/gtl/db/odb_iter.hpp \
     src/gtl/db/odb_alloc.hpp \
-    src/gtl/db/odb.hpp
+    src/gtl/db/odb.hpp \
+    src/git/db/traits.hpp \
+    src/git/obj/object.hpp \
+    src/git/obj/tree.h
 
 SOURCES += \
     test/git/model/db/odb_test.cpp \
@@ -50,4 +52,6 @@ SOURCES += \
     src/git/db/sha1.cpp \
     src/git/db/sha1_gen.cpp \
     test/git/db/sha1_performance_test.cpp \
-    test/gtl/db/model_odb_test.cpp
+    test/gtl/db/model_odb_test.cpp \
+    src/git/obj/Tree.cpp \
+    src/git/obj/tree.cpp

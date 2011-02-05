@@ -21,6 +21,9 @@ GTL_NAMESPACE_BEGIN
   * An stl container interface is provided.
   * 
   * Iterators allow access to the objects of the database. Objects are always immutable.
+  *
+  * This base serves as ideological basis for derived types which add an actual implementation of their 
+  * specialized model.
   */
 template <class Key, class ObjectType>
 class odb_base
