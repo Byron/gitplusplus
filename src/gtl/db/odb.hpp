@@ -22,17 +22,16 @@ GTL_NAMESPACE_BEGIN
   * 
   * Iterators allow access to the objects of the database. Objects are always immutable.
   */
-template <class Key, class OST, class ObjectAllocator=std::allocator<T> >
+template <class Key, class ObjectType>
 class odb_base
 {
 public:
 	typedef Key key_type;
-	typedef OST ostream_type;
-	typedef ObjectAllocator allocator_type;
+	typedef ObjectType object_type;
 	
-	typedef const odb_input_iterator<Key, OST> const_input_iterator;
-	typedef odb_input_iterator<Key, OST> input_iterator;
-	typedef odb_forward_iterator<Key, OST> forward_iterator;
+	typedef const odb_input_iterator<key_type, object_type> const_input_iterator;
+	typedef odb_input_iterator<key_type, object_type> input_iterator;
+	typedef odb_forward_iterator<key_type, object_type> forward_iterator;
 	 
 public:
 	//! \return iterator pointing to the first item in the database
@@ -41,7 +40,7 @@ public:
 	const forward_iterator end() const throw();
 	//! \return iterator pointing to the object at the given key, or an iterator pointing to the end
 	//! of the database
-	const_input_iterator find(typename std::add_rvalue_reference<const Key>::type const k) const throw();
+	const_input_iterator find(typename std::add_rvalue_reference<const key_type>::type const k) const throw();
 };
 
 GTL_NAMESPACE_END

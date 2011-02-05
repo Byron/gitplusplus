@@ -44,9 +44,10 @@ public:
 	stream_type operator*();
 	
 	//! \return size of the data store in the stream
-	typename stream_type::size_type size() const;
+	size_t size() const;
+	
 	//! \return type id identifying the type of object contained in the stream
-	typename stream_type::object_type type() const;
+	typename stream_type::traits_type::object_type type() const;
 	
 };
 
@@ -60,11 +61,12 @@ public:
 template <class Key, class OST>
 class odb_forward_iterator : public odb_input_iterator<Key, OST>
 {
+	typedef odb_input_iterator<Key, OST> parent_type;
 	odb_forward_iterator& operator++();		// prefix
 	odb_forward_iterator operator++(int);	// postfix
 	
 	//! \return key identifying the current position in the iteration
-	key_type key() const;
+	typename parent_type::key_type key() const;
 };
 		
 GTL_NAMESPACE_END

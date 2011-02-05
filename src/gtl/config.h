@@ -10,4 +10,6 @@
 #define GTL_NAMESPACE_BEGIN namespace gtl {
 #define GTL_NAMESPACE_END }
 
+typedef unsigned char uchar;
+
 #endif // GTL_CONFIG_H

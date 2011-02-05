@@ -17,7 +17,7 @@ As such, git++ is a pet project, which at first aims to satisfy my own curiosity
 
 Prerequesites
 =============
- * A c++0x compatible compiler, gcc4.5 is currently used
+ * A c++0x compatible compiler, gcc4.6 is currently used
  * cmake to direct the toolchain on the respective OS
  * Boost 1.38 or higher ( headers + static libraries )
  * Doxygen ( only required for building of documentation )
