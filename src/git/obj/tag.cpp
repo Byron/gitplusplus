@@ -1,4 +1,4 @@
-#include "git/obj/tree.h"
+#include "git/obj/tag.h"
 
 GIT_NAMESPACE_BEGIN
 

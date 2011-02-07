@@ -9,7 +9,9 @@
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
 
-
+/** Iterator providing access to a single element of the memory odb.
+  * It's value can be queried read-only, and it cannot be used in iterations.
+  */
 template <class Key, class ObjectTraits>
 class mem_input_iterator : public odb_input_iterator<Key, ObjectTraits>
 {
@@ -18,28 +20,36 @@ protected:
 	typename map_type::const_iterator m_iter;
 
 public:
+	//! initialize the iterator from the underlying mapping type's iterator
 	template <class Iterator>
 	mem_input_iterator(const Iterator& it) : m_iter(it) {}
 	
+	//! Equality comparison of compatible iterators
 	inline bool operator==(const mem_input_iterator<Key, ObjectTraits>& rhs) const {
 		return m_iter == rhs.m_iter;
 	}
+	
+	//! Inequality comparison
 	inline bool operator!=(const mem_input_iterator<Key, ObjectTraits>& rhs) const {
 		return m_iter != rhs.m_iter;
 	}
 	
+	//! \return ostream type
 	inline typename map_type::value_type::second_type& operator*() {
 		return m_iter->second;
 	}
 
+	//! \return constant ostream type
 	inline const typename map_type::value_type::second_type& operator*() const {
 		return m_iter->second;
 	}
 	
+	//! \return uncompressed size of the object in bytes
 	inline size_t size() const {
 		(*this).size();
 	}
 	
+	//! \return type of object stored in the stream
 	inline typename ObjectTraits::object_type type() const {
 		(*this).type();
 	}

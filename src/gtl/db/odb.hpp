@@ -44,7 +44,16 @@ public:
 	//! \return iterator pointing to the object at the given key, or an iterator pointing to the end
 	//! of the database
 	const_input_iterator find(typename std::add_rvalue_reference<const key_type>::type const k) const throw();
+	
+	//! Insert a new item into the database
+	//! \param type identifying the object
+	//! \param size size of the object in bytes
+	//! \param stream whose data is to be inserted
+	//! \return iterator pointing to the newly inserted item in the database. It can be used to obtain the generated object key
+	//!	as well.
+	forward_iterator insert(typename object_traits::object_type type, size_t size, typename object_traits::istream_type stream);
 };
+
 
 GTL_NAMESPACE_END
 GTL_HEADER_END

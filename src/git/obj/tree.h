@@ -11,7 +11,7 @@ GIT_NAMESPACE_BEGIN
 class Tree : public Object
 {
 public:
-    Tree();
+    Tree() : Object(Object::Type::Tree) {}
 };
 
 

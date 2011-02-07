@@ -32,6 +32,7 @@ protected:
 	//! Initialize the object with its type. It must be defined by derived classes and and should not be none
 	Object(Type t) : m_type(t) {}
 	//! Resets the type information to assure multiple objects behave correctly in unions
+	//! \todo maybe setting the type is not required, its currently just needed for the union to work better
 	~Object() { m_type = Type::None; }
 	
 public:

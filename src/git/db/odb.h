@@ -2,6 +2,7 @@
 #define GIT_ODB_H
 
 #include <git/config.h>
+#include <git/db/sha1.h>
 #include <gtl/db/odb_mem.hpp>
 #include <git/obj/object.hpp>
 #include <boost/iostreams/stream.hpp>
@@ -35,7 +36,7 @@ struct git_output_object_traits
   * Use this specialization to quickly cache objects in memory to later dump
   * them to disk at once.
   */
-class MemoryODB : public gtl::odb_mem<int, git_output_object_traits>
+class MemoryODB : public gtl::odb_mem<SHA1, git_output_object_traits>
 {
 public:
 };

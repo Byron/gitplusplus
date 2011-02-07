@@ -40,7 +40,11 @@ HEADERS += \
     src/gtl/db/odb.hpp \
     src/git/db/traits.hpp \
     src/git/obj/object.hpp \
-    src/git/obj/tree.h
+    src/git/obj/tree.h \
+    src/git/obj/multiobj.h \
+    src/git/obj/commit.h \
+    src/git/obj/blob.h \
+    src/git/obj/tag.h
 
 SOURCES += \
     test/git/model/db/odb_test.cpp \
@@ -54,4 +58,7 @@ SOURCES += \
     test/git/db/sha1_performance_test.cpp \
     test/gtl/db/model_odb_test.cpp \
     src/git/obj/Tree.cpp \
-    src/git/obj/tree.cpp
+    src/git/obj/tree.cpp \
+    src/git/obj/commit.cpp \
+    src/git/obj/blob.cpp \
+    src/git/obj/tag.cpp

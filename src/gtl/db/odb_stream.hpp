@@ -23,14 +23,14 @@ namespace io = boost::iostreams;
 struct odb_object_traits
 {	
 	//! Type allowing to classify the stored object
-	typedef void object_type;
+	typedef int object_type;
 	//! Type returned from the deserialization process
 	typedef void* return_type;
 	//! Type used to return values by reference
 	typedef void*& output_reference_type;
 	//! Type used to represent the object in a serialized format from which data can be read
 	typedef io::stream<io::stream_buffer<typename io::basic_null_source<uchar> > > istream_type;
-	//! Stream to write the serialized object to
+	//! Stream to write the object to during serialization
 	typedef io::stream<io::stream_buffer<typename io::basic_null_sink<uchar> > > ostream_type;
 };
 
@@ -40,7 +40,7 @@ struct odb_object_traits
   * Streams are simple structures which only know their data size, 
   * their type and their serialized data stream. It provides methods 
   * to deserialize the stream into an object.
-  * Memory allocation is left to the user entirely.
+  * An ostream is considered the output of an object database
   */
 template <class ObjectTraits>
 struct odb_ostream
@@ -54,7 +54,7 @@ struct odb_ostream
 	size_t size() const;
 	
 	//! \return stream object for reading of data
-	typename object_traits::ostream_type stream() const;
+	typename object_traits::istream_type stream() const;
 	
 	//! \return deserialized object
 	//! \note may use return type to indicate failure, or may throw in that case
