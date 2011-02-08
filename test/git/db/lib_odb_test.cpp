@@ -4,6 +4,7 @@
 
 #include <git/db/sha1.h>
 #include <git/db/sha1_gen.h>
+#include <git/obj/blob.h>
 
 #include <iostream>
 #include <sstream>
@@ -57,6 +58,14 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 BOOST_AUTO_TEST_CASE(mem_db_test)
 {
 	MemoryODB modb;
+	
+	git_output_object_traits::iostream_type stream;
+	stream.write("h", 1);
+	auto s = stream.tellp();
+	BOOST_CHECK(s == 1);
+	stream.seekp(0, ios_base::beg);
+	
+	auto it = modb.insert(git::Object::Type::Blob, s, stream);
 	
 	
 }

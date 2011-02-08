@@ -52,6 +52,9 @@ public:
 	//! \return iterator pointing to the newly inserted item in the database. It can be used to obtain the generated object key
 	//!	as well.
 	forward_iterator insert(typename object_traits::object_type type, size_t size, typename object_traits::istream_type stream);
+	
+	//! Same as above, but will produce the required serialized version of object automatically
+	forward_iterator insert(typename object_traits::input_reference_type object);
 };
 
 

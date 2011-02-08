@@ -4,11 +4,9 @@
 #include <git/config.h>
 #include <git/db/sha1.h>
 #include <gtl/db/odb_mem.hpp>
-#include <git/obj/object.hpp>
-#include <boost/iostreams/stream.hpp>
+#include <git/obj/multiobj.h>
 #include <sstream>
 
-namespace io = boost::iostreams;
 
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
@@ -19,14 +17,20 @@ struct git_output_object_traits
 {
 	//! Type allowing to classify the stored object
 	typedef Object::Type object_type;
-	//! Type returned from the deserialization process
-	typedef Object* return_type;
 	//! Type used to return values by reference
-	typedef void*& output_reference_type;
+	typedef MultiObject& output_reference_type;
+	//! Type used to return values by reference
+	typedef Object* input_reference_type;
+	
+	
 	//! Read data from streams
-	typedef io::stream<std::stringstream> istream_type;
+	typedef std::stringstream istream_type;
 	//! Put data directly into memory
-	typedef io::stream<std::stringstream> ostream_type;
+	typedef std::stringstream ostream_type;
+	//! Put data directly into memory
+	typedef std::stringstream iostream_type;
+	
+	//! 
 };
 
 

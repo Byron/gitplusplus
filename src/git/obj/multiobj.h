@@ -55,7 +55,7 @@ MultiObject::~MultiObject()
 		}
 	default:
 		{
-			assert(false, "Require destructor implementation");
+			assert(false);
 		}
 	}// switch Type
 }
