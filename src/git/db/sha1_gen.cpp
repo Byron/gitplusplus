@@ -38,8 +38,11 @@ SHA1Generator::SHA1Generator()
 	reset();
 }
 
-void SHA1Generator::reset()
+void SHA1Generator::reset() throw()
 {
+	m_finalized = 0;
+	m_update_called = 0;
+	
 	// SHA1 initialization constants
 	m_state[0] = 0x67452301;
 	m_state[1] = 0xEFCDAB89;
@@ -89,8 +92,13 @@ void SHA1Generator::transform(const uchar* pBuffer)
 }
 
 // Use this function to hash in binary data and strings
-void SHA1Generator::update(const uchar* pbData, uint32 uLen)
+void SHA1Generator::update(const uchar* pbData, uint32 uLen) throw(InvalidGeneratorState)
 {
+	if (m_finalized){
+		throw InvalidGeneratorState();
+	}
+	m_update_called = 1;
+	
 	uint32 j = ((m_count[0] >> 3) & 0x3F);
 
 	if ((m_count[0] += (uLen << 3)) < (uLen << 3)) {
@@ -117,8 +125,12 @@ void SHA1Generator::update(const uchar* pbData, uint32 uLen)
 	}
 }
 
-void SHA1Generator::finalize()
+void SHA1Generator::finalize() throw(InvalidGeneratorState)
 {
+	if (m_finalized){
+		throw InvalidGeneratorState();
+	}
+	
 	uint32 i;
 	uchar finalcount[8];
 	for (i = 0; i < 8; ++i) {
@@ -135,6 +147,8 @@ void SHA1Generator::finalize()
 	for (i = 0; i < 20; ++i) {
 		m_digest[i] = (uchar)((m_state[i >> 2] >> ((3 - (i & 3)) * 8)) & 0xFF);
 	}
+	
+	m_finalized = 1;
 }
 
 GIT_NAMESPACE_END

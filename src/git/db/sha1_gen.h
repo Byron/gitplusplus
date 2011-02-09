@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <git/db/sha1.h>
 #include <git/config.h>
+#include <exception>
+#include <assert.h>
 
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
@@ -15,6 +17,16 @@ GIT_NAMESPACE_BEGIN
 #if !defined(SHA1_LITTLE_ENDIAN) && !defined(SHA1_BIG_ENDIAN)
 #define SHA1_LITTLE_ENDIAN
 #endif
+
+
+class InvalidGeneratorState : public std::exception
+{
+public:
+	virtual const char* what() const throw(){
+		return "Cannot update generator once hash() or digest() was called";
+	}
+};
+
 
 /** \brief generator which creates SHA1 instances from raw input data
   * \ingroup ODB
@@ -38,37 +50,47 @@ class SHA1Generator
 		~SHA1Generator() {}
 
 		//! Prepare generator for new sha
-		void reset();
+		//! \note will return 0-sha if update was not yet called
+		void reset() throw();
 
 		//! Update the hash value
 		//! \param pbData location to read bytes from
 		//! \param uLen number of bytes to read
-		void update(const uchar* pbData, uint32 uLen);
-
-		//! Finalize hash, call before using digest() method
-		void finalize();
+		void update(const uchar* pbData, uint32 uLen) throw(InvalidGeneratorState);
+		
+		//! Finalize hash, called before using digest() method the first time
+		//! The user may, but is not required to make this call automatically.
+		//! Once it is called, it will have no effect anymore.
+		void finalize() throw(InvalidGeneratorState);
 
 		//! \return 20 byte digest buffer
-		inline const uchar* digest() const {
+		inline const uchar* digest() throw() {
+			if (m_update_called & (!m_finalized)){
+				finalize();
+				assert(m_finalized);
+			}
 			return m_digest;
 		}
-
+		
 		//! \return the hash produced so far as SHA1 instance
 		//! \param sha1 destination of the 20 byte hash
-		const void hash(SHA1& sha1) const {
-			sha1 = m_digest;
+		//! \note if called once, you need to call reset to use the instance again
+		const void hash(SHA1& sha1) throw() {
+			sha1 = digest();
 		}
 
 	private:
+		
 		// Private SHA-1 transformation
 		inline void transform(const uchar* pBuffer);
 		
 		uint32 m_state[5];
 		uint32 m_count[2];
-		uint32 m_reserved0[1]; // Memory alignment padding
+		uint32 m_finalized; // Memory alignment padding - used as flag too
 		uchar m_buffer[64];
 		uchar m_digest[20];
-		uint32 m_reserved1[3]; // Memory alignment padding
+		uint32 m_update_called;// memory alignment and flag to indicate update was called
+		uint32 m_reserved1[2]; // Memory alignment padding
 		
 		// Member variables
 		uint32 m_workspace[16];

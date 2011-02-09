@@ -37,7 +37,7 @@ public:
 	
 	//! \return actual stream of this instance - changes to its head position
 	//! will affect the next read of the next client.
-	const stream_type& stream() const {
+	stream_type& stream() const {
 		return m_stream;
 	}
 };
@@ -155,7 +155,7 @@ public:
 	forward_iterator insert(typename ObjectTraits::input_reference_type object);
 };
 
-
+/*
 template <class Key, class ObjectTraits>
 typename odb_mem<Key, ObjectTraits>::forward_iterator odb_mem<Key, ObjectTraits>::insert(typename ObjectTraits::object_type type, 
 																						 size_t size, 
@@ -166,7 +166,7 @@ typename odb_mem<Key, ObjectTraits>::forward_iterator odb_mem<Key, ObjectTraits>
 	// ToDo: generate sha1
 	return it(m_objs.insert(iostream));
 }
-		
+*/	
 GTL_NAMESPACE_END
 GTL_HEADER_END
 

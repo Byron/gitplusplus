@@ -33,15 +33,18 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	// GENERATOR
 	////////////
 	SHA1Generator sgen;
-	const std::string hello_sha("aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d");
-	const std::string null_sha("0000000000000000000000000000000000000000");
+	const std::string hello_hex_sha("aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d");
+	const std::string null_hex_sha("0000000000000000000000000000000000000000");
 	std::stringstream buf;
 	sgen.update((uchar*)"hello", 5);
-	sgen.finalize();
 	sgen.hash(s);
+	BOOST_CHECK(SHA1(sgen.digest())==s);	// duplicate call
+	BOOST_CHECK_THROW(sgen.finalize(), InvalidGeneratorState);
+	BOOST_CHECK_THROW(sgen.update((uchar*)"hi", 2), InvalidGeneratorState);
+	
 	
 	buf << s;
-	BOOST_CHECK(buf.str() == hello_sha);
+	BOOST_CHECK(buf.str() == hello_hex_sha);
 	buf.seekp(0, std::ios_base::beg);
 	
 	sgen.reset();
@@ -49,9 +52,10 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	sgen.hash(o);
 	BOOST_CHECK(s!=o);
 	buf << o;
-	cerr << buf.str() << endl;
 	BOOST_CHECK(o == SHA1::null_sha);
-	BOOST_CHECK(buf.str() == null_sha);
+	BOOST_CHECK(buf.str() == null_hex_sha);
+	// after reset, update works
+	sgen.update((uchar*)"hi", 2);
 	
 }
 
@@ -65,7 +69,7 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	BOOST_CHECK(s == 1);
 	stream.seekp(0, ios_base::beg);
 	
-	auto it = modb.insert(git::Object::Type::Blob, s, stream);
+	// auto it = modb.insert(git::Object::Type::Blob, s, stream);
 	
 	
 }
