@@ -91,7 +91,6 @@ class SHA1Generator
 		uchar m_buffer[64];
 		uchar m_digest[20];
 		uint32 m_update_called;// memory alignment and flag to indicate update was called
-		uint32 m_reserved1[2]; // Memory alignment padding
 		
 		// Member variables
 		uint32 m_workspace[16];
