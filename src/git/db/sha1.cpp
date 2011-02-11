@@ -3,7 +3,7 @@
 
 GIT_NAMESPACE_BEGIN
 
-const SHA1 SHA1::null_sha((uchar)0);
+const SHA1 SHA1::null((uchar)0);
 		
 GIT_NAMESPACE_END
 

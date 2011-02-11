@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <git/db/sha1.h>
 #include <git/config.h>
+#include <gtl/db/generator_filter.hpp>
 #include <exception>
 #include <assert.h>
 
@@ -98,6 +99,14 @@ class SHA1Generator
 		// This is a side-effect of casting through a union, and speeds up
 		// the whole thing by 25%
 		WorkspaceBlock* m_block; // SHA1 pointer to the byte array above
+};
+
+
+/** Declares a filter to be used within the stream framework
+  */
+class SHA1Filter : public gtl::generator_filter<SHA1, SHA1Generator>
+{
+public:
 };
 
 GIT_HEADER_END

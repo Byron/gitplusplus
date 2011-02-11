@@ -21,7 +21,7 @@ class SHA1
 		
 	public:
 		//! sha with all bytes set to 0
-		static const SHA1 null_sha;
+		static const SHA1 null;
 
 	public:
 		
