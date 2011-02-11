@@ -3,11 +3,13 @@
 
 #include <gtl/config.h>
 #include <boost/iostreams/filter/aggregate.hpp>
-#include <iostream> // debug
+
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
 
-/** \note key() will only be provided as non-null key once the filter was closed due to stream-end
+/** \brief A filter suitable to be used in the boost stream filtering framework to generate hashes
+  * on the fly while streams are written or read.
+  * \note key() will only be provided as non-null key once the filter was closed due to stream-end
   * \note in the current implementation, you have to query the hash before closing the attached sink, 
   *		otherwise the hash so far will be lost.
   */
@@ -45,17 +47,16 @@ public:
 
 public:
 	//! @{ Interface
+	//! Return the hash as generated from all the input so far
+	//! \note after the first query, you may not continue to read/write to the stream
+	//!	without closing the stream beforehand
 	void hash(hash_type& outKey) {
 		m_generator.hash(outKey);
 	}
 	
-	//! Call before calling hash, in case the stream was no officially closed
-	void finalize() throw() {
-		try {
-			m_generator.finalize();
-		} catch (std::exception){}
-	}
-	
+	//! see \fn void hash(hash_type& outKey)
+	//! \return hash as a copy, which may be more inefficient depending on the type
+	//! of the hash
 	hash_type hash() {
 		hash_type tmp;
 		m_generator.hash(tmp);
@@ -74,7 +75,6 @@ public:
         if (result == -1)
             return -1;
 		
-		std::cerr << "read with " << result << "bytes" << std::endl;
 		handle_reset();
 		m_generator.update(s, result);
         return result;

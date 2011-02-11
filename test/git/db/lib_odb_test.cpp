@@ -74,7 +74,6 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	BOOST_CHECK(std::basic_string<uchar>(phello) == null.str());
 	buf.seekp(0, std::ios::beg);
 	buf << filter.component<SHA1Filter>(0)->hash();
-	cerr << buf.str() << " == filtered hash" << std::endl;
 	BOOST_CHECK(buf.str() == hello_hex_sha);
 }
 

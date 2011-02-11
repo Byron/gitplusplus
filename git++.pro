@@ -45,7 +45,8 @@ HEADERS += \
     src/git/obj/commit.h \
     src/git/obj/blob.h \
     src/git/obj/tag.h \
-    src/gtl/db/generator_filter.hpp
+    src/gtl/db/generator_filter.hpp \
+    src/gtl/db/generator_stream.hpp
 
 SOURCES += \
     test/git/model/db/odb_test.cpp \
