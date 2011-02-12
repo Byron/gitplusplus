@@ -8,6 +8,7 @@
 #include <git/db/sha1_gen.h>
 #include <git/obj/blob.h>
 #include <boost/iostreams/filtering_stream.hpp>
+#include <utility>
 
 #include <iostream>
 #include <sstream>
@@ -89,4 +90,121 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	
 	// auto it = modb.insert(git::Object::Type::Blob, s, stream);
 	
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+struct Type
+{
+	int m_val;
+	
+	Type()
+	{
+		m_val = 5;
+		std::cerr << this << " CONSTRUCTOR" << std::endl;
+	}
+	Type(const Type& rhs)
+	{
+		m_val = rhs.m_val;
+		std::cerr << this << " COPY from " << &rhs << std::endl;
+	}
+	Type(Type&& rhs) {
+		m_val = rhs.m_val;
+		rhs.m_val = 0;
+		std::cerr << this << " MOVE from " << &rhs << std::endl;
+	}
+
+	Type& operator = (const Type& rhs){
+		m_val = rhs.m_val;
+		std::cerr << this << " ASSIGNMENT from " << &rhs << std::endl;
+		return *this;
+	}
+	Type& operator = (Type&& rhs){
+		m_val = rhs.m_val;
+		rhs.m_val = 0;
+		std::cerr << this << " MOVE ASSIGNMENT from " << &rhs << std::endl;
+	}
+	
+	~Type()
+	{
+		std::cerr << this << " DESTRUCT - m_val was " << m_val << std::endl;
+	}
+};
+
+Type return_type(){
+	Type ot = Type();
+	ot.m_val = 10;
+	std::cerr << &ot << " returning Type" << std::endl;
+	return ot;
+}
+
+// This seems to fail as it doesn't realize that it should use move semantics
+// perhaps its not how the standard works
+Type move_type() {
+	Type ot = Type();
+	ot.m_val = 15;
+	std::cerr << &ot << " moving Type" << std::endl;
+	return ot;
+}
+
+void use_temporary_ref(const Type& t){
+	std::cerr << &t << " used as reference" << std::endl;
+}
+
+void use_temporary_copy(Type t) {
+	std::cerr << &t << " used as copy" << std::endl;
+}
+
+
+BOOST_AUTO_TEST_CASE(constructor_test)
+{	
+	{
+		Type t = return_type();
+		BOOST_CHECK(t.m_val == 10);
+		std::cerr << &t << " post value check t = return_type()" << std::endl;
+		Type ot;
+		ot = return_type();
+		std::cerr << &ot << " post ot = return_type()" << std::endl;
+		use_temporary_copy(Type());
+		use_temporary_ref(Type());
+		
+		ot.m_val = 5;
+		Type tmp(std::move(ot));
+		ot = std::move(t);
+		t = std::move(tmp);
+		BOOST_CHECK(ot.m_val == 10);
+		BOOST_CHECK(t.m_val == 5);
+	}
+	
+	Type* n  =new Type;
+	use_temporary_copy(*n);
+	use_temporary_ref(*n);
+	*n = return_type();
+	
+	*n = move_type();
+	delete n;
+	
+	const Type& tmp = Type();	//move semantic
 }
