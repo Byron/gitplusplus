@@ -1,6 +1,8 @@
 #ifndef GIT_CONFIG_H
 #define GIT_CONFIG_H
 
+#include <stdint.h>
+
 #define GIT_HEADER_BEGIN
 #define GIT_HEADER_END
 
@@ -11,7 +13,7 @@
 #define GIT_NAMESPACE_END }
 
 // Types
-typedef unsigned int uint32;
-typedef unsigned char uchar;
+typedef uint32_t uint32;
+typedef uint8_t uchar;
 
 #endif // GIT_CONFIG_H

@@ -12,6 +12,7 @@ GTL_NAMESPACE_BEGIN
   * \note key() will only be provided as non-null key once the filter was closed due to stream-end
   * \note in the current implementation, you have to query the hash before closing the attached sink, 
   *		otherwise the hash so far will be lost.
+  * \ingroup ODBUtil
   */
 template <class Hash, class Generator, typename Ch=uchar>
 class generator_filter

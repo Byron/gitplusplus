@@ -1,8 +1,5 @@
 #ifndef GTL_ODB_STREAM_HPP
 #define GTL_ODB_STREAM_HPP
-/** \defgroup ODBObject Object Database Items
-  * Items as part of the object database which allow streamed access to an object
-  */
 
 #include <gtl/config.h>
 #include <stdint.h>
@@ -15,7 +12,6 @@ GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
 
 namespace io = boost::iostreams;
-
 
 
 /** Basic traits type to further specify properties of objects stored in the database
@@ -35,7 +31,8 @@ struct odb_object_traits
 	//! Type used when objects are made available to a function by references
 	typedef void* input_reference_type;
 	
-	//! generator interface compatible type which is used to generate keys from the contents of streams
+	//! hash_generator interface compatible type which is used to generate keys from the contents of streams
+	typedef bool hash_generator_type;
 	 
 	//! @{ \name Serialization Policy
 	

@@ -1,8 +1,5 @@
 #ifndef GTL_ODB_ALLOC_HPP
 #define GTL_ODB_ALLOC_HPP
-/** \defgroup ODBAlloc Object Allocators
-  * Classes implementing different allocators for objects
-  */
 
 #include <gtl/config.h>
 #include <memory>

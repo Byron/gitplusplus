@@ -1,8 +1,5 @@
 #ifndef GTL_ODB_ITERATOR_HPP
 #define GTL_ODB_ITERATOR_HPP
-/** \defgroup ODBIter Object Database Iterators
-  * Classes modeling the concept of an object database iterator
-  */
 
 #include <gtl/config.h>
 #include <iterator>

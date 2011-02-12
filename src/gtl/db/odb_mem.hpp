@@ -13,6 +13,8 @@
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
 
+/** \ingroup ODBObject
+  */
 template <class ObjectTraits>
 class odb_mem_output_object : public odb_output_object<ObjectTraits, std::stringstream>
 {
@@ -47,6 +49,7 @@ public:
 
 /** Iterator providing access to a single element of the memory odb.
   * It's value can be queried read-only, and it cannot be used in iterations.
+  * \ingroup ODBIter
   */
 template <class ObjectTraits, class Key>
 class mem_input_iterator : public odb_input_iterator<ObjectTraits, Key>
@@ -93,7 +96,8 @@ public:
 	}
 };
 
-
+/** \ingroup ODBIter
+  */
 template <class ObjectTraits, class Key>
 class mem_forward_iterator : public mem_input_iterator<ObjectTraits, Key>
 {

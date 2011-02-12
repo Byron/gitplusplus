@@ -1,8 +1,5 @@
 #ifndef GTL_ODB_HPP
 #define GTL_ODB_HPP
-/** \defgroup ODB Object Databases
-  * Classes modeling the object database concept
-  */
 
 #include <gtl/config.h>
 #include <gtl/db/odb_alloc.hpp>

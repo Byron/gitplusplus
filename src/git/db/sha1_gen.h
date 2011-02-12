@@ -5,6 +5,7 @@
 #include <git/db/sha1.h>
 #include <git/config.h>
 #include <gtl/db/generator_filter.hpp>
+#include <gtl/db/generator.hpp>
 #include <exception>
 #include <assert.h>
 
@@ -20,7 +21,7 @@ GIT_NAMESPACE_BEGIN
 #endif
 
 
-class InvalidGeneratorState : public std::exception
+class InvalidGeneratorState : public gtl::InvalidGeneratorState
 {
 public:
 	virtual const char* what() const throw(){
@@ -38,7 +39,7 @@ public:
   * \note Based on 100% free public domain implementation of the SHA-1 algorithm
   * by Dominik Reichl Web: http://www.dominik-reichl.de/
   */
-class SHA1Generator
+class SHA1Generator : public gtl::hash_generator<SHA1, uchar, uint32>
 {
 	private:
 	union WorkspaceBlock
@@ -76,7 +77,7 @@ class SHA1Generator
 		//! \return the hash produced so far as SHA1 instance
 		//! \param sha1 destination of the 20 byte hash
 		//! \note if called once, you need to call reset to use the instance again
-		const void hash(SHA1& sha1) throw() {
+		void hash(SHA1& sha1) throw() {
 			sha1 = digest();
 		}
 

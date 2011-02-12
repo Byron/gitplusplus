@@ -1,3 +1,4 @@
+#include <git/config.h>
 #include "git/obj/blob.h"
 
 GIT_NAMESPACE_BEGIN
