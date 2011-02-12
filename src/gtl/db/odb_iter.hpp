@@ -15,13 +15,14 @@ GTL_NAMESPACE_BEGIN
   * It is considered to be nothing more than a pointer to a specific stream, the iterator
   * should not contain any additional information.
   */
-template <class Key, class ObjectTraits>
+template <class ObjectTraits, class Key>
 class odb_input_iterator : public std::iterator<typename std::input_iterator_tag, ObjectTraits>
 {
 protected:
 	odb_input_iterator(){}
 	~odb_input_iterator(){}
 	
+public:
 	typedef Key key_type;
 	typedef ObjectTraits traits_type;
 	
@@ -40,8 +41,9 @@ public:
 	//! the iteration
 	//! \note -> semantics not supported intentionally, as querying the stream can be expensive,
 	//! hence the implementor gets the chance to implement the size() and type() methods
-	//! directly in-iterator.
-	typename traits_type::istream_type operator*();
+	//! directly inside of the iterator reusing its iteration state.
+	template <class Stream>
+	Stream operator*();
 	
 	//! \return size of the data store in the stream
 	size_t size() const;
@@ -58,10 +60,10 @@ public:
   * Dereferencing the iterator yields a pair whose first item in the key, the second is the actual
   * item in the iteration.
   */
-template <class Key, class ObjectTraits>
-class odb_forward_iterator : public odb_input_iterator<Key, ObjectTraits>
+template <class ObjectTraits, class Key>
+class odb_forward_iterator : public odb_input_iterator<ObjectTraits, Key>
 {
-	typedef odb_input_iterator<Key, ObjectTraits> parent_type;
+	typedef odb_input_iterator<ObjectTraits, Key> parent_type;
 	odb_forward_iterator& operator++();		// prefix
 	odb_forward_iterator operator++(int);	// pObjectTraitsfix
 	

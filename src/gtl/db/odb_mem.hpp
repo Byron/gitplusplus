@@ -3,7 +3,7 @@
 
 #include <gtl/config.h>
 #include <gtl/db/odb.hpp>
-#include <gtl/db/odb_stream.hpp>
+#include <gtl/db/odb_object.hpp>
 #include <sstream>
 #include <boost/type_traits/add_pointer.hpp>
 #include <boost/iostreams/copy.hpp>
@@ -20,7 +20,7 @@ public:
 	typedef std::stringstream			stream_type;
 private:
 	typename ObjectTraits::object_type	m_type;
-	uint64_t							m_size;		//! uncompressed size
+	typename ObjectTraits::size_type	m_size;		//! uncompressed size
 	stream_type							m_stream;	//! stream for reading and writing
 	
 public:
@@ -44,11 +44,12 @@ public:
 	}
 };
 
+
 /** Iterator providing access to a single element of the memory odb.
   * It's value can be queried read-only, and it cannot be used in iterations.
   */
-template <class Key, class ObjectTraits>
-class mem_input_iterator : public odb_input_iterator<Key, ObjectTraits>
+template <class ObjectTraits, class Key>
+class mem_input_iterator : public odb_input_iterator<ObjectTraits, Key>
 {
 protected:
 	typedef std::map<Key, odb_mem_output_object<ObjectTraits> > map_type;
@@ -70,12 +71,14 @@ public:
 	}
 	
 	//! \return ostream type
-	inline typename map_type::value_type::second_type& operator*() {
+	inline typename std::add_rvalue_reference<typename map_type::value_type::second_type>::type 
+		operator*() {
 		return m_iter->second;
 	}
 
 	//! \return constant ostream type
-	inline const typename map_type::value_type::second_type& operator*() const {
+	inline typename std::add_rvalue_reference<const typename map_type::value_type::second_type>::type 
+		operator*() const {
 		return m_iter->second;
 	}
 	
@@ -91,8 +94,8 @@ public:
 };
 
 
-template <class Key, class ObjectTraits>
-class mem_forward_iterator : public mem_input_iterator<Key, ObjectTraits>
+template <class ObjectTraits, class Key>
+class mem_forward_iterator : public mem_input_iterator<ObjectTraits, Key>
 {
 public:
 	typedef std::map<Key, odb_mem_output_object<ObjectTraits> > map_type;
@@ -100,7 +103,7 @@ public:
 	
 	template <class Iterator>
 	mem_forward_iterator(const Iterator& it)
-		: mem_input_iterator<Key, ObjectTraits>(it) {}
+		: mem_input_iterator<ObjectTraits, Key>(it) {}
 	
 	mem_forward_iterator& operator++() {
 		++(this->m_iter); return *this;
@@ -135,22 +138,22 @@ private:
 	
 public:
 	typedef odb_base<Key, ObjectTraits> parent_type;
-	typedef const mem_input_iterator<Key, ObjectTraits> const_input_iterator;
-	typedef mem_input_iterator<Key, ObjectTraits> input_iterator;
-	typedef mem_forward_iterator<Key, ObjectTraits> forward_iterator;
+	typedef const mem_input_iterator<ObjectTraits, Key> const_input_iterator;
+	typedef mem_input_iterator<ObjectTraits, Key> input_iterator;
+	typedef mem_forward_iterator<ObjectTraits, Key> forward_iterator;
 	
 	const_input_iterator find(const typename std::add_rvalue_reference<const Key>::type k) const{
-		return mem_input_iterator<Key, ObjectTraits>(m_objs.find(k));
+		return input_iterator(m_objs.find(k));
 	}
 	forward_iterator end() const {
-		return mem_forward_iterator<Key, ObjectTraits>(m_objs.end());
+		return forward_iterator(m_objs.end());
 	}
 	
 	//! Copy the contents of the given input stream into an output stream
 	//! The istream is a structure keeping information about the possibly existing Key, the type
 	//! as well as the actual stream which contains the data to be copied into the memory database.
-	forward_iterator insert(typename ObjectTraits::object_type type, uint64_t size, typename ObjectTraits::istream_type& stream, 
-							typename boost::add_pointer<typename parent_type::key_type>::type pkey=0);
+	template <class InputObject>
+	forward_iterator insert(const typename std::add_rvalue_reference<const InputObject>::type object);
 	
 	//! insert the copy's of the contents of the given input iterators into this object database
 	//! The inserted items can be queried using the keys from the input iterators
@@ -164,9 +167,7 @@ public:
 
 /*
 template <class Key, class ObjectTraits>
-typename odb_mem<Key, ObjectTraits>::forward_iterator odb_mem<Key, ObjectTraits>::insert(typename ObjectTraits::object_type type, 
-																						 uint64_t size, 
-																						 typename ObjectTraits::istream_type& stream)
+typename odb_mem<Key, ObjectTraits>::forward_iterator odb_mem<Key, ObjectTraits>::insert(const std::add_rvalue_reference<const InputObject>::type object)
 {
 	odb_mem_output_object<ObjectTraits> iostream(type, size);
 	boost::iostreams::filtering_stream<boost::iostreams::input> fstream;

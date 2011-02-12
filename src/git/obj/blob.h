@@ -1,6 +1,7 @@
 #ifndef GIT_OBJ_BLOB_H
 #define GIT_OBJ_BLOB_H
 
+#include <git/config.h>
 #include <git/obj/object.hpp>
 #include <iostream>
 

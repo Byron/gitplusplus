@@ -3,7 +3,7 @@
 
 #include <gtl/db/odb.hpp>
 #include <gtl/db/odb_mem.hpp>
-#include <gtl/db/odb_stream.hpp>
+#include <gtl/db/odb_object.hpp>
 
 #include <type_traits>
 #include <vector>

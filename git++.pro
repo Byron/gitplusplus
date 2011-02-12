@@ -33,7 +33,6 @@ HEADERS += \
     src/git/db/sha1_gen.h \
     test/gtl/testutil.hpp \
     src/gtl/config.h \
-    src/gtl/db/odb_stream.hpp \
     src/gtl/db/odb_mem.hpp \
     src/gtl/db/odb_iter.hpp \
     src/gtl/db/odb_alloc.hpp \
@@ -46,7 +45,8 @@ HEADERS += \
     src/git/obj/blob.h \
     src/git/obj/tag.h \
     src/gtl/db/generator_filter.hpp \
-    src/gtl/db/generator_stream.hpp
+    src/gtl/db/generator_stream.hpp \
+    src/gtl/db/odb_object.hpp
 
 SOURCES += \
     test/git/model/db/odb_test.cpp \

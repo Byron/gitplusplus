@@ -30,11 +30,11 @@ class odb_base
 {
 public:
 	typedef Key key_type;
-	typedef ObjectTraits object_traits;
+	typedef ObjectTraits traits_type;
 	
-	typedef const odb_input_iterator<key_type, object_traits> const_input_iterator;
-	typedef odb_input_iterator<key_type, object_traits> input_iterator;
-	typedef odb_forward_iterator<key_type, object_traits> forward_iterator;
+	typedef const odb_input_iterator<traits_type, key_type> const_input_iterator;
+	typedef odb_input_iterator<traits_type, key_type> input_iterator;
+	typedef odb_forward_iterator<traits_type, key_type> forward_iterator;
 	 
 public:
 	//! \return iterator pointing to the first item in the database
@@ -52,10 +52,11 @@ public:
 	//! \param stream whose data is to be inserted
 	//! \return iterator pointing to the newly inserted item in the database. It can be used to obtain the generated object key
 	//!	as well.
-	forward_iterator insert(typename object_traits::object_type type, size_t size, typename object_traits::istream_type stream);
+	template <class Stream>
+	forward_iterator insert(typename traits_type::object_type type, size_t size, Stream stream);
 	
 	//! Same as above, but will produce the required serialized version of object automatically
-	forward_iterator insert(typename object_traits::input_reference_type object);
+	forward_iterator insert(typename traits_type::input_reference_type object);
 };
 
 

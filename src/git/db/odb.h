@@ -17,6 +17,8 @@ struct git_output_object_traits
 {
 	//! Type allowing to classify the stored object
 	typedef Object::Type object_type;
+	//! max size of serialized objects
+	typedef uint64_t size_type;
 	//! Type used to return values by reference
 	typedef MultiObject& output_reference_type;
 	//! Type used to return values by reference
