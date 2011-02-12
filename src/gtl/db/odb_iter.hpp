@@ -12,7 +12,7 @@ GTL_NAMESPACE_BEGIN
   * It is considered to be nothing more than a pointer to a specific stream, the iterator
   * should not contain any additional information.
   */
-template <class ObjectTraits, class Key>
+template <class ObjectTraits>
 class odb_input_iterator : public std::iterator<typename std::input_iterator_tag, ObjectTraits>
 {
 protected:
@@ -20,12 +20,12 @@ protected:
 	~odb_input_iterator(){}
 	
 public:
-	typedef Key key_type;
 	typedef ObjectTraits traits_type;
+	typedef typename traits_type::key_type key_type;
 	
 public:
-	bool operator==(const odb_input_iterator<Key, ObjectTraits>& rhs) const;
-	bool operator!=(const odb_input_iterator<Key, ObjectTraits>& rhs) const;
+	bool operator==(const odb_input_iterator<ObjectTraits>& rhs) const;
+	bool operator!=(const odb_input_iterator<ObjectTraits>& rhs) const;
 	template <typename OtherIterator>
 	bool operator==(const OtherIterator&){ return false; }
 	template <typename OtherIterator>
@@ -57,10 +57,10 @@ public:
   * Dereferencing the iterator yields a pair whose first item in the key, the second is the actual
   * item in the iteration.
   */
-template <class ObjectTraits, class Key>
-class odb_forward_iterator : public odb_input_iterator<ObjectTraits, Key>
+template <class ObjectTraits>
+class odb_forward_iterator : public odb_input_iterator<ObjectTraits>
 {
-	typedef odb_input_iterator<ObjectTraits, Key> parent_type;
+	typedef odb_input_iterator<ObjectTraits> parent_type;
 	odb_forward_iterator& operator++();		// prefix
 	odb_forward_iterator operator++(int);	// pObjectTraitsfix
 	

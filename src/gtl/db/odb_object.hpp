@@ -33,6 +33,8 @@ struct odb_object_traits
 	
 	//! hash_generator interface compatible type which is used to generate keys from the contents of streams
 	typedef bool hash_generator_type;
+	//! type of keys used within the object databases to identify objects
+	typedef int key_type;
 	 
 	//! @{ \name Serialization Policy
 	
@@ -88,14 +90,14 @@ struct odb_basic_object
   * a pointer to the key type, which if not 0, provides key-information of the object at hand.
   * If the key is 0, one will be generated using the key generator of the object traits
   */
-template <class ObjectTraits, class Stream, class Key>
+template <class ObjectTraits, class Stream>
 struct odb_input_object : public odb_basic_object<ObjectTraits, Stream>
 {
-	typedef Key key_type;
+	typedef typename ObjectTraits::key_type key_type;
 	
 	/** \return pointer to key designated to the object, or 0 if a key does not yet exists
 	  */
-	const typename std::add_pointer<const Key>::type key_pointer() const {
+	const typename std::add_pointer<const key_type>::type key_pointer() const {
 		return 0;
 	}
 };
@@ -128,15 +130,14 @@ struct odb_output_object : public odb_basic_object<ObjectTraits, Stream>
   * It is meant to be as lightweight as possible, and only stores references to the respective values
   * \note we only derive for the purpose of inheriting member documentation
   */
-template <class OutputObject, class Key>
+template <class OutputObject>
 class  odb_output_object_adapter : public odb_input_object<	typename OutputObject::traits_type,
-															typename OutputObject::stream_type,
-															Key>
+															typename OutputObject::stream_type>
 {
 public:
 	typedef OutputObject output_object_type;
 	typedef typename output_object_type::traits_type traits_type;
-	typedef Key key_type;
+	typedef typename output_object_type::traits_type::key_type key_type;
 	
 private:
 	typename std::add_lvalue_reference<const output_object_type>::type m_obj;

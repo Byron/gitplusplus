@@ -3,9 +3,9 @@
 
 #include <git/config.h>
 #include <git/db/sha1.h>
+#include <git/db/sha1_gen.h>
 #include <gtl/db/odb_mem.hpp>
 #include <git/obj/multiobj.h>
-#include <sstream>
 
 
 GIT_HEADER_BEGIN
@@ -23,16 +23,12 @@ struct git_output_object_traits
 	typedef MultiObject& output_reference_type;
 	//! Type used to return values by reference
 	typedef Object* input_reference_type;
+
+	//! Hash generator to produce keys.
+	typedef SHA1Generator hash_generator_type;	
 	
-	
-	//! Read data from streams
-	typedef std::stringstream istream_type;
-	//! Put data directly into memory
-	typedef std::stringstream ostream_type;
-	//! Put data directly into memory
-	typedef std::stringstream iostream_type;
-	
-	//! 
+	//! Using SHA1 as key
+	typedef SHA1 key_type;
 };
 
 
@@ -42,7 +38,7 @@ struct git_output_object_traits
   * Use this specialization to quickly cache objects in memory to later dump
   * them to disk at once.
   */
-class MemoryODB : public gtl::odb_mem<SHA1, git_output_object_traits>
+class MemoryODB : public gtl::odb_mem<git_output_object_traits>
 {
 public:
 };

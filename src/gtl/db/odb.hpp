@@ -22,16 +22,15 @@ GTL_NAMESPACE_BEGIN
   * This base serves as ideological basis for derived types which add an actual implementation of their 
   * specialized model.
   */
-template <class Key, class ObjectTraits>
+template <class ObjectTraits>
 class odb_base
 {
 public:
-	typedef Key key_type;
 	typedef ObjectTraits traits_type;
 	
-	typedef const odb_input_iterator<traits_type, key_type> const_input_iterator;
-	typedef odb_input_iterator<traits_type, key_type> input_iterator;
-	typedef odb_forward_iterator<traits_type, key_type> forward_iterator;
+	typedef const odb_input_iterator<traits_type> const_input_iterator;
+	typedef odb_input_iterator<traits_type> input_iterator;
+	typedef odb_forward_iterator<traits_type> forward_iterator;
 	 
 public:
 	//! \return iterator pointing to the first item in the database
@@ -41,7 +40,7 @@ public:
 	//! \return iterator pointing to the object at the given key, or an iterator pointing to the end
 	//! of the database. Dereferencing the iterator yields access to an output object, which remains valid
 	//! only as long as the iterator exists.
-	const_input_iterator find(typename std::add_rvalue_reference<const key_type>::type const k) const throw();
+	const_input_iterator find(typename std::add_rvalue_reference<const typename traits_type::key_type>::type const k) const throw();
 	
 	//! Insert a new item into the database
 	//! \param type identifying the object

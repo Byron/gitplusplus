@@ -51,12 +51,16 @@ public:
   * It's value can be queried read-only, and it cannot be used in iterations.
   * \ingroup ODBIter
   */
-template <class ObjectTraits, class Key>
-class mem_input_iterator : public odb_input_iterator<ObjectTraits, Key>
+template <class ObjectTraits>
+class mem_input_iterator : public odb_input_iterator<ObjectTraits>
 {
-protected:
-	typedef std::map<Key, odb_mem_output_object<ObjectTraits> > map_type;
+
+public:
+	typedef typename ObjectTraits::key_type key_type;
+	typedef std::map<key_type, odb_mem_output_object<ObjectTraits> > map_type;
 	typename map_type::const_iterator m_iter;
+	typedef mem_input_iterator<ObjectTraits> this_type;
+	typedef typename map_type::value_type value_type;
 
 public:
 	//! initialize the iterator from the underlying mapping type's iterator
@@ -64,12 +68,12 @@ public:
 	mem_input_iterator(const Iterator& it) : m_iter(it) {}
 	
 	//! Equality comparison of compatible iterators
-	inline bool operator==(const mem_input_iterator<Key, ObjectTraits>& rhs) const {
+	inline bool operator==(const this_type& rhs) const {
 		return m_iter == rhs.m_iter;
 	}
 	
 	//! Inequality comparison
-	inline bool operator!=(const mem_input_iterator<Key, ObjectTraits>& rhs) const {
+	inline bool operator!=(const this_type& rhs) const {
 		return m_iter != rhs.m_iter;
 	}
 	
@@ -98,16 +102,16 @@ public:
 
 /** \ingroup ODBIter
   */
-template <class ObjectTraits, class Key>
-class mem_forward_iterator : public mem_input_iterator<ObjectTraits, Key>
+template <class ObjectTraits>
+class mem_forward_iterator : public mem_input_iterator<ObjectTraits>
 {
 public:
-	typedef std::map<Key, odb_mem_output_object<ObjectTraits> > map_type;
-	typedef typename map_type::value_type value_type;
+	typedef mem_input_iterator<ObjectTraits> parent_type;
+
 	
 	template <class Iterator>
 	mem_forward_iterator(const Iterator& it)
-		: mem_input_iterator<ObjectTraits, Key>(it) {}
+		: mem_input_iterator<ObjectTraits>(it) {}
 	
 	mem_forward_iterator& operator++() {
 		++(this->m_iter); return *this;
@@ -124,7 +128,7 @@ public:
 		(*this).second.type();
 	}
 	
-	const value_type& operator*() const {
+	const typename parent_type::value_type& operator*() const {
 		return *(this->m_iter);
 	}
 };
@@ -132,21 +136,28 @@ public:
 /** \brief Class providing access to objects which are cached in memory
   * \ingroup ODB
   * The memory object database acts as an adapter to a map which keeps the actual items.
-  * Hence it is nothing more than map with different functionality  and special iterators
+  * Hence it is nothing more than map with different functionality  and special iterators, which 
+  * may additionally generate its own keys as it knows its kind of input.
   */
-template <class Key, class ObjectTraits>
-class odb_mem : public odb_base<Key, ObjectTraits>
+template <class ObjectTraits>
+class odb_mem : public odb_base<ObjectTraits>
 {
+public:
+	typedef odb_base<ObjectTraits> parent_type;
+	typedef ObjectTraits traits_type;
+	typedef typename traits_type::key_type key_type;
+	typedef typename mem_input_iterator<ObjectTraits>::map_type map_type;
+	typedef const mem_input_iterator<ObjectTraits> const_input_iterator;
+	typedef mem_input_iterator<ObjectTraits> input_iterator;
+	typedef mem_forward_iterator<ObjectTraits> forward_iterator;
+	typedef odb_mem_output_object<ObjectTraits> output_object_type;
+	
 private:
-	std::map<Key, odb_mem_output_object<ObjectTraits> > m_objs;
+	map_type m_objs;
 	
 public:
-	typedef odb_base<Key, ObjectTraits> parent_type;
-	typedef const mem_input_iterator<ObjectTraits, Key> const_input_iterator;
-	typedef mem_input_iterator<ObjectTraits, Key> input_iterator;
-	typedef mem_forward_iterator<ObjectTraits, Key> forward_iterator;
 	
-	const_input_iterator find(const typename std::add_rvalue_reference<const Key>::type k) const{
+	const_input_iterator find(const typename std::add_rvalue_reference<const key_type>::type k) const{
 		return input_iterator(m_objs.find(k));
 	}
 	forward_iterator end() const {
@@ -170,8 +181,8 @@ public:
 
 
 /*
-template <class Key, class ObjectTraits>
-typename odb_mem<Key, ObjectTraits>::forward_iterator odb_mem<Key, ObjectTraits>::insert(const std::add_rvalue_reference<const InputObject>::type object)
+template <class ObjectTraits>
+typename odb_mem<ObjectTraits>::forward_iterator odb_mem<ObjectTraits>::insert(const std::add_rvalue_reference<const InputObject>::type object)
 {
 	odb_mem_output_object<ObjectTraits> iostream(type, size);
 	boost::iostreams::filtering_stream<boost::iostreams::input> fstream;
