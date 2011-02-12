@@ -5,24 +5,26 @@
 #include <gtl/db/odb.hpp>
 #include <gtl/db/odb_stream.hpp>
 #include <sstream>
+#include <boost/type_traits/add_pointer.hpp>
 #include <boost/iostreams/copy.hpp>
+#include <boost/iostreams/filtering_stream.hpp>
 #include <map>
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
 
 template <class ObjectTraits>
-class odb_mem_iostream : public odb_ostream<ObjectTraits>
+class odb_mem_output_object : public odb_output_object<ObjectTraits, std::stringstream>
 {
 public:
 	typedef std::stringstream			stream_type;
 private:
 	typename ObjectTraits::object_type	m_type;
-	size_t								m_size;		//! uncompressed size
+	uint64_t							m_size;		//! uncompressed size
 	stream_type							m_stream;	//! stream for reading and writing
 	
 public:
-	odb_mem_iostream(typename ObjectTraits::object_type type, size_t size)
+	odb_mem_output_object(typename ObjectTraits::object_type type, uint64_t size)
 		: m_size(size)
 		, m_type(type)
 	{}
@@ -31,7 +33,7 @@ public:
 		return m_type;
 	}
 	
-	size_t size() const {
+	uint64_t size() const {
 		return m_size;
 	}
 	
@@ -49,7 +51,7 @@ template <class Key, class ObjectTraits>
 class mem_input_iterator : public odb_input_iterator<Key, ObjectTraits>
 {
 protected:
-	typedef std::map<Key, odb_mem_iostream<ObjectTraits> > map_type;
+	typedef std::map<Key, odb_mem_output_object<ObjectTraits> > map_type;
 	typename map_type::const_iterator m_iter;
 
 public:
@@ -78,7 +80,7 @@ public:
 	}
 	
 	//! \return uncompressed size of the object in bytes
-	inline size_t size() const {
+	inline uint64_t size() const {
 		(*this).size();
 	}
 	
@@ -93,7 +95,7 @@ template <class Key, class ObjectTraits>
 class mem_forward_iterator : public mem_input_iterator<Key, ObjectTraits>
 {
 public:
-	typedef std::map<Key, odb_mem_iostream<ObjectTraits> > map_type;
+	typedef std::map<Key, odb_mem_output_object<ObjectTraits> > map_type;
 	typedef typename map_type::value_type value_type;
 	
 	template <class Iterator>
@@ -107,7 +109,7 @@ public:
 		mem_forward_iterator cpy(*this); ++(*this); return cpy;
 	}
 	
-	inline size_t size() const {
+	inline uint64_t size() const {
 		(*this).second.size();
 	}
 	
@@ -129,9 +131,10 @@ template <class Key, class ObjectTraits>
 class odb_mem : public odb_base<Key, ObjectTraits>
 {
 private:
-	std::map<Key, odb_mem_iostream<ObjectTraits> > m_objs;
+	std::map<Key, odb_mem_output_object<ObjectTraits> > m_objs;
 	
 public:
+	typedef odb_base<Key, ObjectTraits> parent_type;
 	typedef const mem_input_iterator<Key, ObjectTraits> const_input_iterator;
 	typedef mem_input_iterator<Key, ObjectTraits> input_iterator;
 	typedef mem_forward_iterator<Key, ObjectTraits> forward_iterator;
@@ -144,7 +147,10 @@ public:
 	}
 	
 	//! Copy the contents of the given input stream into an output stream
-	forward_iterator insert(typename ObjectTraits::object_type type, size_t size, typename ObjectTraits::istream_type& stream);
+	//! The istream is a structure keeping information about the possibly existing Key, the type
+	//! as well as the actual stream which contains the data to be copied into the memory database.
+	forward_iterator insert(typename ObjectTraits::object_type type, uint64_t size, typename ObjectTraits::istream_type& stream, 
+							typename boost::add_pointer<typename parent_type::key_type>::type pkey=0);
 	
 	//! insert the copy's of the contents of the given input iterators into this object database
 	//! The inserted items can be queried using the keys from the input iterators
@@ -155,18 +161,21 @@ public:
 	forward_iterator insert(typename ObjectTraits::input_reference_type object);
 };
 
+
 /*
 template <class Key, class ObjectTraits>
 typename odb_mem<Key, ObjectTraits>::forward_iterator odb_mem<Key, ObjectTraits>::insert(typename ObjectTraits::object_type type, 
-																						 size_t size, 
+																						 uint64_t size, 
 																						 typename ObjectTraits::istream_type& stream)
 {
-	odb_mem_iostream<ObjectTraits> iostream(type, size);
+	odb_mem_output_object<ObjectTraits> iostream(type, size);
+	boost::iostreams::filtering_stream<boost::iostreams::input> fstream;
 	boost::iostreams::copy(stream, iostream.stream());
 	// ToDo: generate sha1
 	return it(m_objs.insert(iostream));
 }
-*/	
+*/
+
 GTL_NAMESPACE_END
 GTL_HEADER_END
 

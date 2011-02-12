@@ -42,7 +42,8 @@ public:
 	//! \return iterator pointing to the end of the database, which is one past the last item
 	const forward_iterator end() const throw();
 	//! \return iterator pointing to the object at the given key, or an iterator pointing to the end
-	//! of the database
+	//! of the database. Dereferencing the iterator yields access to an output object, which remains valid
+	//! only as long as the iterator exists.
 	const_input_iterator find(typename std::add_rvalue_reference<const key_type>::type const k) const throw();
 	
 	//! Insert a new item into the database
