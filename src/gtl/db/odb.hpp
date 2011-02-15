@@ -6,6 +6,7 @@
 #include <gtl/db/odb_iter.hpp>
 
 #include <type_traits>
+#include <boost/iostreams/constants.hpp>
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
@@ -31,6 +32,9 @@ public:
 	typedef const odb_input_iterator<traits_type> const_input_iterator;
 	typedef odb_input_iterator<traits_type> input_iterator;
 	typedef odb_forward_iterator<traits_type> forward_iterator;
+	
+public:
+	static const std::streamsize gCopyChunkSize;
 	 
 public:
 	//! \return iterator pointing to the first item in the database
@@ -55,6 +59,10 @@ public:
 	forward_iterator insert(typename traits_type::input_reference_type object);
 };
 
+
+//! usually size of one memory page in bytes 
+template <class ObjectTraits>
+const std::streamsize odb_base<ObjectTraits>::gCopyChunkSize(boost::iostreams::default_device_buffer_size);
 
 GTL_NAMESPACE_END
 GTL_HEADER_END

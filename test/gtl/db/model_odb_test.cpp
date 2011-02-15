@@ -14,6 +14,8 @@ using namespace gtl;
 // force full instantiation
 template class odb_base<odb_object_traits>;
 template class odb_mem<odb_object_traits>;
+template class odb_mem_input_object<odb_object_traits>;
+template class odb_mem_output_object<odb_object_traits>;
 
 
 

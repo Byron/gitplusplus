@@ -82,12 +82,18 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 {
 	MemoryODB modb;
 	
-	git_output_object_traits::iostream_type stream;
+	std::stringstream stream;
 	stream.write("h", 1);
 	auto s = stream.tellp();
 	BOOST_CHECK(s == 1);
 	stream.seekp(0, ios_base::beg);
 	
-	// auto it = modb.insert(git::Object::Type::Blob, s, stream);
+	MemoryODB::input_object_ref object(Object::Type::Blob, 1, stream);
+	BOOST_CHECK(&object.stream() == &stream);
+	BOOST_CHECK(object.size() == 1);
+	BOOST_CHECK(object.type() == Object::Type::Blob);
+	BOOST_CHECK(object.key_pointer() == 0);
+	
+	auto it = modb.insert(object);
 	
 }

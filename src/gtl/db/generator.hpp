@@ -52,9 +52,12 @@ public:
 	//! \note if called once, you need to call reset() if you want to update the instance with new characters
 	//! \note ideally the hash_type has a move-constructor or a move assignment constructor. Compilers 
 	//! may otherwise be able to optimize the construction if your hash is assigned directly.
-	inline hash_type hash() throw() {
-		return hash_type(digest());
-	}
+	inline hash_type hash() throw();
+	
+	//! obtain the hash produced so far
+	//! \param sha1 destination for the hash
+	//! \note if called once, you need to call reset to use the instance again
+	void hash(hash_type& outHash) throw();
 };
 
 GTL_NAMESPACE_END

@@ -80,6 +80,10 @@ class SHA1Generator : public gtl::hash_generator<SHA1, uchar, uint32>
 		void hash(SHA1& sha1) throw() {
 			sha1 = digest();
 		}
+		
+		inline hash_type hash() throw() {
+			return SHA1(digest());
+		}
 
 	private:
 		

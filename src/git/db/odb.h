@@ -6,14 +6,14 @@
 #include <git/db/sha1_gen.h>
 #include <gtl/db/odb_mem.hpp>
 #include <git/obj/multiobj.h>
-
+#include <iostream>
 
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
 
 /** \brief Configures output streams used in memory databases
   */
-struct git_output_object_traits
+struct git_object_traits
 {
 	//! Type allowing to classify the stored object
 	typedef Object::Type object_type;
@@ -38,9 +38,10 @@ struct git_output_object_traits
   * Use this specialization to quickly cache objects in memory to later dump
   * them to disk at once.
   */
-class MemoryODB : public gtl::odb_mem<git_output_object_traits>
+class MemoryODB : public gtl::odb_mem<git_object_traits>
 {
 public:
+	
 };
 
 

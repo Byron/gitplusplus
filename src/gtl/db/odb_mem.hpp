@@ -8,7 +8,9 @@
 #include <boost/type_traits/add_pointer.hpp>
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
+#include <type_traits>
 #include <map>
+#include <assert.h>
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
@@ -20,32 +22,88 @@ class odb_mem_output_object : public odb_output_object<ObjectTraits, std::string
 {
 public:
 	typedef std::stringstream			stream_type;
+	typedef ObjectTraits				traits_type;
 private:
-	typename ObjectTraits::object_type	m_type;
-	typename ObjectTraits::size_type	m_size;		//! uncompressed size
+	typename traits_type::object_type	m_type;
+	typename traits_type::size_type		m_size;		//! uncompressed size
 	stream_type							m_stream;	//! stream for reading and writing
 	
 public:
-	odb_mem_output_object(typename ObjectTraits::object_type type, uint64_t size)
+	odb_mem_output_object(typename traits_type::object_type type, typename traits_type::size_type size)
 		: m_size(size)
 		, m_type(type)
 	{}
 	
-	typename ObjectTraits::object_type type() const {
+	typename traits_type::object_type type() const {
 		return m_type;
 	}
 	
-	uint64_t size() const {
+	typename traits_type::size_type size() const {
 		return m_size;
 	}
 	
 	//! \return actual stream of this instance - changes to its head position
 	//! will affect the next read of the next client.
-	stream_type& stream() const {
+	typename std::add_lvalue_reference<const stream_type>::type stream() const {
+		return m_stream;
+	}
+	
+	//! \return actual stream of this instance - changes to its head position
+	//! will affect the next read of the next client.
+	typename std::add_lvalue_reference<stream_type>::type stream() {
 		return m_stream;
 	}
 };
 
+
+/** \brief an implementation of memory input objects using pointers to the actual stream.
+  * This default implementation should be suitable for many applications as the stream type
+  * can be set to become a reference or pointer as required.
+  * \ingroup ODBObject
+  */
+template <class ObjectTraits, class StreamBaseType = std::istream&>
+class odb_mem_input_object : public odb_input_object<ObjectTraits, StreamBaseType>
+{
+public:
+	typedef ObjectTraits traits_type;
+	typedef typename traits_type::object_type object_type;
+	typedef typename traits_type::size_type size_type;
+	typedef typename traits_type::key_type key_type;
+	typedef typename std::add_pointer<key_type>::type key_pointer_type;
+	typedef StreamBaseType stream_type;
+	
+protected:
+	object_type m_type;
+	size_type m_size;
+	stream_type m_stream;
+	const key_pointer_type m_key;
+	
+public:
+	odb_mem_input_object(object_type type, size_type size, 
+						 typename std::add_rvalue_reference<stream_type>::type stream,
+						 const key_pointer_type key_pointer=0)
+		: m_type(type)
+		, m_size(size)
+		, m_stream(stream)
+		, m_key(key_pointer)
+	{}
+	
+	object_type type() const {
+		return m_type;
+	}
+	
+	size_type size() const {
+		return m_size;
+	}
+	
+	stream_type stream() {
+		return m_stream;
+	}
+	
+	const key_pointer_type key_pointer() const {
+		return m_key;
+	}
+};
 
 /** Iterator providing access to a single element of the memory odb.
   * It's value can be queried read-only, and it cannot be used in iterations.
@@ -143,14 +201,15 @@ template <class ObjectTraits>
 class odb_mem : public odb_base<ObjectTraits>
 {
 public:
-	typedef odb_base<ObjectTraits> parent_type;
-	typedef ObjectTraits traits_type;
-	typedef typename traits_type::key_type key_type;
-	typedef typename mem_input_iterator<ObjectTraits>::map_type map_type;
-	typedef const mem_input_iterator<ObjectTraits> const_input_iterator;
-	typedef mem_input_iterator<ObjectTraits> input_iterator;
-	typedef mem_forward_iterator<ObjectTraits> forward_iterator;
-	typedef odb_mem_output_object<ObjectTraits> output_object_type;
+	typedef ObjectTraits										traits_type;
+	typedef odb_base<traits_type>								parent_type;
+	typedef typename traits_type::key_type						key_type;
+	typedef typename mem_input_iterator<traits_type>::map_type	map_type;
+	typedef const mem_input_iterator<traits_type>				const_input_iterator;
+	typedef mem_input_iterator<traits_type>						input_iterator;
+	typedef mem_forward_iterator<traits_type>					forward_iterator;
+	typedef odb_mem_output_object<traits_type>					output_object_type;
+	typedef odb_mem_input_object<traits_type, std::istream&>	input_object_ref;
 	
 private:
 	map_type m_objs;
@@ -168,7 +227,7 @@ public:
 	//! The istream is a structure keeping information about the possibly existing Key, the type
 	//! as well as the actual stream which contains the data to be copied into the memory database.
 	template <class InputObject>
-	forward_iterator insert(const typename std::add_rvalue_reference<const InputObject>::type object);
+	forward_iterator insert(InputObject& object) throw(std::exception);
 	
 	//! insert the copy's of the contents of the given input iterators into this object database
 	//! The inserted items can be queried using the keys from the input iterators
@@ -176,21 +235,42 @@ public:
 	void insert(Iterator begin, const Iterator end);
 	
 	//! Same as above, but will produce the required serialized version of object automatically
-	forward_iterator insert(typename ObjectTraits::input_reference_type object);
+	forward_iterator insert(typename traits_type::input_reference_type object);
 };
 
 
-/*
+
 template <class ObjectTraits>
-typename odb_mem<ObjectTraits>::forward_iterator odb_mem<ObjectTraits>::insert(const std::add_rvalue_reference<const InputObject>::type object)
+template <class InputObject>
+typename odb_mem<ObjectTraits>::forward_iterator odb_mem<ObjectTraits>::insert(InputObject& iobj) throw(std::exception)
 {
-	odb_mem_output_object<ObjectTraits> iostream(type, size);
-	boost::iostreams::filtering_stream<boost::iostreams::input> fstream;
-	boost::iostreams::copy(stream, iostream.stream());
-	// ToDo: generate sha1
-	return it(m_objs.insert(iostream));
+	odb_mem_output_object<traits_type> oobj(iobj.type(), iobj.size());
+	
+	typename traits_type::hash_generator_type hashgen;
+	typename output_object_type::stream_type::char_type buf[parent_type::gCopyChunkSize];
+	typename traits_type::size_type total_bytes_read = 0;
+	auto pkey = iobj.key_pointer();
+	auto& istream = iobj.stream();
+	auto& ostream = oobj.stream();
+	
+	assert(&ostream == &oobj.stream());
+	
+	for (std::streamsize bytes_read = 0; bytes_read == parent_type::gCopyChunkSize; total_bytes_read += bytes_read) {
+		istream.read(buf, parent_type::gCopyChunkSize);
+		bytes_read = istream.gcount();
+		ostream.write(buf, bytes_read);
+		
+		if (pkey == 0) {
+			hashgen.update(reinterpret_cast<typename traits_type::hash_generator_type::char_type*>(&buf[0]), bytes_read);
+		}// generate key if it does not yet exist
+	}// for each chunk to copy
+	
+	if (pkey) {
+		return forward_iterator(m_objs.insert(typename map_type::value_type(*pkey, oobj)).first);
+	} else {
+		return forward_iterator(m_objs.insert(typename map_type::value_type(hashgen.hash(), oobj)).first);
+	}
 }
-*/
 
 GTL_NAMESPACE_END
 GTL_HEADER_END
