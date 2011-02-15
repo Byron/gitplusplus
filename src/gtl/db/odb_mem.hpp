@@ -11,6 +11,7 @@
 #include <type_traits>
 #include <map>
 #include <assert.h>
+#include <memory>
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
@@ -26,13 +27,23 @@ public:
 private:
 	typename traits_type::object_type	m_type;
 	typename traits_type::size_type		m_size;		//! uncompressed size
-	stream_type							m_stream;	//! stream for reading and writing
+	mutable std::auto_ptr<stream_type>	m_stream;	//! stream for reading and writing
 	
 public:
 	odb_mem_output_object(typename traits_type::object_type type, typename traits_type::size_type size)
 		: m_size(size)
 		, m_type(type)
+		, m_stream(new stream_type)
+	{
+	}
+	
+	//! Copy constructor, required to be suitable for use in pairs
+	odb_mem_output_object(const odb_mem_output_object& rhs)
+		: m_size(rhs.m_size)
+		, m_type(rhs.m_type)
+		, m_stream(rhs.m_stream)
 	{}
+			
 	
 	typename traits_type::object_type type() const {
 		return m_type;
@@ -45,13 +56,13 @@ public:
 	//! \return actual stream of this instance - changes to its head position
 	//! will affect the next read of the next client.
 	typename std::add_lvalue_reference<const stream_type>::type stream() const {
-		return m_stream;
+		return *m_stream;
 	}
 	
 	//! \return actual stream of this instance - changes to its head position
 	//! will affect the next read of the next client.
 	typename std::add_lvalue_reference<stream_type>::type stream() {
-		return m_stream;
+		return *m_stream;
 	}
 };
 
@@ -105,6 +116,7 @@ public:
 	}
 };
 
+
 /** Iterator providing access to a single element of the memory odb.
   * It's value can be queried read-only, and it cannot be used in iterations.
   * \ingroup ODBIter
@@ -112,14 +124,17 @@ public:
 template <class ObjectTraits>
 class mem_input_iterator : public odb_input_iterator<ObjectTraits>
 {
-
 public:
-	typedef typename ObjectTraits::key_type key_type;
-	typedef std::map<key_type, odb_mem_output_object<ObjectTraits> > map_type;
-	typename map_type::const_iterator m_iter;
-	typedef mem_input_iterator<ObjectTraits> this_type;
+	typedef ObjectTraits traits_type;
+	typedef typename traits_type::key_type key_type;
+	typedef typename traits_type::size_type size_type;
+	typedef std::map<key_type, odb_mem_output_object<traits_type> > map_type;
+	typedef mem_input_iterator<traits_type> this_type;
 	typedef typename map_type::value_type value_type;
 
+protected:
+	typename map_type::const_iterator m_iter;
+	
 public:
 	//! initialize the iterator from the underlying mapping type's iterator
 	template <class Iterator>
@@ -147,13 +162,19 @@ public:
 		return m_iter->second;
 	}
 	
+	//! \return key instance which identifyies our object within this map
+	inline typename std::add_lvalue_reference<const typename map_type::value_type::first_type>::type
+			key() const {
+		return m_iter->first;
+	}
+	
 	//! \return uncompressed size of the object in bytes
-	inline uint64_t size() const {
+	inline size_type size() const {
 		(*this).size();
 	}
 	
 	//! \return type of object stored in the stream
-	inline typename ObjectTraits::object_type type() const {
+	inline typename traits_type::object_type type() const {
 		(*this).type();
 	}
 };
@@ -176,14 +197,6 @@ public:
 	}
 	mem_forward_iterator operator++(int) {
 		mem_forward_iterator cpy(*this); ++(*this); return cpy;
-	}
-	
-	inline uint64_t size() const {
-		(*this).second.size();
-	}
-	
-	inline typename ObjectTraits::object_type type() const {
-		(*this).second.type();
 	}
 	
 	const typename parent_type::value_type& operator*() const {
@@ -244,7 +257,7 @@ template <class ObjectTraits>
 template <class InputObject>
 typename odb_mem<ObjectTraits>::forward_iterator odb_mem<ObjectTraits>::insert(InputObject& iobj) throw(std::exception)
 {
-	odb_mem_output_object<traits_type> oobj(iobj.type(), iobj.size());
+	output_object_type oobj(iobj.type(), iobj.size());
 	
 	typename traits_type::hash_generator_type hashgen;
 	typename output_object_type::stream_type::char_type buf[parent_type::gCopyChunkSize];

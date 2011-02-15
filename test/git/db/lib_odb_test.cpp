@@ -95,5 +95,10 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	BOOST_CHECK(object.key_pointer() == 0);
 	
 	auto it = modb.insert(object);
+	// TODO: Verify its not the end iterator
+	std::cerr << it.key() << std::endl;
+	//BOOST_CHECK(it.type() == Object::Type::Blob);
+	//BOOST_CHECK(it.size() == 1);
+	
 	
 }
