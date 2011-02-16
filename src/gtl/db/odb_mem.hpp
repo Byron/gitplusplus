@@ -12,6 +12,7 @@
 #include <map>
 #include <assert.h>
 #include <memory>
+#include <iostream>	// debug
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
@@ -268,7 +269,7 @@ typename odb_mem<ObjectTraits>::forward_iterator odb_mem<ObjectTraits>::insert(I
 	
 	assert(&ostream == &oobj.stream());
 	
-	for (std::streamsize bytes_read = 0; bytes_read == parent_type::gCopyChunkSize; total_bytes_read += bytes_read) {
+	for (std::streamsize bytes_read = parent_type::gCopyChunkSize; bytes_read == parent_type::gCopyChunkSize; total_bytes_read += bytes_read) {
 		istream.read(buf, parent_type::gCopyChunkSize);
 		bytes_read = istream.gcount();
 		ostream.write(buf, bytes_read);

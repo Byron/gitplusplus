@@ -47,7 +47,9 @@ HEADERS += \
     src/gtl/db/generator_filter.hpp \
     src/gtl/db/generator_stream.hpp \
     src/gtl/db/odb_object.hpp \
-    src/gtl/db/generator.hpp
+    src/gtl/db/generator.hpp \
+    src/gtl/db/hash.hpp \
+    src/gtl/util.hpp
 
 SOURCES += \
     test/git/model/db/odb_test.cpp \

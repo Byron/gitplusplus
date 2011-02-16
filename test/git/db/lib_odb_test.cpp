@@ -18,6 +18,12 @@
 using namespace std;
 using namespace git;
 
+const uchar* const phello = (const uchar*)"hello";
+const size_t lenphello = 5;
+const std::string hello_hex_sha("AAF4C61DDCC5E8A2DABEDE0F3B482CD9AEA9434D");
+const std::string null_hex_sha("0000000000000000000000000000000000000000");
+
+
 BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 {
 	// Test SHA1 itself
@@ -37,11 +43,8 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	// GENERATOR
 	////////////
 	SHA1Generator sgen;
-	const std::string hello_hex_sha("aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d");
-	const std::string null_hex_sha("0000000000000000000000000000000000000000");
 	std::stringstream buf;
-	const uchar* const phello = (const uchar*)"hello";
-	sgen.update(phello, 5);
+	sgen.update(phello, lenphello);
 	sgen.hash(s);
 	BOOST_CHECK(SHA1(sgen.digest())==s);	// duplicate call
 	BOOST_CHECK_THROW(sgen.finalize(), InvalidGeneratorState);
@@ -51,6 +54,9 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	buf << s;
 	BOOST_CHECK(buf.str() == hello_hex_sha);
 	buf.seekp(0, std::ios_base::beg);
+	
+	BOOST_CHECK(SHA1(hello_hex_sha) == s);
+	BOOST_CHECK(SHA1((const uchar*)hello_hex_sha.c_str(), 40) == s);
 	
 	sgen.reset();
 	// after a reset, the state changes
@@ -67,7 +73,7 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	BOOST_CHECK(SHA1Filter().hash() == SHA1::null);
 	std::basic_stringstream<uchar> null;
 	//std::basic_stringstream<uchar> in(phello);
-	boost::iostreams::stream<boost::iostreams::basic_array_source<uchar> > in(phello, 5);
+	boost::iostreams::stream<boost::iostreams::basic_array_source<uchar> > in(phello, lenphello);
 	boost::iostreams::filtering_stream<boost::iostreams::input, uchar> filter;
 	filter.push(SHA1Filter());
 	filter.push(in);
@@ -83,20 +89,22 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	MemoryODB modb;
 	
 	std::stringstream stream;
-	stream.write("h", 1);
+	stream.write(reinterpret_cast<const char*>(phello), lenphello);
 	auto s = stream.tellp();
-	BOOST_CHECK(s == 1);
+	BOOST_CHECK(s == lenphello);
 	stream.seekp(0, ios_base::beg);
 	
-	MemoryODB::input_object_ref object(Object::Type::Blob, 1, stream);
+	MemoryODB::input_object_ref object(Object::Type::Blob, lenphello, stream);
 	BOOST_CHECK(&object.stream() == &stream);
-	BOOST_CHECK(object.size() == 1);
+	BOOST_CHECK(object.size() == lenphello);
 	BOOST_CHECK(object.type() == Object::Type::Blob);
 	BOOST_CHECK(object.key_pointer() == 0);
 	
 	auto it = modb.insert(object);
+	BOOST_REQUIRE(it != modb.end());
+	
 	// TODO: Verify its not the end iterator
-	std::cerr << it.key() << std::endl;
+	BOOST_CHECK(it.key() ==  SHA1(hello_hex_sha));
 	//BOOST_CHECK(it.type() == Object::Type::Blob);
 	//BOOST_CHECK(it.size() == 1);
 	
