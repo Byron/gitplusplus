@@ -22,3 +22,25 @@ BOOST_AUTO_TEST_CASE(sha1_performance)
 	sgen.finalize();
 	cerr << "Generated SHA1 of " << nb / MB << " MB in " << t.elapsed() << " s (" << nb / t.elapsed() / MB << " MB per s)" << endl;	
 }
+
+void test_heap_allocation(bool with_delete){
+	
+	size_t num_bytes = 0;
+	const size_t num_iterations = 100000;
+	boost::timer t;
+	for (size_t i = 0; i < num_iterations; ++i) {
+		static const size_t sizes[] = {4, 8, 40, 150, 5000};
+		const size_t size = sizes[i%5];
+		char* mem = new char[size];
+		num_bytes += size;
+		BOOST_REQUIRE(mem != 0);
+	}// for each iteration
+	
+	cerr << "Dynamically allocated " << num_bytes / 1000 << " KiB (" << num_iterations << " iterations) in " << t.elapsed() << " s (" << num_bytes / t.elapsed() << " KiB/s) - include delete = " << with_delete << endl;
+}
+
+BOOST_AUTO_TEST_CASE(heap_performance)
+{
+	test_heap_allocation(true);
+	test_heap_allocation(false);
+}

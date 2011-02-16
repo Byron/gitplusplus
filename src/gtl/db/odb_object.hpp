@@ -35,6 +35,9 @@ struct odb_object_traits
 	typedef bool hash_generator_type;
 	//! type of keys used within the object databases to identify objects
 	typedef int key_type;
+	
+	//! Character type to be used within streams and data storage defined in object databases
+	typedef uchar char_type;
 	 
 	//! @{ \name Serialization Policy
 	
@@ -63,11 +66,10 @@ struct odb_object_traits
   * \tparam Stream seekable and readable stream which allows access to the data. It is dependent 
   *	on the underlying database implementation.
   */
-template <class ObjectTraits, class Stream>
+template <class ObjectTraits>
 struct odb_basic_object
 {
 	typedef ObjectTraits traits_type;
-	typedef Stream stream_type;
 	
 	//! \return type of the object which helps to figure out how to interpret its data
 	typename traits_type::object_type type() const;
@@ -80,20 +82,25 @@ struct odb_basic_object
 		return 0;
 	}
 	
-	//! \return data stream which contains the serialized object. Must be readable
-	stream_type stream() const;
-	
 };
 
 /** \ingroup ODBObject
   * \brief type used as input to object databases. It optionally provides access to 
   * a pointer to the key type, which if not 0, provides key-information of the object at hand.
   * If the key is 0, one will be generated using the key generator of the object traits
+  * The input object is to be used as non-constant object as its stream will be read in the course
+  * of the process. It must be rewound by the caller if desired.
   */
-template <class ObjectTraits, class Stream>
-struct odb_input_object : public odb_basic_object<ObjectTraits, Stream>
+template <class ObjectTraits, class StreamType>
+struct odb_input_object : public odb_basic_object<ObjectTraits>
 {
 	typedef typename ObjectTraits::key_type key_type;
+	typedef StreamType stream_type;
+	
+	
+	/** \return reference to the contained input stream type
+	  */
+	stream_type& stream();
 	
 	/** \return pointer to key designated to the object, or 0 if a key does not yet exists
 	  */
@@ -110,11 +117,28 @@ struct odb_input_object : public odb_basic_object<ObjectTraits, Stream>
   * to deserialize the stream into an object.
   * An ostream is considered the output of an object database
   */
-template <class ObjectTraits, class Stream>
-struct odb_output_object : public odb_basic_object<ObjectTraits, Stream>
+template <class ObjectTraits, class StreamType>
+struct odb_output_object : public odb_basic_object<ObjectTraits>
 {
 	typedef ObjectTraits traits_type;
-	typedef Stream stream_type;
+	typedef StreamType stream_type;
+	
+	//!  create data stream which allows access to the serialized object data
+	//! As streams are generally non-copyable, but yet a unique stream needs to be
+	//! returned each time of query, it must be created at the given memory location.
+	//! \param out_stream memory able to hold a stream_type object. It must be allocated by the 
+	//! caller. Its critical that the constructor was not yet called on out_stream, hence it must
+	//! be an uninitialized memory location. The caller is responsible for disposing the memory after use
+	//! and assuring the destructor gets called. The new stream will be created using placement new at the 
+	//! given location.
+	//!
+	//! \note There are two approaches to this: Either you create the memory on the heap without calling the constructor, 
+	//! such as in operator new(sizeof(stream_type)), or you create the memory on the stack, but destroy the stream
+	//! before you pass it in, such as in stream_type s; s.~s(); This will automatically call the destructor once
+	//! your stack-allocated variable goes out of scope. In case of a loop, you will have to handle the destruction yourself
+	//! though. In case you would like to have a heap-allocated temporary, it is advised to read about the
+	//! intricacies of new and delete.
+	void stream(stream_type* out_stream) const;
 	
 	//! construct an object from the deserialized stream and store it in the output reference
 	//! \note uses exceptions to indicate failure (i.e. out of memory, corrupt stream)

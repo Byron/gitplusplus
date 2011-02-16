@@ -88,12 +88,14 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 {
 	MemoryODB modb;
 	
-	std::stringstream stream;
-	stream.write(reinterpret_cast<const char*>(phello), lenphello);
+	std::basic_stringstream<uchar> stream;
+	stream.write(phello, lenphello);
 	auto s = stream.tellp();
 	BOOST_CHECK(s == lenphello);
 	stream.seekp(0, ios_base::beg);
 	
+	// INSERT OPERATION
+	////////////////////
 	MemoryODB::input_object_ref object(Object::Type::Blob, lenphello, stream);
 	BOOST_CHECK(&object.stream() == &stream);
 	BOOST_CHECK(object.size() == lenphello);
@@ -103,10 +105,14 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	auto it = modb.insert(object);
 	BOOST_REQUIRE(it != modb.end());
 	
-	// TODO: Verify its not the end iterator
 	BOOST_CHECK(it.key() ==  SHA1(hello_hex_sha));
 	BOOST_CHECK(it.type() == Object::Type::Blob);
-	BOOST_CHECK(it.size() == lenphello);
+	///BOOST_CHECK(it.size() == lenphello);
+	
+	// stream verification
+	//MemoryODB::output_object_type::stream_type ostream;
+	// ostream.();
+	
 	
 	// Access the item using the key
 	

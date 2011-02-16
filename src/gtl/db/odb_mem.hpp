@@ -7,34 +7,38 @@
 #include <sstream>
 #include <boost/type_traits/add_pointer.hpp>
 #include <boost/iostreams/copy.hpp>
-#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/stream.hpp>
+#include <boost/iostreams/device/array.hpp>
 #include <type_traits>
 #include <map>
 #include <assert.h>
-#include <memory>
 #include <iostream>	// debug
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
 
+namespace io = boost::iostreams;
+
 /** \ingroup ODBObject
   */
-template <class ObjectTraits>
-class odb_mem_output_object : public odb_output_object<ObjectTraits, std::stringstream>
+template <	class ObjectTraits, 
+			class StreamType = io::stream<io::basic_array_source<typename ObjectTraits::char_type> > >
+class odb_mem_output_object : public odb_output_object<ObjectTraits, StreamType>
 {
 public:
-	typedef std::stringstream			stream_type;
-	typedef ObjectTraits				traits_type;
+	typedef StreamType											stream_type;
+	typedef ObjectTraits										traits_type;
+	typedef std::basic_string<typename stream_type::char_type>	string_type;
+	
 private:
-	typename traits_type::object_type	m_type;
-	typename traits_type::size_type		m_size;		//! uncompressed size
-	mutable std::auto_ptr<stream_type>	m_stream;	//! stream for reading and writing
+	typename traits_type::object_type						m_type;		//! object type
+	typename traits_type::size_type							m_size;		//! uncompressed size
+	string_type												m_data;		//! actually stored data
 	
 public:
 	odb_mem_output_object(typename traits_type::object_type type, typename traits_type::size_type size)
 		: m_size(size)
 		, m_type(type)
-		, m_stream(new stream_type)
 	{
 	}
 	
@@ -42,8 +46,10 @@ public:
 	odb_mem_output_object(const odb_mem_output_object& rhs)
 		: m_size(rhs.m_size)
 		, m_type(rhs.m_type)
-		, m_stream(rhs.m_stream)
-	{}
+		, m_data(rhs.m_data)
+	{
+		std::cerr << this << " OUTPUT OBJECT COPY CONSTRUCTED" << std::endl;
+	}
 			
 	
 	typename traits_type::object_type type() const {
@@ -54,26 +60,23 @@ public:
 		return m_size;
 	}
 	
-	//! \return actual stream of this instance - changes to its head position
-	//! will affect the next read of the next client.
-	typename std::add_lvalue_reference<const stream_type>::type stream() const {
-		return *m_stream;
+	//! \return stream wrapper around the data held in this object
+	void stream(stream_type* out_stream) const {
+		new (out_stream) stream_type(m_data.data(), m_data.size());
 	}
 	
-	//! \return actual stream of this instance - changes to its head position
-	//! will affect the next read of the next client.
-	typename std::add_lvalue_reference<stream_type>::type stream() {
-		return *m_stream;
+	//! \return our actual data for manipulation
+	string_type& data() {
+		return m_data;
 	}
 };
 
 
-/** \brief an implementation of memory input objects using pointers to the actual stream.
-  * This default implementation should be suitable for many applications as the stream type
-  * can be set to become a reference or pointer as required.
+/** \brief an implementation of memory input objects using a reference to the actual stream.
+  * This should be suitable for adding objects to the database as streams cannot be copy-constructed.
   * \ingroup ODBObject
   */
-template <class ObjectTraits, class StreamBaseType = std::istream&>
+template <class ObjectTraits, class StreamBaseType = std::basic_istream<typename ObjectTraits::char_type> >
 class odb_mem_input_object : public odb_input_object<ObjectTraits, StreamBaseType>
 {
 public:
@@ -85,14 +88,14 @@ public:
 	typedef StreamBaseType stream_type;
 	
 protected:
-	object_type m_type;
-	size_type m_size;
-	stream_type m_stream;
+	const object_type m_type;
+	const size_type m_size;
+	stream_type& m_stream;
 	const key_pointer_type m_key;
 	
 public:
 	odb_mem_input_object(object_type type, size_type size, 
-						 typename std::add_rvalue_reference<stream_type>::type stream,
+						 stream_type& stream,
 						 const key_pointer_type key_pointer=0)
 		: m_type(type)
 		, m_size(size)
@@ -108,7 +111,7 @@ public:
 		return m_size;
 	}
 	
-	stream_type stream() {
+	stream_type& stream() {
 		return m_stream;
 	}
 	
@@ -223,7 +226,7 @@ public:
 	typedef mem_input_iterator<traits_type>						input_iterator;
 	typedef mem_forward_iterator<traits_type>					forward_iterator;
 	typedef odb_mem_output_object<traits_type>					output_object_type;
-	typedef odb_mem_input_object<traits_type, std::istream&>	input_object_ref;
+	typedef odb_mem_input_object<traits_type>					input_object_ref;
 	
 private:
 	map_type m_objs;
@@ -258,32 +261,30 @@ template <class ObjectTraits>
 template <class InputObject>
 typename odb_mem<ObjectTraits>::forward_iterator odb_mem<ObjectTraits>::insert(InputObject& iobj) throw(std::exception)
 {
+	static_assert(sizeof(typename ObjectTraits::char_type) == sizeof(typename InputObject::stream_type::char_type), "char types incompatible");
 	output_object_type oobj(iobj.type(), iobj.size());
 	
-	typename traits_type::hash_generator_type hashgen;
 	typename output_object_type::stream_type::char_type buf[parent_type::gCopyChunkSize];
 	typename traits_type::size_type total_bytes_read = 0;
 	auto pkey = iobj.key_pointer();
 	auto& istream = iobj.stream();
-	auto& ostream = oobj.stream();
-	
-	assert(&ostream == &oobj.stream());
+	auto& ostring = oobj.data();
+	ostring.reserve(iobj.size());
 	
 	for (std::streamsize bytes_read = parent_type::gCopyChunkSize; bytes_read == parent_type::gCopyChunkSize; total_bytes_read += bytes_read) {
 		istream.read(buf, parent_type::gCopyChunkSize);
 		bytes_read = istream.gcount();
-		ostream.write(buf, bytes_read);
-		
-		if (pkey == 0) {
-			hashgen.update(reinterpret_cast<typename traits_type::hash_generator_type::char_type*>(&buf[0]), bytes_read);
-		}// generate key if it does not yet exist
+		ostring.append(buf, bytes_read);
 	}// for each chunk to copy
+	
 	
 	if (pkey) {
 		return forward_iterator(m_objs.insert(typename map_type::value_type(*pkey, oobj)).first);
 	} else {
+		typename traits_type::hash_generator_type hashgen;
+		hashgen.update(ostring.data(), ostring.size());
 		return forward_iterator(m_objs.insert(typename map_type::value_type(hashgen.hash(), oobj)).first);
-	}
+	}// handle key exists
 }
 
 GTL_NAMESPACE_END

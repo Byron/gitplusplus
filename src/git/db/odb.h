@@ -26,9 +26,11 @@ struct git_object_traits
 
 	//! Hash generator to produce keys.
 	typedef SHA1Generator hash_generator_type;	
-	
 	//! Using SHA1 as key
 	typedef SHA1 key_type;
+	
+	//! use unsigned bytes as general storage
+	typedef uchar char_type;
 };
 
 
