@@ -9,6 +9,7 @@
 #include <type_traits>
 #include <boost/iostreams/constants.hpp>
 #include <vector>
+#include <sstream>
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
@@ -22,6 +23,31 @@ class odb_error : std::exception
 	virtual const char* what() const throw() {
 		return "general object database error";
 	}
+};
+
+/** \brief thrown if there is no corresponding object in the database
+  * \tparam HashType hash compatible type
+  */
+template <class HashType>
+class odb_hash_error : public odb_error
+{
+	protected:
+		std::string _info;
+	
+	public:
+		odb_hash_error(const HashType& hash) {
+			std::stringstream s;
+			s << "object " << hash << " does not exist in database";
+			_info = s.str();
+		}
+		
+		//! definition required to simulate no-throw, which seems to be failing
+		//! due to our class member
+		virtual ~odb_hash_error() noexcept {}
+		
+		virtual const char* what() const throw() {
+			return _info.c_str();
+		}
 };
 
 
@@ -44,6 +70,8 @@ public:
 	typedef const odb_accessor<traits_type>						accessor;
 	typedef odb_forward_iterator<traits_type>					forward_iterator;
 	
+	typedef odb_hash_error<key_type>							hash_error_type;
+	
 public:
 	static const std::streamsize gCopyChunkSize;
 	
@@ -52,7 +80,7 @@ protected:
 	
 	//! Slow counting of members by iteration. Use your own implementation if it makes sense
 	template <class Iterator>
-	size_t _count(Iterator& start, Iterator& end) const 
+	size_t _count(Iterator& start, Iterator& end) const noexcept 
 	{
 		size_t out = 0;
 		for (; start != end; ++start, ++out);
@@ -63,15 +91,21 @@ protected:
 	
 public:
 	//! \return iterator pointing to the first item in the database
-	forward_iterator begin() const throw();
+	forward_iterator begin() const noexcept;
 	
 	//! \return iterator pointing to the end of the database, which is one past the last item
-	const forward_iterator end() const throw();
+	const forward_iterator end() const noexcept;
 	
-	//! \return iterator pointing to the object at the given key, or an iterator pointing to the end
-	//! of the database. Dereferencing the iterator yields access to an output object, which remains valid
+	//! \return accessor pointing to the object at the given key,
+	//! Dereferencing the accessor yields access to an output object, which remains valid
 	//! only as long as the iterator exists.
-	accessor find(typename std::add_rvalue_reference<const key_type>::type k) const throw();
+	//! \throw hash_error_type
+	accessor object(const key_type& k);
+	
+	//! \return true if the object associated with the given key is in this object database
+	//! \note although this could internally just catch object(), it should be implemented for maximum 
+	//! performance, which is not exactly the case if exceptions cause the stack to be unwound.
+	bool has_object(const key_type k) const noexcept;
 	
 	//! Insert a new item into the database
 	//! \param type identifying the object
@@ -87,7 +121,7 @@ public:
 	
 	//! \return number of objects within the database.
 	//! \note this might involve iterating all objects, which is costly
-	size_t count() const;
+	size_t count() const noexcept;
 };
 
 

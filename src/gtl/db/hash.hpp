@@ -13,9 +13,9 @@
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
 
-struct InvalidInputFormat : public std::exception 
+struct bad_hex_string : public std::exception 
 {
-	virtual const char* what() const throw() {
+	virtual const char* what() const noexcept {
 		return "Invalid string format to create hash from";
 	}
 };
@@ -44,10 +44,10 @@ class basic_hash
 		
 	private:
 		// Can't delegate constructors :(
-		inline void init_from_hex(const char_type* data, size_t len) throw(InvalidInputFormat)
+		inline void init_from_hex(const char_type* data, size_t len)
 		{
 			if (len != HashLen*2) {
-				throw InvalidInputFormat();
+				throw bad_hex_string();
 			}
 			typedef hex_char<char_type> _hex_char;
 			
@@ -72,12 +72,14 @@ class basic_hash
 		}
 		
 		//! Initialize a hash from its hexadecimal representation
-		explicit basic_hash(const char_type* data, size_t len) throw(InvalidInputFormat) {
+		//! \throw bad_hex_string
+		explicit basic_hash(const char_type* data, size_t len) {
 			init_from_hex(data, len);
 		}
 		
 		//! Initialize a hash from a string
-		explicit basic_hash(const std::string& data) throw(InvalidInputFormat) {
+		//! \throw bad_hex_string
+		explicit basic_hash(const std::string& data) {
 			init_from_hex(reinterpret_cast<const char_type*>(data.c_str()), data.size());
 		}
 

@@ -52,12 +52,14 @@ public:
 	//! Update the hash value
 	//! \param pdata location to read characters from
 	//! \param dlen number of characters to read
-	void update(const char_type* pdata, size_type dlen) throw(bad_state);
+	//! \throw bad_state
+	void update(const char_type* pdata, size_type dlen);
 	
 	//! Finalize hash, called automatically before using digest() method the first time
 	//! The user may, but is not required to make this call automatically.
 	//! Must only be called once after a reset(),
-	void finalize() throw(bad_state);
+	//! \throw bad_state
+	void finalize();
 	
 	//! \return digest buffer which is the generated hash
 	const char_type* digest() throw();

@@ -24,7 +24,7 @@ GIT_NAMESPACE_BEGIN
 class BadSHA1GenState : public gtl::bad_state
 {
 public:
-	virtual const char* what() const throw(){
+	virtual const char* what() const noexcept {
 		return "Cannot update generator once hash() or digest() was called";
 	}
 };
@@ -53,20 +53,22 @@ class SHA1Generator : public gtl::hash_generator<SHA1, uchar, uint32>
 
 		//! Prepare generator for new sha
 		//! \note will return 0-sha if update was not yet called
-		void reset() throw();
+		void reset() noexcept;
 
 		//! Update the hash value
 		//! \param pbData location to read bytes from
 		//! \param uLen number of bytes to read
-		void update(const uchar* pbData, uint32 uLen) throw(gtl::bad_state);
+		//! \throw gtl::bad_state
+		void update(const uchar* pbData, uint32 uLen);
 		
 		//! Finalize hash, called before using digest() method the first time
 		//! The user may, but is not required to make this call automatically.
 		//! Once it is called, it will have no effect anymore.
-		void finalize() throw(gtl::bad_state);
+		//! \throw gtl::bad_state
+		void finalize();
 
 		//! \return 20 byte digest buffer
-		inline const uchar* digest() throw() {
+		inline const uchar* digest() noexcept {
 			if (m_update_called & (!m_finalized)){
 				finalize();
 				assert(m_finalized);
@@ -77,11 +79,11 @@ class SHA1Generator : public gtl::hash_generator<SHA1, uchar, uint32>
 		//! \return the hash produced so far as SHA1 instance
 		//! \param sha1 destination of the 20 byte hash
 		//! \note if called once, you need to call reset to use the instance again
-		void hash(SHA1& sha1) throw() {
+		void hash(SHA1& sha1) noexcept {
 			sha1 = digest();
 		}
 		
-		inline hash_type hash() throw() {
+		inline hash_type hash() noexcept {
 			return SHA1(digest());
 		}
 

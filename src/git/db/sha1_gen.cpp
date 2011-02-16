@@ -38,7 +38,7 @@ SHA1Generator::SHA1Generator()
 	reset();
 }
 
-void SHA1Generator::reset() throw()
+void SHA1Generator::reset() noexcept
 {
 	m_finalized = 0;
 	m_update_called = 0;
@@ -92,7 +92,7 @@ void SHA1Generator::transform(const uchar* pBuffer)
 }
 
 // Use this function to hash in binary data and strings
-void SHA1Generator::update(const uchar* pbData, uint32 uLen) throw(gtl::bad_state)
+void SHA1Generator::update(const uchar* pbData, uint32 uLen)
 {
 	if (m_finalized){
 		throw BadSHA1GenState();
@@ -125,7 +125,7 @@ void SHA1Generator::update(const uchar* pbData, uint32 uLen) throw(gtl::bad_stat
 	}
 }
 
-void SHA1Generator::finalize() throw(gtl::bad_state)
+void SHA1Generator::finalize()
 {
 	if (m_finalized){
 		throw BadSHA1GenState();

@@ -22,11 +22,11 @@ public:
 	static const size_t gGap;
 	
 public:
-	vmem_allocator() throw() { }
-	vmem_allocator(const vmem_allocator& rhs) throw()
+	vmem_allocator() noexcept { }
+	vmem_allocator(const vmem_allocator& rhs) noexcept
 		: std::allocator<T>(rhs) { }
-	template<class T1,size_t gap1> vmem_allocator(const vmem_allocator<T1, gap1>&) throw() { }
-	~vmem_allocator() throw() { }
+	template<class T1,size_t gap1> vmem_allocator(const vmem_allocator<T1, gap1>&) noexcept { }
+	~vmem_allocator() noexcept { }
 };
 
 template <class T, size_t gap>

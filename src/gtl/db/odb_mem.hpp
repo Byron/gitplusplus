@@ -4,15 +4,19 @@
 #include <gtl/config.h>
 #include <gtl/db/odb.hpp>
 #include <gtl/db/odb_object.hpp>
-#include <sstream>
+
 #include <boost/type_traits/add_pointer.hpp>
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <boost/iostreams/device/array.hpp>
+
+#include <sstream>
 #include <type_traits>
 #include <vector>
 #include <map>
 #include <assert.h>
+#include <utility>
+#include <memory>
 #include <iostream>	// debug
 
 GTL_HEADER_BEGIN
@@ -44,16 +48,8 @@ public:
 	{
 	}
 	
-	//! Copy constructor, required to be suitable for use in pairs
-	odb_mem_output_object(const odb_mem_output_object& rhs)
-		: m_type(rhs.m_type)
-		, m_size(rhs.m_size)
-		, m_data(rhs.m_data)
-	{
-		std::cerr << this << " OUTPUT OBJECT COPY CONSTRUCTED" << std::endl;
-	}
-	
-	//! Move constructor allows for more efficient copying in some cases
+	//! Move constructor allows us to insert temporary objects into our map with only minimal overhead
+	//! especially in case of our data.
 	odb_mem_output_object(odb_mem_output_object&& rhs) = default;
 			
 	
@@ -166,8 +162,7 @@ public:
 	}
 	
 	//! \return key instance which identifyies our object within this map
-	inline typename std::add_lvalue_reference<const typename map_type::value_type::first_type>::type
-			key() const {
+	inline const typename map_type::value_type::first_type& key() const {
 		return m_iter->first;
 	}
 	
@@ -219,6 +214,8 @@ public:
 	typedef typename mem_accessor<traits_type>::map_type		map_type;
 	typedef mem_accessor<traits_type>							accessor;
 	typedef mem_forward_iterator<traits_type>					forward_iterator;
+	
+	typedef odb_hash_error<key_type>							hash_error_type;
 	typedef odb_mem_output_object<traits_type>					output_object_type;
 	typedef odb_mem_input_object<traits_type>					input_object_ref;
 	
@@ -227,16 +224,27 @@ private:
 	
 public:
 	
-	accessor find(const typename std::add_rvalue_reference<const key_type>::type k) const throw() {
-		return accessor(m_objs.find(k));
+	
+	
+	bool has_object(const key_type k) const noexcept{
+		return m_objs.find(k) != m_objs.end();
 	}
-	forward_iterator begin() const {
+	
+	accessor object(const key_type k) const{
+		typename map_type::const_iterator it(m_objs.find(k));
+		if (it == m_objs.end()) {
+			throw hash_error_type(k);
+		}
+		return accessor(it);
+	}
+	
+	forward_iterator begin() const noexcept {
 		return forward_iterator(m_objs.begin());
 	}
-	forward_iterator end() const {
+	forward_iterator end() const noexcept {
 		return forward_iterator(m_objs.end());
 	}
-	size_t count() const {
+	size_t count() const noexcept {
 		return m_objs.size();
 	}
 	
@@ -245,7 +253,7 @@ public:
 	//! as well as the actual stream which contains the data to be copied into the memory database.
 	//! \tparam InputObject type providing a type id, a size and the stream to read the object from.
 	template <class InputObject>
-	forward_iterator insert(InputObject& object) throw(std::exception);
+	forward_iterator insert(InputObject& object);
 	
 	//! insert the copy's of the contents of the given input iterators into this object database
 	//! The inserted items can be queried using the keys from the input iterators
@@ -261,7 +269,7 @@ public:
 
 template <class ObjectTraits>
 template <class InputObject>
-typename odb_mem<ObjectTraits>::forward_iterator odb_mem<ObjectTraits>::insert(InputObject& iobj) throw(std::exception)
+typename odb_mem<ObjectTraits>::forward_iterator odb_mem<ObjectTraits>::insert(InputObject& iobj)
 {
 	static_assert(sizeof(typename ObjectTraits::char_type) == sizeof(typename InputObject::stream_type::char_type), "char types incompatible");
 	output_object_type oobj(iobj.type(), iobj.size());
@@ -281,11 +289,11 @@ typename odb_mem<ObjectTraits>::forward_iterator odb_mem<ObjectTraits>::insert(I
 	
 	
 	if (pkey) {
-		return forward_iterator(m_objs.insert(typename map_type::value_type(*pkey, oobj)).first);
+		return forward_iterator(m_objs.insert(typename map_type::value_type(*pkey, std::move(oobj))).first);
 	} else {
 		typename traits_type::hash_generator_type hashgen;
 		hashgen.update(odata.data(), odata.size());
-		return forward_iterator(m_objs.insert(typename map_type::value_type(hashgen.hash(), oobj)).first);
+		return forward_iterator(m_objs.insert(typename map_type::value_type(hashgen.hash(), std::move(oobj))).first);
 	}// handle key exists
 }
 
