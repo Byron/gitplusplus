@@ -131,14 +131,14 @@ public:
   * \ingroup ODBIter
   */
 template <class ObjectTraits>
-class mem_input_iterator : public odb_input_iterator<ObjectTraits>
+class mem_accessor : public odb_accessor<ObjectTraits>
 {
 public:
 	typedef ObjectTraits traits_type;
 	typedef typename traits_type::key_type key_type;
 	typedef typename traits_type::size_type size_type;
 	typedef std::map<key_type, odb_mem_output_object<traits_type> > map_type;
-	typedef mem_input_iterator<traits_type> this_type;
+	typedef mem_accessor<traits_type> this_type;
 	typedef typename map_type::value_type value_type;
 
 protected:
@@ -147,7 +147,7 @@ protected:
 public:
 	//! initialize the iterator from the underlying mapping type's iterator
 	template <class Iterator>
-	mem_input_iterator(const Iterator& it) : m_iter(it) {}
+	mem_accessor(const Iterator& it) : m_iter(it) {}
 	
 	//! Equality comparison of compatible iterators
 	inline bool operator==(const this_type& rhs) const {
@@ -185,15 +185,15 @@ public:
 /** \ingroup ODBIter
   */
 template <class ObjectTraits>
-class mem_forward_iterator : public mem_input_iterator<ObjectTraits>
+class mem_forward_iterator : public mem_accessor<ObjectTraits>
 {
 public:
-	typedef mem_input_iterator<ObjectTraits> parent_type;
+	typedef mem_accessor<ObjectTraits> parent_type;
 
 	
 	template <class Iterator>
 	mem_forward_iterator(const Iterator& it)
-		: mem_input_iterator<ObjectTraits>(it) {}
+		: mem_accessor<ObjectTraits>(it) {}
 	
 	mem_forward_iterator& operator++() {
 		++(this->m_iter); return *this;
@@ -216,9 +216,8 @@ public:
 	typedef ObjectTraits										traits_type;
 	typedef odb_base<traits_type>								parent_type;
 	typedef typename traits_type::key_type						key_type;
-	typedef typename mem_input_iterator<traits_type>::map_type	map_type;
-	typedef const mem_input_iterator<traits_type>				const_input_iterator;
-	typedef mem_input_iterator<traits_type>						input_iterator;
+	typedef typename mem_accessor<traits_type>::map_type		map_type;
+	typedef mem_accessor<traits_type>							accessor;
 	typedef mem_forward_iterator<traits_type>					forward_iterator;
 	typedef odb_mem_output_object<traits_type>					output_object_type;
 	typedef odb_mem_input_object<traits_type>					input_object_ref;
@@ -228,8 +227,8 @@ private:
 	
 public:
 	
-	const_input_iterator find(const typename std::add_rvalue_reference<const key_type>::type k) const throw() {
-		return input_iterator(m_objs.find(k));
+	accessor find(const typename std::add_rvalue_reference<const key_type>::type k) const throw() {
+		return accessor(m_objs.find(k));
 	}
 	forward_iterator begin() const {
 		return forward_iterator(m_objs.begin());

@@ -8,24 +8,24 @@ GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
 	
 /** \ingroup ODBIter
-  * \brief input iterator allowing read-only access to the underlying object.
-  * It is considered to be nothing more than a pointer to a specific stream, the iterator
-  * should not contain any additional information, it cannot be moved
+  * \brief pointer allowing read-only access to the underlying object.
+  * It is considered to be nothing more than a pointer to a specific object, the iterator
+  * should not contain any additional information, it cannot be moved.
   */
 template <class ObjectTraits>
-class odb_input_iterator : public std::iterator<typename std::input_iterator_tag, ObjectTraits>
+class odb_accessor : public std::iterator<typename std::input_iterator_tag, ObjectTraits>
 {
 protected:
-	odb_input_iterator(){}
-	~odb_input_iterator(){}
+	odb_accessor(){}
+	~odb_accessor(){}
 	
 public:
 	typedef ObjectTraits traits_type;
 	typedef typename traits_type::key_type key_type;
 	
 public:
-	bool operator==(const odb_input_iterator<ObjectTraits>& rhs) const;
-	bool operator!=(const odb_input_iterator<ObjectTraits>& rhs) const;
+	bool operator==(const odb_accessor<ObjectTraits>& rhs) const;
+	bool operator!=(const odb_accessor<ObjectTraits>& rhs) const;
 	template <typename OtherIterator>
 	bool operator==(const OtherIterator&){ return false; }
 	template <typename OtherIterator>
@@ -54,14 +54,14 @@ public:
   * \brief input iterator which can iterate in one direction.
   * The iteration is unordered, which is why it can only be equality compared against the end
   * iterator.
-  * Dereferencing the iterator yields a pair whose first item in the key, the second is the actual
-  * item in the iteration.
+  * Derefencing the iterator yields the object itself (or a reference to it). The key() method
+  * provides the current key identifying the object.
   */
 template <class ObjectTraits>
-class odb_forward_iterator : public odb_input_iterator<ObjectTraits>
+class odb_forward_iterator : public odb_accessor<ObjectTraits>
 {
 public:
-	typedef odb_input_iterator<ObjectTraits> parent_type;
+	typedef odb_accessor<ObjectTraits> parent_type;
 	odb_forward_iterator& operator++();		// prefix
 	odb_forward_iterator operator++(int);	// postfix
 	

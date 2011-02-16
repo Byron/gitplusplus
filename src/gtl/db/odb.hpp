@@ -41,8 +41,7 @@ class odb_base
 public:
 	typedef ObjectTraits										traits_type;
 	typedef typename traits_type::key_type						key_type;
-	typedef const odb_input_iterator<traits_type>				const_input_iterator;
-	typedef odb_input_iterator<traits_type>						input_iterator;
+	typedef const odb_accessor<traits_type>						accessor;
 	typedef odb_forward_iterator<traits_type>					forward_iterator;
 	
 public:
@@ -72,7 +71,7 @@ public:
 	//! \return iterator pointing to the object at the given key, or an iterator pointing to the end
 	//! of the database. Dereferencing the iterator yields access to an output object, which remains valid
 	//! only as long as the iterator exists.
-	const_input_iterator find(typename std::add_rvalue_reference<const key_type>::type k) const throw();
+	accessor find(typename std::add_rvalue_reference<const key_type>::type k) const throw();
 	
 	//! Insert a new item into the database
 	//! \param type identifying the object
