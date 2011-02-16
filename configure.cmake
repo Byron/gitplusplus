@@ -22,7 +22,7 @@ endif(NOT Boost_FOUND)
 
 # setup compiler
 if(UNIX)
-	set(CMAKE_CXX_FLAGS -std=c++0x)
+	set(CMAKE_CXX_FLAGS "-Wall -std=c++0x")
 endif(UNIX)
 
 

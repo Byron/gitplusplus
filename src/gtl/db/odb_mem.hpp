@@ -10,6 +10,7 @@
 #include <boost/iostreams/stream.hpp>
 #include <boost/iostreams/device/array.hpp>
 #include <type_traits>
+#include <vector>
 #include <map>
 #include <assert.h>
 #include <iostream>	// debug
@@ -28,24 +29,25 @@ class odb_mem_output_object : public odb_output_object<ObjectTraits, StreamType>
 public:
 	typedef StreamType											stream_type;
 	typedef ObjectTraits										traits_type;
-	typedef std::basic_string<typename stream_type::char_type>	string_type;
+	typedef std::vector<typename stream_type::char_type>		data_type;
 	
 private:
 	typename traits_type::object_type						m_type;		//! object type
 	typename traits_type::size_type							m_size;		//! uncompressed size
-	string_type												m_data;		//! actually stored data
+	data_type												m_data;		//! actually stored data
 	
 public:
 	odb_mem_output_object(typename traits_type::object_type type, typename traits_type::size_type size)
-		: m_size(size)
-		, m_type(type)
+		: m_type(type)
+		, m_size(size)
+		
 	{
 	}
 	
 	//! Copy constructor, required to be suitable for use in pairs
 	odb_mem_output_object(const odb_mem_output_object& rhs)
-		: m_size(rhs.m_size)
-		, m_type(rhs.m_type)
+		: m_type(rhs.m_type)
+		, m_size(rhs.m_size)
 		, m_data(rhs.m_data)
 	{
 		std::cerr << this << " OUTPUT OBJECT COPY CONSTRUCTED" << std::endl;
@@ -69,7 +71,7 @@ public:
 	}
 	
 	//! \return our actual data for manipulation
-	string_type& data() {
+	data_type& data() {
 		return m_data;
 	}
 };
@@ -157,13 +159,6 @@ public:
 		return m_iter != rhs.m_iter;
 	}
 	
-	//! \return non-const output object
-	//inline typename std::add_rvalue_reference<typename map_type::value_type::second_type>::type 
-	/*inline typename map_type::value_type::second_type&
-		operator*() {
-		return m_iter->second;
-	}*/
-
 	//! \return constant output object
 	inline typename std::add_lvalue_reference<const typename map_type::value_type::second_type>::type 
 		operator*() const {
@@ -178,12 +173,12 @@ public:
 	
 	//! \return uncompressed size of the object in bytes
 	inline size_type size() const {
-		m_iter->second.size();
+		return m_iter->second.size();
 	}
 	
 	//! \return type of object stored in the stream
 	inline typename traits_type::object_type type() const {
-		m_iter->second.type();
+		return m_iter->second.type();
 	}
 };
 
@@ -268,13 +263,13 @@ typename odb_mem<ObjectTraits>::forward_iterator odb_mem<ObjectTraits>::insert(I
 	typename traits_type::size_type total_bytes_read = 0;
 	auto pkey = iobj.key_pointer();
 	auto& istream = iobj.stream();
-	auto& ostring = oobj.data();
-	ostring.reserve(iobj.size());
+	auto& odata = oobj.data();
+	odata.reserve(iobj.size());
 	
 	for (std::streamsize bytes_read = parent_type::gCopyChunkSize; bytes_read == parent_type::gCopyChunkSize; total_bytes_read += bytes_read) {
 		istream.read(buf, parent_type::gCopyChunkSize);
 		bytes_read = istream.gcount();
-		ostring.append(buf, bytes_read);
+		odata.insert(odata.end(), buf, buf+bytes_read);
 	}// for each chunk to copy
 	
 	
@@ -282,7 +277,7 @@ typename odb_mem<ObjectTraits>::forward_iterator odb_mem<ObjectTraits>::insert(I
 		return forward_iterator(m_objs.insert(typename map_type::value_type(*pkey, oobj)).first);
 	} else {
 		typename traits_type::hash_generator_type hashgen;
-		hashgen.update(ostring.data(), ostring.size());
+		hashgen.update(odata.data(), odata.size());
 		return forward_iterator(m_objs.insert(typename map_type::value_type(hashgen.hash(), oobj)).first);
 	}// handle key exists
 }

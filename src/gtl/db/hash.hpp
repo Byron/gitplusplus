@@ -133,9 +133,6 @@ GTL_NAMESPACE_END
 template <size_t HashLen, class CharType>
 std::ostream& operator << (std::ostream& out, const gtl::basic_hash<HashLen, CharType>& rhs)
 {
-	static const char map[] = {'0', '1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
-	const char  rpart = 0x0F;
-	
 	// Only blocks at maxStrl bytes
 	for(uint32 i = 0; i < HashLen; ++i) {
 		auto hc(gtl::tohex(rhs[i]));

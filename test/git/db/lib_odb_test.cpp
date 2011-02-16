@@ -14,6 +14,7 @@
 #include <sstream>
 #include <stdio.h>
 #include <string>
+#include <cstring>
 
 using namespace std;
 using namespace git;
@@ -112,7 +113,14 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	// stream verification
 	MemoryODB::output_object_type::stream_type ostream;
 	ostream.~stream();
-	MemoryODB::output_object_type myobj((*it));
+	
+	(*it).stream(&ostream);
+	uchar buf[lenphello];
+	ostream.read(buf, lenphello);
+	
+	BOOST_REQUIRE((size_t)ostream.gcount() == lenphello);
+	BOOST_REQUIRE(ostream.gcount() == ostream.tellg());
+	BOOST_CHECK(std::memcmp(buf, phello, lenphello)==0);
 	
 	// Access the item using the key
 	
