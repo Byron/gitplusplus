@@ -48,8 +48,8 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	sgen.update(phello, lenphello);
 	sgen.hash(s);
 	BOOST_CHECK(SHA1(sgen.digest())==s);	// duplicate call
-	BOOST_CHECK_THROW(sgen.finalize(), InvalidGeneratorState);
-	BOOST_CHECK_THROW(sgen.update((uchar*)"hi", 2), InvalidGeneratorState);
+	BOOST_CHECK_THROW(sgen.finalize(), gtl::bad_state);
+	BOOST_CHECK_THROW(sgen.update((uchar*)"hi", 2), gtl::bad_state);
 	
 	
 	buf << s;
@@ -102,26 +102,33 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	BOOST_CHECK(object.size() == lenphello);
 	BOOST_CHECK(object.type() == Object::Type::Blob);
 	BOOST_CHECK(object.key_pointer() == 0);
-	
+
+	BOOST_REQUIRE(modb.count() == 0);	
 	auto it = modb.insert(object);
 	BOOST_REQUIRE(it != modb.end());
+	BOOST_REQUIRE(modb.count() == 1);	
 	
 	BOOST_CHECK(it.key() ==  SHA1(hello_hex_sha));
 	BOOST_CHECK(it.type() == Object::Type::Blob);
-	///BOOST_CHECK(it.size() == lenphello);
+	BOOST_CHECK(it.size() == lenphello);
 	
 	// stream verification
-	MemoryODB::output_object_type::stream_type ostream;
-	ostream.~stream();
-	
-	(*it).stream(&ostream);
-	uchar buf[lenphello];
-	ostream.read(buf, lenphello);
-	
-	BOOST_REQUIRE((size_t)ostream.gcount() == lenphello);
-	BOOST_REQUIRE(ostream.gcount() == ostream.tellg());
-	BOOST_CHECK(std::memcmp(buf, phello, lenphello)==0);
+	{
+		MemoryODB::output_object_type::stream_type ostream;
+		ostream.~stream();
+		
+		(*it).stream(&ostream);
+		uchar buf[lenphello];
+		ostream.read(buf, lenphello);
+		
+		BOOST_REQUIRE((size_t)ostream.gcount() == lenphello);
+		BOOST_REQUIRE(ostream.gcount() == ostream.tellg());
+		BOOST_CHECK(std::memcmp(buf, phello, lenphello)==0);
+	}
 	
 	// Access the item using the key
+	// MemoryODB::input_iterator 
+			
+	// test adapter
 	
 }

@@ -7,12 +7,27 @@
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
 
+
+/** \brief basic error for all hash related issues.
+  * \ingroup ODBException
+  */
+class hash_generator_error: public std::exception
+{
+	virtual const char* what() const throw() {
+		return "general generator error";
+	}
+};
+
 /** Exception specifying the generator is in an invalid state. Usually this happens
   * if you continue feeding it, after it finalized the hash already. Or of some methods
   * are called several times.
+  * \ingroup ODBException
   */
-class InvalidGeneratorState : public std::exception
+class bad_state : public hash_generator_error
 {
+	virtual const char* what() const throw() {
+		return "invalid call order would have caused an invalid state";
+	}
 };
 
 /** \brief a type which generates hashes from character streams
@@ -37,12 +52,12 @@ public:
 	//! Update the hash value
 	//! \param pdata location to read characters from
 	//! \param dlen number of characters to read
-	void update(const char_type* pdata, size_type dlen) throw(InvalidGeneratorState);
+	void update(const char_type* pdata, size_type dlen) throw(bad_state);
 	
 	//! Finalize hash, called automatically before using digest() method the first time
 	//! The user may, but is not required to make this call automatically.
 	//! Must only be called once after a reset(),
-	void finalize() throw(InvalidGeneratorState);
+	void finalize() throw(bad_state);
 	
 	//! \return digest buffer which is the generated hash
 	const char_type* digest() throw();

@@ -228,16 +228,20 @@ private:
 	
 public:
 	
-	const_input_iterator find(const typename std::add_rvalue_reference<const key_type>::type k) const{
+	const_input_iterator find(const typename std::add_rvalue_reference<const key_type>::type k) const throw() {
 		return input_iterator(m_objs.find(k));
+	}
+	forward_iterator begin() const {
+		return forward_iterator(m_objs.begin());
 	}
 	forward_iterator end() const {
 		return forward_iterator(m_objs.end());
 	}
 	
 	//! Copy the contents of the given input stream into an output stream
-	//! The istream is a structure keeping information about the possibly existing Key, the type
+	//! The input object is a structure keeping information about the possibly existing Key, the type
 	//! as well as the actual stream which contains the data to be copied into the memory database.
+	//! \tparam InputObject type providing a type id, a size and the stream to read the object from.
 	template <class InputObject>
 	forward_iterator insert(InputObject& object) throw(std::exception);
 	

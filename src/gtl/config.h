@@ -23,6 +23,10 @@
   * Classes implementing different allocators for objects
   */
 
+/** \defgroup ODBException Object Database Exceptions
+  * Classes representing various error states in and around an object database
+  */
+
 
 #define GTL_HEADER_BEGIN
 #define GTL_HEADER_END

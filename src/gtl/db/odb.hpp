@@ -5,6 +5,7 @@
 #include <gtl/db/odb_alloc.hpp>
 #include <gtl/db/odb_iter.hpp>
 
+#include <exception>
 #include <type_traits>
 #include <boost/iostreams/constants.hpp>
 
@@ -12,7 +13,17 @@ GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
 
 
-	
+/** \brief basic exception for all object database related issues
+  * \ingroup ODBException
+  */
+class odb_error : std::exception
+{
+	virtual const char* what() const throw() {
+		return "general object database error";
+	}
+};
+
+
 /** \brief Class providing a basic interface for all derived object database implementations
   * \ingroup ODB
   * An object database behaves much like a map, which uses keys to refer to object streams.
@@ -27,11 +38,11 @@ template <class ObjectTraits>
 class odb_base
 {
 public:
-	typedef ObjectTraits traits_type;
-	
-	typedef const odb_input_iterator<traits_type> const_input_iterator;
-	typedef odb_input_iterator<traits_type> input_iterator;
-	typedef odb_forward_iterator<traits_type> forward_iterator;
+	typedef ObjectTraits										traits_type;
+	typedef typename traits_type::key_type						key_type;
+	typedef const odb_input_iterator<traits_type>				const_input_iterator;
+	typedef odb_input_iterator<traits_type>						input_iterator;
+	typedef odb_forward_iterator<traits_type>					forward_iterator;
 	
 public:
 	static const std::streamsize gCopyChunkSize;
@@ -39,12 +50,14 @@ public:
 public:
 	//! \return iterator pointing to the first item in the database
 	forward_iterator begin() const throw();
+	
 	//! \return iterator pointing to the end of the database, which is one past the last item
 	const forward_iterator end() const throw();
+	
 	//! \return iterator pointing to the object at the given key, or an iterator pointing to the end
 	//! of the database. Dereferencing the iterator yields access to an output object, which remains valid
 	//! only as long as the iterator exists.
-	const_input_iterator find(typename std::add_rvalue_reference<const typename traits_type::key_type>::type const k) const throw();
+	const_input_iterator find(typename std::add_rvalue_reference<const key_type>::type k) const throw();
 	
 	//! Insert a new item into the database
 	//! \param type identifying the object
@@ -57,6 +70,16 @@ public:
 	
 	//! Same as above, but will produce the required serialized version of object automatically
 	forward_iterator insert(typename traits_type::input_reference_type object);
+	
+	//! \return number of objects within the database.
+	//! \note this might involve iterating all objects, which is costly
+	size_t count() const ;
+	{
+		const auto eit(end());
+		size_t out = 0;
+		for (auto i = begin(); i != eit; ++i, ++out);
+		return out;
+	}
 };
 
 

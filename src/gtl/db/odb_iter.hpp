@@ -60,9 +60,10 @@ public:
 template <class ObjectTraits>
 class odb_forward_iterator : public odb_input_iterator<ObjectTraits>
 {
+public:
 	typedef odb_input_iterator<ObjectTraits> parent_type;
 	odb_forward_iterator& operator++();		// prefix
-	odb_forward_iterator operator++(int);	// pObjectTraitsfix
+	odb_forward_iterator operator++(int);	// postfix
 	
 	//! \return key identifying the current position in the iteration
 	typename parent_type::key_type key() const;

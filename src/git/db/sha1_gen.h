@@ -21,7 +21,7 @@ GIT_NAMESPACE_BEGIN
 #endif
 
 
-class InvalidGeneratorState : public gtl::InvalidGeneratorState
+class BadSHA1GenState : public gtl::bad_state
 {
 public:
 	virtual const char* what() const throw(){
@@ -58,12 +58,12 @@ class SHA1Generator : public gtl::hash_generator<SHA1, uchar, uint32>
 		//! Update the hash value
 		//! \param pbData location to read bytes from
 		//! \param uLen number of bytes to read
-		void update(const uchar* pbData, uint32 uLen) throw(InvalidGeneratorState);
+		void update(const uchar* pbData, uint32 uLen) throw(gtl::bad_state);
 		
 		//! Finalize hash, called before using digest() method the first time
 		//! The user may, but is not required to make this call automatically.
 		//! Once it is called, it will have no effect anymore.
-		void finalize() throw(InvalidGeneratorState);
+		void finalize() throw(gtl::bad_state);
 
 		//! \return 20 byte digest buffer
 		inline const uchar* digest() throw() {
