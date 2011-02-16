@@ -43,4 +43,4 @@ BOOST_AUTO_TEST_CASE(heap_performance)
 {
 	test_heap_allocation(true);
 	test_heap_allocation(false);
-}
+} 

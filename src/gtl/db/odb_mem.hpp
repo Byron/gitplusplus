@@ -50,6 +50,9 @@ public:
 	{
 		std::cerr << this << " OUTPUT OBJECT COPY CONSTRUCTED" << std::endl;
 	}
+	
+	//! Move constructor allows for more efficient copying in some cases
+	odb_mem_output_object(odb_mem_output_object&& rhs) = default;
 			
 	
 	typename traits_type::object_type type() const {
@@ -155,13 +158,14 @@ public:
 	}
 	
 	//! \return non-const output object
-	inline typename std::add_rvalue_reference<typename map_type::value_type::second_type>::type 
+	//inline typename std::add_rvalue_reference<typename map_type::value_type::second_type>::type 
+	/*inline typename map_type::value_type::second_type&
 		operator*() {
 		return m_iter->second;
-	}
+	}*/
 
 	//! \return constant output object
-	inline typename std::add_rvalue_reference<const typename map_type::value_type::second_type>::type 
+	inline typename std::add_lvalue_reference<const typename map_type::value_type::second_type>::type 
 		operator*() const {
 		return m_iter->second;
 	}
@@ -201,10 +205,6 @@ public:
 	}
 	mem_forward_iterator operator++(int) {
 		mem_forward_iterator cpy(*this); ++(*this); return cpy;
-	}
-	
-	const typename parent_type::value_type& operator*() const {
-		return *(this->m_iter);
 	}
 };
 

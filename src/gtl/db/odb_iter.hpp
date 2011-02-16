@@ -33,17 +33,17 @@ public:
 	
 	
 	
-	//! \return a new instance of an output stream which allows accessing the data
-	//! \note the implementor is supposed to decuple the stream as much as possible from 
-	//! the iteration
-	//! \note -> semantics not supported intentionally, as querying the stream can be expensive,
+	//! \return a new instance of an output object which allows accessing the data
+	//! \note the implementor is supposed to decuple the output object as much as possible from 
+	//! the iteration, it must remain valid even if the iterator advances.
+	//! \note -> semantics not supported intentionally, as querying the object can be expensive,
 	//! hence the implementor gets the chance to implement the size() and type() methods
 	//! directly inside of the iterator reusing its iteration state.
-	template <class Stream>
-	Stream operator*();
+	template <class OutputObject>
+	OutputObject operator*();
 	
 	//! \return size of the data store in the stream
-	size_t size() const;
+	typename traits_type::size_type size() const;
 	
 	//! \return type id identifying the type of object contained in the stream
 	typename traits_type::object_type type() const;

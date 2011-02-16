@@ -110,9 +110,9 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	///BOOST_CHECK(it.size() == lenphello);
 	
 	// stream verification
-	//MemoryODB::output_object_type::stream_type ostream;
-	// ostream.();
-	
+	MemoryODB::output_object_type::stream_type ostream;
+	ostream.~stream();
+	MemoryODB::output_object_type myobj((*it));
 	
 	// Access the item using the key
 	
