@@ -105,8 +105,9 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	
 	// TODO: Verify its not the end iterator
 	BOOST_CHECK(it.key() ==  SHA1(hello_hex_sha));
-	//BOOST_CHECK(it.type() == Object::Type::Blob);
-	//BOOST_CHECK(it.size() == 1);
+	BOOST_CHECK(it.type() == Object::Type::Blob);
+	BOOST_CHECK(it.size() == lenphello);
 	
+	// Access the item using the key
 	
 }

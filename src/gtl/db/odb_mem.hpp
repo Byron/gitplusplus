@@ -151,13 +151,13 @@ public:
 		return m_iter != rhs.m_iter;
 	}
 	
-	//! \return ostream type
+	//! \return non-const output object
 	inline typename std::add_rvalue_reference<typename map_type::value_type::second_type>::type 
 		operator*() {
 		return m_iter->second;
 	}
 
-	//! \return constant ostream type
+	//! \return constant output object
 	inline typename std::add_rvalue_reference<const typename map_type::value_type::second_type>::type 
 		operator*() const {
 		return m_iter->second;
@@ -171,12 +171,12 @@ public:
 	
 	//! \return uncompressed size of the object in bytes
 	inline size_type size() const {
-		(*this).size();
+		m_iter->second.size();
 	}
 	
 	//! \return type of object stored in the stream
 	inline typename traits_type::object_type type() const {
-		(*this).type();
+		m_iter->second.type();
 	}
 };
 
