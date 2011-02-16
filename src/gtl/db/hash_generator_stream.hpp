@@ -6,7 +6,8 @@
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
 
-/** \note for this type to work properly, one would need the constructor-inheritance feature
+/** \brief Stream which generates a hash from all bytes written or read 
+  * \note for this type to work properly, one would need the constructor-inheritance feature
   * of the upcoming 0x standard, which unfortunately is not yet implemented in gcc
   * \ingroup ODBUtil
   */

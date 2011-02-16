@@ -4,8 +4,8 @@
 #include <stddef.h>
 #include <git/db/sha1.h>
 #include <git/config.h>
-#include <gtl/db/generator_filter.hpp>
-#include <gtl/db/generator.hpp>
+#include <gtl/db/hash_generator_filter.hpp>
+#include <gtl/db/hash_generator.hpp>
 #include <exception>
 #include <assert.h>
 
