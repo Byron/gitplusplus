@@ -237,6 +237,9 @@ public:
 	forward_iterator end() const {
 		return forward_iterator(m_objs.end());
 	}
+	size_t count() const {
+		return m_objs.size();
+	}
 	
 	//! Copy the contents of the given input stream into an output stream
 	//! The input object is a structure keeping information about the possibly existing Key, the type
@@ -252,6 +255,7 @@ public:
 	
 	//! Same as above, but will produce the required serialized version of object automatically
 	forward_iterator insert(typename traits_type::input_reference_type object);
+	
 };
 
 

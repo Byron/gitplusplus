@@ -8,9 +8,9 @@ GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
 	
 /** \ingroup ODBIter
-  * \brief input iterator allowing read-only access to the underlying object stream.
+  * \brief input iterator allowing read-only access to the underlying object.
   * It is considered to be nothing more than a pointer to a specific stream, the iterator
-  * should not contain any additional information.
+  * should not contain any additional information, it cannot be moved
   */
 template <class ObjectTraits>
 class odb_input_iterator : public std::iterator<typename std::input_iterator_tag, ObjectTraits>

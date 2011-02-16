@@ -8,6 +8,7 @@
 #include <exception>
 #include <type_traits>
 #include <boost/iostreams/constants.hpp>
+#include <vector>
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
@@ -46,7 +47,21 @@ public:
 	
 public:
 	static const std::streamsize gCopyChunkSize;
-	 
+	
+protected:
+	//! @{ \name Subclass Utilities
+	
+	//! Slow counting of members by iteration. Use your own implementation if it makes sense
+	template <class Iterator>
+	size_t _count(Iterator& start, Iterator& end) const 
+	{
+		size_t out = 0;
+		for (; start != end; ++start, ++out);
+		return out;
+	}
+	
+	//! @}
+	
 public:
 	//! \return iterator pointing to the first item in the database
 	forward_iterator begin() const throw();
@@ -73,13 +88,7 @@ public:
 	
 	//! \return number of objects within the database.
 	//! \note this might involve iterating all objects, which is costly
-	size_t count() const ;
-	{
-		const auto eit(end());
-		size_t out = 0;
-		for (auto i = begin(); i != eit; ++i, ++out);
-		return out;
-	}
+	size_t count() const;
 };
 
 
