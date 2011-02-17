@@ -41,7 +41,7 @@ private:
 	data_type												m_data;		//! actually stored data
 	
 public:
-	odb_mem_output_object(typename traits_type::object_type type, typename traits_type::size_type size)
+	odb_mem_output_object(typename traits_type::object_type type, typename traits_type::size_type size) noexcept
 		: m_type(type)
 		, m_size(size)
 		
@@ -53,16 +53,16 @@ public:
 	odb_mem_output_object(odb_mem_output_object&& rhs) = default;
 			
 	
-	typename traits_type::object_type type() const {
+	typename traits_type::object_type type() const noexcept {
 		return m_type;
 	}
 	
-	typename traits_type::size_type size() const {
+	typename traits_type::size_type size() const noexcept {
 		return m_size;
 	}
 	
 	//! \return stream wrapper around the data held in this object
-	void stream(stream_type* out_stream) const {
+	void stream(stream_type* out_stream) const noexcept {
 		new (out_stream) stream_type(m_data.data(), m_data.size());
 	}
 
@@ -71,7 +71,7 @@ public:
 	}
 	
 	//! \return our actual data for manipulation
-	data_type& data() {
+	data_type& data() noexcept {
 		return m_data;
 	}
 };

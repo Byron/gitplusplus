@@ -22,7 +22,10 @@ endif(NOT Boost_FOUND)
 
 # setup compiler
 if(UNIX)
-	set(CMAKE_CXX_FLAGS "-Wall -std=c++0x")
+	# show all warnings
+	# use c++0x features
+	# make throw() semantically equivalent to noexcept (std::exception uses throw() for instance)
+	set(CMAKE_CXX_FLAGS "-Wall -std=c++0x -fnothrow-opt")
 endif(UNIX)
 
 

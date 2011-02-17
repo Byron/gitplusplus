@@ -46,14 +46,14 @@ struct odb_object_traits
 	//! \param ostream stream to write serialzed object to.
 	//! \tparam Stream type of writable stream
 	template <class Stream>
-	static void serialize(input_reference_type object, Stream& ostream) throw(std::exception){}
+	static void serialize(input_reference_type object, Stream& ostream){}
 	
 	//! deserialize the data contained in istream to recreate the object it represents
 	//! \param out variable to keep the deserialized object
 	//! \param istream stream to read the serialized object data from
 	//! \tparam Stream type of readable input stream
 	template <class Stream>
-	static void deserialize(output_reference_type out, Stream& istream) throw(std::exception) {}
+	static void deserialize(output_reference_type out, Stream& istream) {}
 	
 	//! @} 
 };
@@ -152,7 +152,7 @@ struct odb_output_object : public odb_basic_object<ObjectTraits>
 	
 	//! construct an object from the deserialized stream and store it in the output reference
 	//! \note uses exceptions to indicate failure (i.e. out of memory, corrupt stream)
-	void deserialize(typename traits_type::output_reference_type out) const throw(std::exception)
+	void deserialize(typename traits_type::output_reference_type out) const
 	{
 		traits_type::deserialize(out, this->stream());
 	}
