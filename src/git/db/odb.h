@@ -50,34 +50,16 @@ struct git_object_traits
 //! \brief define standard git object serialization and deserialization
 //! \ingroup ODBPolicy
 //! \note inheriting base just for docs
-struct git_object_policy : public gtl::odb_object_policy
+struct git_object_policy : public gtl::odb_object_policy<git_object_traits::input_reference_type, 
+														 git_object_traits::output_reference_type>
 {
 	template <class StreamType>
 	void serialize(typename git_object_traits::input_reference_type object, StreamType& ostream);
 	
-	template <class ObjectType>
-	void deserialize(typename git_object_traits::output_reference_type out, const ObjectType& object);
+	
+	template <class ODBObjectType>
+	void deserialize(typename git_object_traits::output_reference_type out, const ODBObjectType& object);
 };
-
-template <class ObjectType>
-void git_object_policy::deserialize(typename git_object_traits::output_reference_type out, const ObjectType& object)
-{
-	auto type = object.type();
-	switch(type)
-	{
-		case Object::Type::Blob:
-		{
-			new (&out.blob) Blob;
-			out.blob.data().reserve(object.size());
-			std::unique_ptr<typename ObjectType::stream_type> pstream(object.new_stream());
-			boost::iostreams::back_insert_device<Blob::data_type> insert_stream(out.blob.data());
-			boost::iostreams::copy(*pstream, insert_stream);
-			break;
-		}
-	}// end type switch
-}
-
-
 
 /** \ingroup ODB
   * \brief Database storing git objects in memory only

@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include <exception>
 #include <boost/iostreams/stream.hpp>
-#include <boost/iostreams/device/null.hpp>
 #include <type_traits>
 
 GTL_HEADER_BEGIN
@@ -31,7 +30,13 @@ class odb_serialization_error : public odb_object_error {};
 
 
 //! \brief policy defining functions to be used in certain situations
+//! Its template parameters should be used to partially specialize the 
+//! methods for the respective serialization and deserializion types used.
+//! The StreamType and ObjectType remain templates, they obey their designated interfaces.
+//! \tparam InputReferenceType type used to provide input objects to the method
+//! \tparam OutputReferenceType type of the output reference
 //! \ingroup ODBPolicy
+template <class InputReferenceType, class OutputReferenceType>
 struct odb_object_policy
 {
 	//! @{ \name Serialization Policy
@@ -39,19 +44,18 @@ struct odb_object_policy
 	//! Serialize the given object into the given stream.
 	//! \param object object to be serialized
 	//! \param ostream stream to write serialzed object to.
-	//! \tparam InputReferenceType type of the input object, usually Object&
+	
 	//! \tparam StreamType typoe of stream
 	//! \throw odb_serialization_error
-	template <class InputReferenceType, class StreamType>
+	template <class StreamType>
 	void serialize(InputReferenceType object, StreamType& ostream);
 	
 	//! deserialize the data contained in object to recreate the object it represents
 	//! \param output variable to keep the deserialized object
 	//! \param object database object containing all information, like type, size, stream
-	//! \tparam OutputReferenceType type of the output reference
 	//! \tparam ObjectType type of database object
 	//! \throw odb_deserialization_error
-	template <class OutputReferenceType, class ObjectType>
+	template <class ObjectType>
 	static void deserialize(OutputReferenceType out, const ObjectType& object);
 	
 	//! @}
@@ -84,7 +88,7 @@ struct odb_object_traits
 	typedef uchar char_type;
 	 
 	//! Policy struct providing additional functionality
-	typedef odb_object_policy policy_type;
+	typedef odb_object_policy<input_reference_type, output_reference_type> policy_type;
 };
 
 

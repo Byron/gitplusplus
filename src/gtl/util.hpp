@@ -22,8 +22,6 @@ class streaming_exception
 		std::unique_ptr<std::stringstream> _pstream;
 	
 	public:
-		
-	public:
 		streaming_exception() = default;
 		streaming_exception(const streaming_exception&) = default;
 		streaming_exception(streaming_exception&&) = default;

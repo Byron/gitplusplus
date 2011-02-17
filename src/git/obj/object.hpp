@@ -28,7 +28,6 @@ class SerializationError :	public gtl::odb_serialization_error,
   */
 class Object
 {
-	
 public:
 	/** \brief Enumeration specifying codes representing object type known to git
 	  */
@@ -40,6 +39,9 @@ public:
 		Commit,
 		Tag
 	};
+	
+protected:
+	Type m_type;
 	
 protected:
 	//! Initialize the object with its type. It must be defined by derived classes and and should not be none
@@ -54,9 +56,7 @@ public:
 	inline Type type() const {
 		return m_type;
 	}
-	
-protected:
-	Type m_type;
+
 };
 
 
