@@ -43,23 +43,35 @@ struct git_object_traits
 	//! use unsigned bytes as general storage
 	typedef uchar char_type;
 	
-	//! serialization policy
-	typedef git_object_policy policy_type;
+	template <class ObjectTraits, class StreamType>
+	struct serialization_policy
+	{
+		//! Serialize the given object into the given stream.
+		//! \param object object to be serialized
+		//! \param ostream stream to write serialzed object to.
+		//! \tparam StreamType typoe of stream
+		//! \throw odb_serialization_error
+		void serialize(typename ObjectTraits::input_reference_type object, StreamType& ostream);
+	};
+	
+	template <class ObjectTraits, class ObjectType>
+	struct deserialization_policy
+	{
+		//! deserialize the data contained in object to recreate the object it represents
+		//! \param output variable to keep the deserialized object
+		//! \param object database object containing all information, like type, size, stream
+		//! \tparam ObjectType type of database object
+		//! \throw odb_deserialization_error
+		static void deserialize(typename ObjectTraits::output_reference_type out, const ObjectType& object);
+	};
+	
+	// partial specialization declaration
+	template <class StreamType>
+	class 
 };
 
-//! \brief define standard git object serialization and deserialization
-//! \ingroup ODBPolicy
-//! \note inheriting base just for docs
-struct git_object_policy : public gtl::odb_object_policy<git_object_traits::input_reference_type, 
-														 git_object_traits::output_reference_type>
-{
-	template <class StreamType>
-	void serialize(typename git_object_traits::input_reference_type object, StreamType& ostream);
-	
-	
-	template <class ODBObjectType>
-	void deserialize(typename git_object_traits::output_reference_type out, const ODBObjectType& object);
-};
+
+
 
 /** \ingroup ODB
   * \brief Database storing git objects in memory only

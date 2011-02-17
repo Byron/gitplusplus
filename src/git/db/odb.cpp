@@ -4,7 +4,7 @@
 GIT_NAMESPACE_BEGIN
 
 template <class StreamType>
-void git_object_policy::serialize(typename git_object_traits::input_reference_type object, StreamType& ostream)
+void git_object_traits::serialization_policy<StreamType>::serialize(typename git_object_traits::input_reference_type object, StreamType& ostream)
 {
 	switch(object.type()) 
 	{
@@ -21,8 +21,8 @@ void git_object_policy::serialize(typename git_object_traits::input_reference_ty
 	}
 }
 
-template <class ODBObjectType>
-void git_object_policy::deserialize(typename git_object_traits::output_reference_type out, const ODBObjectType& object)
+template <class ObjectType>
+void git_object_traits::deserialization_policy<ObjectType>::deserialize(typename git_object_traits::output_reference_type out, const ObjectType& object)
 {
 	switch(object.type())
 	{
@@ -30,7 +30,7 @@ void git_object_policy::deserialize(typename git_object_traits::output_reference
 		{
 			new (&out.blob) Blob;
 			out.blob.data().reserve(object.size());
-			std::unique_ptr<typename ODBObjectType::stream_type> pstream(object.new_stream());
+			std::unique_ptr<typename ObjectType::stream_type> pstream(object.new_stream());
 			boost::iostreams::back_insert_device<Blob::data_type> insert_stream(out.blob.data());
 			boost::iostreams::copy(*pstream, insert_stream);
 			break;

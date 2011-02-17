@@ -79,7 +79,7 @@ public:
 	
 	void deserialize(typename traits_type::output_reference_type out) const
 	{
-		typename traits_type::policy_type().deserialize(out, *this);
+		typename traits_type::template deserialization_policy<odb_mem_output_object<traits_type, stream_type> >().deserialize(out, *this);
 	}
 };
 

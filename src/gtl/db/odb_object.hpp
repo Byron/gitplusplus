@@ -29,39 +29,6 @@ class odb_serialization_error : public odb_object_error {};
 
 
 
-//! \brief policy defining functions to be used in certain situations
-//! Its template parameters should be used to partially specialize the 
-//! methods for the respective serialization and deserializion types used.
-//! The StreamType and ObjectType remain templates, they obey their designated interfaces.
-//! \tparam InputReferenceType type used to provide input objects to the method
-//! \tparam OutputReferenceType type of the output reference
-//! \ingroup ODBPolicy
-template <class InputReferenceType, class OutputReferenceType>
-struct odb_object_policy
-{
-	//! @{ \name Serialization Policy
-	
-	//! Serialize the given object into the given stream.
-	//! \param object object to be serialized
-	//! \param ostream stream to write serialzed object to.
-	
-	//! \tparam StreamType typoe of stream
-	//! \throw odb_serialization_error
-	template <class StreamType>
-	void serialize(InputReferenceType object, StreamType& ostream);
-	
-	//! deserialize the data contained in object to recreate the object it represents
-	//! \param output variable to keep the deserialized object
-	//! \param object database object containing all information, like type, size, stream
-	//! \tparam ObjectType type of database object
-	//! \throw odb_deserialization_error
-	template <class ObjectType>
-	static void deserialize(OutputReferenceType out, const ObjectType& object);
-	
-	//! @}
-};
-
-
 /** Basic traits type to further specify properties of objects stored in the database
   * Types using odb facilities need to fully specialize this trait for their respective object
   * database type
@@ -87,8 +54,36 @@ struct odb_object_traits
 	//! Character type to be used within streams and data storage defined in object databases
 	typedef uchar char_type;
 	 
-	//! Policy struct providing additional functionality
-	typedef odb_object_policy<input_reference_type, output_reference_type> policy_type;
+	
+	//! \brief policy defining functions to be used in certain situations
+	//! Its template parameters should be used to partially specialize the 
+	//! methods for the respective serialization and deserializion types used.
+	//! The StreamType and ObjectType remain templates, they obey their designated interfaces.
+	//! \tparam InputReferenceType type used to provide input objects to the method
+	//! \tparam OutputReferenceType type of the output reference
+	//! \ingroup ODBPolicy
+	template <class ObjectTraits, class StreamType>
+	struct serialization_policy
+	{
+		//! Serialize the given object into the given stream.
+		//! \param object object to be serialized
+		//! \param ostream stream to write serialzed object to.
+		//! \tparam StreamType typoe of stream
+		//! \throw odb_serialization_error
+		void serialize(typename ObjectTraits::input_reference_type object, StreamType& ostream);
+	};
+	
+	template <class ObjectTraits, class ObjectType>
+	struct deserialization_policy
+	{
+		//! deserialize the data contained in object to recreate the object it represents
+		//! \param output variable to keep the deserialized object
+		//! \param object database object containing all information, like type, size, stream
+		//! \tparam ObjectType type of database object
+		//! \throw odb_deserialization_error
+		static void deserialize(typename ObjectTraits::output_reference_type out, const ObjectType& object);
+	};
+	
 };
 
 
