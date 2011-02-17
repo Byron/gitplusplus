@@ -18,7 +18,7 @@ GTL_NAMESPACE_BEGIN
 /** \brief basic exception for all object database related issues
   * \ingroup ODBException
   */
-class odb_error : std::exception
+class odb_error : public std::exception
 {
 	virtual const char* what() const throw() {
 		return "general object database error";
@@ -91,21 +91,21 @@ protected:
 	
 public:
 	//! \return iterator pointing to the first item in the database
-	forward_iterator begin() const noexcept;
+	forward_iterator begin() const;
 	
 	//! \return iterator pointing to the end of the database, which is one past the last item
-	const forward_iterator end() const noexcept;
+	const forward_iterator end() const;
 	
 	//! \return accessor pointing to the object at the given key,
 	//! Dereferencing the accessor yields access to an output object, which remains valid
 	//! only as long as the iterator exists.
 	//! \throw hash_error_type
-	accessor object(const key_type& k);
+	accessor object(const key_type& k) const;
 	
 	//! \return true if the object associated with the given key is in this object database
 	//! \note although this could internally just catch object(), it should be implemented for maximum 
 	//! performance, which is not exactly the case if exceptions cause the stack to be unwound.
-	bool has_object(const key_type k) const noexcept;
+	bool has_object(const key_type& k) const;
 	
 	//! Insert a new item into the database
 	//! \param type identifying the object
@@ -120,8 +120,8 @@ public:
 	forward_iterator insert(typename traits_type::input_reference_type object);
 	
 	//! \return number of objects within the database.
-	//! \note this might involve iterating all objects, which is costly
-	size_t count() const noexcept;
+	//! \note this might involve iterating all objects, which is costly, hence we don't name it size()
+	size_t count() const;
 };
 
 

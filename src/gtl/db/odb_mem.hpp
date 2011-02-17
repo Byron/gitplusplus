@@ -65,6 +65,10 @@ public:
 	void stream(stream_type* out_stream) const {
 		new (out_stream) stream_type(m_data.data(), m_data.size());
 	}
+
+	stream_type* stream() const {
+		return new stream_type(m_data.data(), m_data.size());
+	}
 	
 	//! \return our actual data for manipulation
 	data_type& data() {
@@ -97,26 +101,26 @@ protected:
 public:
 	odb_mem_input_object(object_type type, size_type size, 
 						 stream_type& stream,
-						 const key_pointer_type key_pointer=0)
+						 const key_pointer_type key_pointer=0) noexcept
 		: m_type(type)
 		, m_size(size)
 		, m_stream(stream)
 		, m_key(key_pointer)
 	{}
 	
-	object_type type() const {
+	object_type type() const noexcept {
 		return m_type;
 	}
 	
-	size_type size() const {
+	size_type size() const noexcept {
 		return m_size;
 	}
 	
-	stream_type& stream() {
+	stream_type& stream() noexcept {
 		return m_stream;
 	}
 	
-	const key_pointer_type key_pointer() const {
+	const key_pointer_type key_pointer() const noexcept {
 		return m_key;
 	}
 };
@@ -143,36 +147,38 @@ protected:
 public:
 	//! initialize the iterator from the underlying mapping type's iterator
 	template <class Iterator>
-	mem_accessor(const Iterator& it) : m_iter(it) {}
+	mem_accessor(const Iterator& it) noexcept : m_iter(it) {}
 	
 	//! Equality comparison of compatible iterators
-	inline bool operator==(const this_type& rhs) const {
+	inline bool operator==(const this_type& rhs) const noexcept {
 		return m_iter == rhs.m_iter;
 	}
 	
 	//! Inequality comparison
-	inline bool operator!=(const this_type& rhs) const {
+	inline bool operator!=(const this_type& rhs) const noexcept {
 		return m_iter != rhs.m_iter;
 	}
 	
 	//! \return constant output object
 	inline typename std::add_lvalue_reference<const typename map_type::value_type::second_type>::type 
-		operator*() const {
+		operator*() const noexcept {
 		return m_iter->second;
 	}
 	
 	//! \return key instance which identifyies our object within this map
-	inline const typename map_type::value_type::first_type& key() const {
+	//! \note this method is an optional addition, just because our implementation provides this information
+	//! for free.
+	inline const typename map_type::value_type::first_type& key() const noexcept {
 		return m_iter->first;
 	}
 	
 	//! \return uncompressed size of the object in bytes
-	inline size_type size() const {
+	inline size_type size() const noexcept {
 		return m_iter->second.size();
 	}
 	
 	//! \return type of object stored in the stream
-	inline typename traits_type::object_type type() const {
+	inline typename traits_type::object_type type() const noexcept {
 		return m_iter->second.type();
 	}
 };
@@ -190,10 +196,10 @@ public:
 	mem_forward_iterator(const Iterator& it)
 		: mem_accessor<ObjectTraits>(it) {}
 	
-	mem_forward_iterator& operator++() {
+	mem_forward_iterator& operator++() noexcept {
 		++(this->m_iter); return *this;
 	}
-	mem_forward_iterator operator++(int) {
+	mem_forward_iterator operator++(int) noexcept {
 		mem_forward_iterator cpy(*this); ++(*this); return cpy;
 	}
 };
@@ -226,11 +232,11 @@ public:
 	
 	
 	
-	bool has_object(const key_type k) const noexcept{
+	bool has_object(const key_type& k) const noexcept{
 		return m_objs.find(k) != m_objs.end();
 	}
 	
-	accessor object(const key_type k) const{
+	accessor object(const key_type& k) const {
 		typename map_type::const_iterator it(m_objs.find(k));
 		if (it == m_objs.end()) {
 			throw hash_error_type(k);

@@ -35,6 +35,7 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	BOOST_CHECK(a[0] == 'x');
 	BOOST_CHECK(s == s);
 	BOOST_CHECK(s != o);
+	BOOST_CHECK(o == SHA1(o));
 	s = raw;
 	BOOST_CHECK(s == o);
 	BOOST_CHECK(s[0] == 'a');
@@ -106,7 +107,10 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	BOOST_REQUIRE(modb.count() == 0);	
 	auto it = modb.insert(object);
 	BOOST_REQUIRE(it != modb.end());
-	BOOST_REQUIRE(modb.count() == 1);	
+	BOOST_REQUIRE(modb.count() == 1);
+	
+	MemoryODB::forward_iterator fit = modb.begin();
+	BOOST_CHECK(++fit == modb.end());
 	
 	BOOST_CHECK(it.key() ==  SHA1(hello_hex_sha));
 	BOOST_CHECK(it.type() == Object::Type::Blob);
@@ -127,8 +131,22 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	}
 	
 	// Access the item using the key
-	// MemoryODB::input_iterator 
-			
+	BOOST_CHECK(modb.has_object(it.key()));
+	MemoryODB::accessor acc = modb.object(it.key());
+	BOOST_CHECK(acc.type() == it.type());
+	BOOST_CHECK(acc.size() == it.size());
+	
+	fit = modb.begin();
+	BOOST_CHECK(fit.type() == it.type());
+	BOOST_CHECK(fit.size() == it.size());
+	BOOST_CHECK(fit.key() == it.key());
+	
 	// test adapter
+	gtl::odb_output_object_adapter<typename MemoryODB::output_object_type> objadapt(*it, it.key());
+	
+	// duplicate items should not be added - hence count remains equal
+	modb.insert(objadapt);
+	BOOST_CHECK(modb.count() == 1);
+	
 	
 }

@@ -9,13 +9,14 @@
 #include <exception>
 #include <algorithm>
 #include <cctype>
+#include <cstring>
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
 
 struct bad_hex_string : public std::exception 
 {
-	virtual const char* what() const noexcept {
+	virtual const char* what() const throw() {
 		return "Invalid string format to create hash from";
 	}
 };
@@ -34,7 +35,7 @@ class basic_hash
 {
 	public:
 		typedef CharType		char_type;
-		static const size_t		hash_len;
+		static const size_t		hash_len = HashLen;
 	
 		//! hash with all bytes set to 0
 		static const basic_hash null;
@@ -103,6 +104,20 @@ class basic_hash
 			return m_hash;
 		}
 
+		//! default implementation of < operator
+		//! \todo it might be faster to cast our digest to int and compare that instead of using memcmp so 
+		//! whole words can be read into memory at once. We would want to use a static if to do that, unfortunately
+		//! c++ can't do that, so some boost metaprogramming technique could help and make this very complicated
+		//! - we would have to assure our digest is divisable by 4.
+		inline bool operator < (const basic_hash& rhs) const {
+			return memcmp(m_hash, rhs.m_hash, hash_len) < 0;
+		}
+		
+		//! default > implementation, see operator < () for info
+		inline bool operator > (const basic_hash& rhs) const {
+			return memcmp(m_hash, rhs.m_hash, hash_len) > 0;
+		}
+		
 		//! \return true if two sha instances are equal
 		inline bool operator ==(const basic_hash& rhs) const {
 			return memcmp(m_hash, rhs.m_hash, HashLen) == 0;
@@ -123,10 +138,8 @@ class basic_hash
 };
 
 template <size_t HashLen, class CharType>
-const basic_hash<HashLen, CharType> basic_hash<HashLen, CharType>::null((uchar)0);
+const basic_hash<HashLen, CharType> basic_hash<HashLen, CharType>::null((CharType)0);
 
-template <size_t HashLen, class CharType>
-const size_t basic_hash<HashLen, CharType>::hash_len(HashLen);
 
 GTL_HEADER_END
 GTL_NAMESPACE_END

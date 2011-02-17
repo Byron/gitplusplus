@@ -116,6 +116,8 @@ struct odb_input_object : public odb_basic_object<ObjectTraits>
   * their type and their serialized data stream. It provides methods 
   * to deserialize the stream into an object.
   * An ostream is considered the output of an object database
+  * \tparam ObjectTraits traits specifying details about the stored objects, see odb_object_traits
+  * \tparam StreamType type of stream to be used for outputting the data	
   */
 template <class ObjectTraits, class StreamType>
 struct odb_output_object : public odb_basic_object<ObjectTraits>
@@ -123,7 +125,7 @@ struct odb_output_object : public odb_basic_object<ObjectTraits>
 	typedef ObjectTraits traits_type;
 	typedef StreamType stream_type;
 	
-	//!  create data stream which allows access to the serialized object data
+	//! create data stream which allows access to the serialized object data
 	//! As streams are generally non-copyable, but yet a unique stream needs to be
 	//! returned each time of query, it must be created at the given memory location.
 	//! \param out_stream memory able to hold a stream_type object. It must be allocated by the 
@@ -139,6 +141,14 @@ struct odb_output_object : public odb_basic_object<ObjectTraits>
 	//! though. In case you would like to have a heap-allocated temporary, it is advised to read about the
 	//! intricacies of new and delete.
 	void stream(stream_type* out_stream) const;
+	
+	
+	//! create a data stream on the heap and return it as a pointer. The caller is responsible
+	//! for disposing the stream using delete or similar means (like std::unique_ptr)
+	//! \return heap-allocated steram
+	//! \note use this method if you cannot allocate memory for the first version of this method, for example
+	//! because you cannot generically call a destructor.
+	stream_type* stream() const;
 	
 	//! construct an object from the deserialized stream and store it in the output reference
 	//! \note uses exceptions to indicate failure (i.e. out of memory, corrupt stream)
@@ -160,21 +170,32 @@ class  odb_output_object_adapter : public odb_input_object<	typename OutputObjec
 {
 public:
 	typedef OutputObject output_object_type;
+	typedef typename std::add_lvalue_reference<const output_object_type>::type const_output_object_ref_type;
+	typedef typename output_object_type::stream_type stream_type;
 	typedef typename output_object_type::traits_type traits_type;
 	typedef typename output_object_type::traits_type::key_type key_type;
 	
 private:
-	typename std::add_lvalue_reference<const output_object_type>::type m_obj;
-	typename std::add_lvalue_reference<const key_type>::type m_key;
+	const_output_object_ref_type m_obj;
+	const key_type& m_key;
+	stream_type* m_stream;
 	
 public:
-	odb_output_object_adapter(typename std::add_rvalue_reference<const output_object_type>::type obj,
-							  typename std::add_rvalue_reference<const key_type>::type key)
+	odb_output_object_adapter(const_output_object_ref_type obj,
+							  const key_type& key)
 		: m_obj(obj)
 		, m_key(key)
+		, m_stream(0)
 	{}
 	
-	const typename std::add_pointer<const key_type>::type key_pointer() const {
+	~odb_output_object_adapter() {
+		if (m_stream) {
+			delete m_stream;
+			m_stream = 0;
+		}
+	}
+	
+	const key_type* key_pointer() const {
 		return &m_key;
 	}
 	
@@ -184,6 +205,13 @@ public:
 	
 	typename traits_type::size_type size() const {
 		return m_obj.size();
+	}
+	
+	 stream_type& stream() {
+		if (m_stream == 0) {
+			 m_stream = m_obj.stream();
+		}
+		return *m_stream;
 	}
 };
 		
