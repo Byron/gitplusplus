@@ -3,11 +3,24 @@
 
 #include <git/config.h>
 
+#include <gtl/db/odb_object.hpp>
+#include <gtl/util.hpp>
+
 #include <string>
-#include <boost/iostreams/device/back_inserter.hpp>
+
 
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
+
+//! \brief Thrown for errors during deserialization
+class DeserializationError : public gtl::odb_deserialization_error,
+							 public gtl::streaming_exception
+{};
+
+//! \brief Thrown for errors during serialization
+class SerializationError :	public gtl::odb_serialization_error,
+							public gtl::streaming_exception
+{};
 
 
 /** \brief base for all objects git knows. 

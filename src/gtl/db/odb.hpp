@@ -2,18 +2,17 @@
 #define GTL_ODB_HPP
 
 #include <gtl/config.h>
+#include <gtl/util.hpp>
 #include <gtl/db/odb_alloc.hpp>
 #include <gtl/db/odb_iter.hpp>
 
 #include <exception>
 #include <type_traits>
 #include <boost/iostreams/constants.hpp>
-#include <vector>
-#include <sstream>
+
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
-
 
 /** \brief basic exception for all object database related issues
   * \ingroup ODBException
@@ -29,25 +28,14 @@ class odb_error : public std::exception
   * \tparam HashType hash compatible type
   */
 template <class HashType>
-class odb_hash_error : public odb_error
+class odb_hash_error :	public odb_error,
+						public streaming_exception
 {
-	protected:
-		std::string _info;
-	
 	public:
 		odb_hash_error(const HashType& hash) {
-			std::stringstream s;
-			s << "object " << hash << " does not exist in database";
-			_info = s.str();
+			stream() << "object " << hash << " does not exist in database";
 		}
 		
-		//! definition required to simulate no-throw, which seems to be failing
-		//! due to our class member
-		virtual ~odb_hash_error() noexcept {}
-		
-		virtual const char* what() const throw() {
-			return _info.c_str();
-		}
 };
 
 

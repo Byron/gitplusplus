@@ -149,6 +149,15 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	BOOST_CHECK(modb.count() == 1);
 	
 	
-	// 
+	// BLOB SERIALIZATION AND DESERIALIZATION
+	//////////////////////////////////////////
+	MultiObject mobj;
+	BOOST_CHECK(mobj.type == Object::Type::None);
+	
+	//(*it).deserialize(mobj);
+	/*
+	BOOST_CHECK(mobj.type == Object::Type::Blob);
+	BOOST_CHECK(mobj.blob.data().size() == it.size());*/
+	
 	
 }

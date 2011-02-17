@@ -11,6 +11,9 @@
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
 
+// forward declaration
+struct git_object_policy;
+
 /** \brief Configures output streams used in memory databases
   */
 struct git_object_traits
@@ -22,7 +25,7 @@ struct git_object_traits
 	//! Type used to return values by reference
 	typedef MultiObject& output_reference_type;
 	//! Type used to return values by reference
-	typedef Object* input_reference_type;
+	typedef Object& input_reference_type;
 
 	//! Hash generator to produce keys.
 	typedef SHA1Generator hash_generator_type;	
@@ -31,7 +34,38 @@ struct git_object_traits
 	
 	//! use unsigned bytes as general storage
 	typedef uchar char_type;
+	
+	//! serialization policy
+	typedef git_object_policy policy_type;
 };
+
+//! \brief define standard git object serialization and deserialization
+//! \ingroup ODBPolicy
+//! \note inheriting base just for docs
+struct git_object_policy : public gtl::odb_object_policy
+{
+	template <class StreamType>
+	void serialize(typename git_object_traits::input_reference_type object, StreamType& ostream);
+	
+	template <class ObjectType>
+	void deserialize(typename git_object_traits::output_reference_type out, const ObjectType& object);
+};
+
+template <class ObjectType>
+void git_object_policy::deserialize(typename git_object_traits::output_reference_type out, const ObjectType& object)
+{
+	auto type = object.type();
+	switch(type)
+	{
+		case Object::Type::Blob:
+		{
+			out.blob = Blob();
+			break;
+		}
+		
+	}// end type switch
+}
+
 
 
 /** \ingroup ODB

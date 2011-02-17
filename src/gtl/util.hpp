@@ -3,9 +3,56 @@
 
 #include <gtl/config.h>
 #include <cctype>
+#include <sstream>
+#include <memory>
 
 GTL_HEADER_BEGIN
-GTL_NAMESPACE_BEGIN		
+GTL_NAMESPACE_BEGIN
+
+/** \brief exception base class which provides a string-stream for detailed errors
+  * \note as it has a stream as its member, it might fail itself in low-memory situations.
+  * In these cases though, an out-of-memory exceptions should have already been thrown.
+  * \note use this class by inheriting from it in addition to your ordinary base
+  * \ingroup ODBException
+  */
+class streaming_exception
+{
+	protected:
+		mutable std::string _buf;
+		std::unique_ptr<std::stringstream> _pstream;
+	
+	public:
+		
+	public:
+		streaming_exception() = default;
+		streaming_exception(const streaming_exception&) = default;
+		streaming_exception(streaming_exception&&) = default;
+		
+		//! definition required to simulate no-throw, which seems to be failing
+		//! due to our class member
+		virtual ~streaming_exception() noexcept {}
+		
+		std::stringstream& stream() {
+			if (!_pstream){
+				_pstream.reset(new std::stringstream);
+			}
+			return *_pstream;
+		}
+		
+		virtual const char* what() const throw() 
+		{
+			// Produce buffer
+			if (_buf.size() == 0 && _pstream){
+				try {
+					_buf = _pstream->str();
+				} catch (...) {
+					return "failed to bake exception information into string buffer";
+				}
+			}
+			return _buf.c_str();
+		}
+};
+
 
 /** Class representing two ascii characters in the range of 0-F
   * \note currently represented directly as baked character values, in fact it could 

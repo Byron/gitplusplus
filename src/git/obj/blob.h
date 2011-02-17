@@ -3,30 +3,37 @@
 
 #include <git/config.h>
 #include <git/obj/object.hpp>
+#include <string>
 #include <iostream>
 
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
 
-/** \brief A blob represents a piece of data which is accessed through a stream
-  * The stream is owned by the blob and will be deallocated on destruction.
+/** \brief A blob represents a piece of data which is accessed through a data pointer.
+  * The data is owned by the blob and will be destroyed with it.
   */
 class Blob : public Object
 {
 private:
-	std::istream* m_stream;
+	typedef std::basic_string<uchar> ustring;
+	ustring m_data;
 	
 public:
-	//! Initialize the blob with the given stream. It will take ownership and deallocate it
-	Blob(std::istream* stream = 0);
-	~Blob();
+	//! default constructor
+	Blob();
+	//! default destructor
+	~Blob(){};
 	
 public:
-	//! \return borrowed stream containing the blobs raw character data. Please note that 
-	//! you have to take care of rewinding the stream once you are done with it in 
-	//! case you want to re-read the data of the same instance
-	std::istream* stream(){
-		return m_stream;
+	//! \return modifyable data containing the blobs raw character data.
+	//! \note this method should be used to fill or modify the blobs data as required.
+	ustring& data(){
+		return m_data;
+	}
+	
+	//! \return constant data
+	const ustring& data() const {
+		return m_data;
 	}
 };
 

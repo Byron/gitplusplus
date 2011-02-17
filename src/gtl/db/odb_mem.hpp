@@ -40,6 +40,8 @@ private:
 	typename traits_type::size_type							m_size;		//! uncompressed size
 	data_type												m_data;		//! actually stored data
 	
+	odb_mem_output_object(const odb_mem_output_object&);				//! enforce move constructor
+	
 public:
 	odb_mem_output_object(typename traits_type::object_type type, typename traits_type::size_type size) noexcept
 		: m_type(type)

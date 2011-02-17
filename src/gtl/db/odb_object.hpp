@@ -13,6 +13,50 @@ GTL_NAMESPACE_BEGIN
 
 namespace io = boost::iostreams;
 
+/** \brief base error for all database objects related actions
+  * \ingroup ODBException
+  */
+class odb_object_error : public std::exception {};
+
+/*! \brief Thrown for errors during deserialization
+ * \ingroup ODBException
+ */
+class odb_deserialization_error : public odb_object_error {};
+
+/*! \brief Thrown for errors during serialization
+ * \ingroup ODBException
+ */
+class odb_serialization_error : public odb_object_error {};
+
+
+
+//! \brief policy defining functions to be used in certain situations
+//! \ingroup ODBPolicy
+struct odb_object_policy
+{
+	//! @{ \name Serialization Policy
+	
+	//! Serialize the given object into the given stream.
+	//! \param object object to be serialized
+	//! \param ostream stream to write serialzed object to.
+	//! \tparam InputReferenceType type of the input object, usually Object&
+	//! \tparam StreamType typoe of stream
+	//! \throw odb_serialization_error
+	template <class InputReferenceType, class StreamType>
+	void serialize(InputReferenceType object, StreamType& ostream);
+	
+	//! deserialize the data contained in object to recreate the object it represents
+	//! \param output variable to keep the deserialized object
+	//! \param object database object containing all information, like type, size, stream
+	//! \tparam OutputReferenceType type of the output reference
+	//! \tparam ObjectType type of database object
+	//! \throw odb_deserialization_error
+	template <class OutputReferenceType, class ObjectType>
+	static void deserialize(OutputReferenceType out, const ObjectType& object);
+	
+	//! @}
+};
+
 
 /** Basic traits type to further specify properties of objects stored in the database
   * Types using odb facilities need to fully specialize this trait for their respective object
@@ -39,23 +83,8 @@ struct odb_object_traits
 	//! Character type to be used within streams and data storage defined in object databases
 	typedef uchar char_type;
 	 
-	//! @{ \name Serialization Policy
-	
-	//! Serialize the given object into the given stream.
-	//! \param object object to be serialized
-	//! \param ostream stream to write serialzed object to.
-	//! \tparam Stream type of writable stream
-	template <class Stream>
-	static void serialize(input_reference_type object, Stream& ostream){}
-	
-	//! deserialize the data contained in istream to recreate the object it represents
-	//! \param out variable to keep the deserialized object
-	//! \param istream stream to read the serialized object data from
-	//! \tparam Stream type of readable input stream
-	template <class Stream>
-	static void deserialize(output_reference_type out, Stream& istream) {}
-	
-	//! @} 
+	//! Policy struct providing additional functionality
+	typedef odb_object_policy policy_type;
 };
 
 
@@ -154,7 +183,7 @@ struct odb_output_object : public odb_basic_object<ObjectTraits>
 	//! \note uses exceptions to indicate failure (i.e. out of memory, corrupt stream)
 	void deserialize(typename traits_type::output_reference_type out) const
 	{
-		traits_type::deserialize(out, this->stream());
+		typename traits_type::policy_type().deserialize(out, *this);
 	}
 };
 

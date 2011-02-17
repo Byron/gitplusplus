@@ -27,6 +27,10 @@
   * Classes representing various error states in and around an object database
   */
 
+/** \defgroup ODBPolicy Object Database Policies
+  * Structs implementing utility methods to fill in functionality the base template cannot know about
+  */
+
 
 #define GTL_HEADER_BEGIN
 #define GTL_HEADER_END

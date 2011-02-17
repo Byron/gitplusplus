@@ -50,7 +50,7 @@ add_library(gitpp STATIC
 			src/git/obj/commit.cpp
 			src/git/obj/tag.cpp
 			src/git/obj/blob.cpp
-			src/git/db/odb.cpp 
+			src/git/db/odb.cpp
 			src/git/db/sha1_gen.cpp)
 
 # CONFIGURE EXECUTABLES
