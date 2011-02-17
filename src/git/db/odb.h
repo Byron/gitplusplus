@@ -6,7 +6,15 @@
 #include <git/db/sha1_gen.h>
 #include <gtl/db/odb_mem.hpp>
 #include <git/obj/multiobj.h>
+
 #include <iostream>
+
+// for serialization only
+#include <boost/iostreams/copy.hpp>
+#include <boost/iostreams/stream.hpp>
+#include <boost/iostreams/device/back_inserter.hpp>
+#include <memory>
+
 
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
@@ -59,10 +67,13 @@ void git_object_policy::deserialize(typename git_object_traits::output_reference
 	{
 		case Object::Type::Blob:
 		{
-			out.blob = Blob();
+			new (&out.blob) Blob;
+			out.blob.data().reserve(object.size());
+			std::unique_ptr<typename ObjectType::stream_type> pstream(object.new_stream());
+			boost::iostreams::back_insert_device<Blob::data_type> insert_stream(out.blob.data());
+			boost::iostreams::copy(*pstream, insert_stream);
 			break;
 		}
-		
 	}// end type switch
 }
 

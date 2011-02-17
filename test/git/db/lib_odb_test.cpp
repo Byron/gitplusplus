@@ -120,8 +120,8 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	{
 		MemoryODB::output_object_type::stream_type ostream;
 		ostream.~stream();
-		
 		(*it).stream(&ostream);
+		
 		uchar buf[lenphello];
 		ostream.read(buf, lenphello);
 		
@@ -142,6 +142,7 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	BOOST_CHECK(fit.key() == it.key());
 	
 	// test adapter
+	/////////////////
 	gtl::odb_output_object_adapter<typename MemoryODB::output_object_type> objadapt(*it, it.key());
 	
 	// duplicate items should not be added - hence count remains equal
@@ -154,10 +155,10 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	MultiObject mobj;
 	BOOST_CHECK(mobj.type == Object::Type::None);
 	
-	//(*it).deserialize(mobj);
-	/*
+	(*it).deserialize(mobj);
+	
 	BOOST_CHECK(mobj.type == Object::Type::Blob);
-	BOOST_CHECK(mobj.blob.data().size() == it.size());*/
+	BOOST_CHECK(mobj.blob.data().size() == it.size());
 	
 	
 }

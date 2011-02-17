@@ -19,6 +19,9 @@ private:
 	ustring m_data;
 	
 public:
+	typedef ustring data_type;		//!< type we use to store our data
+	
+public:
 	//! default constructor
 	Blob();
 	//! default destructor

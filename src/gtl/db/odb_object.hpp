@@ -174,17 +174,15 @@ struct odb_output_object : public odb_basic_object<ObjectTraits>
 	
 	//! create a data stream on the heap and return it as a pointer. The caller is responsible
 	//! for disposing the stream using delete or similar means (like std::unique_ptr)
-	//! \return heap-allocated steram
+	//! \return heap-allocated stream
 	//! \note use this method if you cannot allocate memory for the first version of this method, for example
-	//! because you cannot generically call a destructor.
-	stream_type* stream() const;
+	//! because you cannot generically call a destructor as your code does not know the actual typename.
+	stream_type* new_stream() const;
 	
 	//! construct an object from the deserialized stream and store it in the output reference
 	//! \note uses exceptions to indicate failure (i.e. out of memory, corrupt stream)
-	void deserialize(typename traits_type::output_reference_type out) const
-	{
-		typename traits_type::policy_type().deserialize(out, *this);
-	}
+	//! \throw odb_deserialization_error
+	void deserialize(typename traits_type::output_reference_type out) const ;
 };
 
 
@@ -238,7 +236,7 @@ public:
 	
 	 stream_type& stream() {
 		if (m_stream == nullptr) {
-			 m_stream = m_obj.stream();
+			 m_stream = m_obj.new_stream();
 		}
 		return *m_stream;
 	}

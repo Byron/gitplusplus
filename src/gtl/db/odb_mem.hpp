@@ -68,13 +68,18 @@ public:
 		new (out_stream) stream_type(m_data.data(), m_data.size());
 	}
 
-	stream_type* stream() const {
+	stream_type* new_stream() const {
 		return new stream_type(m_data.data(), m_data.size());
 	}
 	
 	//! \return our actual data for manipulation
 	data_type& data() noexcept {
 		return m_data;
+	}
+	
+	void deserialize(typename traits_type::output_reference_type out) const
+	{
+		typename traits_type::policy_type().deserialize(out, *this);
 	}
 };
 
@@ -260,6 +265,8 @@ public:
 	//! The input object is a structure keeping information about the possibly existing Key, the type
 	//! as well as the actual stream which contains the data to be copied into the memory database.
 	//! \tparam InputObject type providing a type id, a size and the stream to read the object from.
+	//! \warning the iterator stays only valid as long as the database does not change, which is until
+	//! you call a non-constant method
 	template <class InputObject>
 	forward_iterator insert(InputObject& object);
 	
