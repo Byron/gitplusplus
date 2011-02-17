@@ -101,7 +101,7 @@ protected:
 public:
 	odb_mem_input_object(object_type type, size_type size, 
 						 stream_type& stream,
-						 const key_pointer_type key_pointer=0) noexcept
+						 const key_pointer_type key_pointer=nullptr) noexcept
 		: m_type(type)
 		, m_size(size)
 		, m_stream(stream)

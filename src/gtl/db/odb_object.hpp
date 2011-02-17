@@ -105,7 +105,7 @@ struct odb_input_object : public odb_basic_object<ObjectTraits>
 	/** \return pointer to key designated to the object, or 0 if a key does not yet exists
 	  */
 	const typename std::add_pointer<const key_type>::type key_pointer() const {
-		return 0;
+		return nullptr;
 	}
 };
 
@@ -185,13 +185,13 @@ public:
 							  const key_type& key)
 		: m_obj(obj)
 		, m_key(key)
-		, m_stream(0)
+		, m_stream(nullptr)
 	{}
 	
 	~odb_output_object_adapter() {
 		if (m_stream) {
 			delete m_stream;
-			m_stream = 0;
+			m_stream = nullptr;
 		}
 	}
 	
@@ -208,7 +208,7 @@ public:
 	}
 	
 	 stream_type& stream() {
-		if (m_stream == 0) {
+		if (m_stream == nullptr) {
 			 m_stream = m_obj.stream();
 		}
 		return *m_stream;
