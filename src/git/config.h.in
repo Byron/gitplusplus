@@ -15,5 +15,6 @@
 // Types
 typedef uint32_t uint32;
 typedef uint8_t uchar;
+typedef uchar default_char_type;		//! char type used throughout the git landscape
 
 #endif // GIT_CONFIG_H

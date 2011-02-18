@@ -58,6 +58,8 @@ public:
 	typedef const odb_accessor<traits_type>						accessor;
 	typedef odb_forward_iterator<traits_type>					forward_iterator;
 	
+	//! type compatible to odb_input_object
+	typedef int													input_object_type;
 	typedef odb_hash_error<key_type>							hash_error_type;
 	
 public:
@@ -96,16 +98,16 @@ public:
 	bool has_object(const key_type& k) const;
 	
 	//! Insert a new item into the database
-	//! \param type identifying the object
-	//! \param size size of the object in bytes
-	//! \param stream whose data is to be inserted
+	//! \param object input object containing all information
 	//! \return iterator pointing to the newly inserted item in the database. It can be used to obtain the generated object key
 	//!	as well.
-	template <class Stream>
-	forward_iterator insert(typename traits_type::object_type type, size_t size, Stream stream);
+	forward_iterator insert(const input_object_type& object);
 	
 	//! Same as above, but will produce the required serialized version of object automatically
-	forward_iterator insert(typename traits_type::input_reference_type object);
+	//! \note have to rename it to allow normal operator overloading, in case derived classes
+	//! use templates in the insert method - one cannot specialize method templates at all
+	//! it seems
+	forward_iterator insert_object(typename traits_type::input_reference_type object);
 	
 	//! \return number of objects within the database.
 	//! \note this might involve iterating all objects, which is costly, hence we don't name it size()

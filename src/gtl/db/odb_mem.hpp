@@ -10,6 +10,7 @@
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <boost/iostreams/device/array.hpp>
+#include <boost/iostreams/device/back_inserter.hpp>
 
 #include <iostream>
 #include <sstream>
@@ -98,7 +99,7 @@ public:
   * This should be suitable for adding objects to the database as streams cannot be copy-constructed.
   * \ingroup ODBObject
   */
-template <class ObjectTraits, class StreamBaseType = std::basic_iostream<typename ObjectTraits::char_type> >
+template <class ObjectTraits, class StreamBaseType = std::basic_istream<typename ObjectTraits::char_type> >
 class odb_mem_input_object : public odb_input_object<ObjectTraits, StreamBaseType>
 {
 public:
@@ -107,33 +108,23 @@ public:
 	typedef typename traits_type::size_type				size_type;
 	typedef typename traits_type::key_type				key_type;
 	typedef StreamBaseType								stream_type;
-	typedef std::basic_stringstream<typename traits_type::char_type> rw_stream_type;
 	
 protected:
-	bool				m_owns_stream;
 	object_type			m_type;
 	size_type			m_size;
-	stream_type*		m_pstream;
+	stream_type&		m_stream;
 	const key_type*		m_key;
 	
 public:
 	odb_mem_input_object(object_type type, size_type size,
-						 stream_type* stream = nullptr,
+						 stream_type& stream,
 						 const key_type* key_pointer = nullptr) noexcept
-		: m_owns_stream(false)
-		, m_type(type)
+		: m_type(type)
 		, m_size(size)
-		, m_pstream(stream)
+		, m_stream(stream)
 		, m_key(key_pointer)
 	{}
 	
-	~odb_mem_input_object() {
-		if (m_owns_stream && m_pstream){
-			delete m_pstream;
-			m_owns_stream = false;
-			m_pstream = nullptr;
-		}
-	}
 	
 	object_type type() const noexcept {
 		return m_type;
@@ -152,51 +143,14 @@ public:
 	}
 	
 	//! \throw odb_mem_serialization_error
-	stream_type& stream() {
-		if (m_pstream == nullptr){
-			odb_mem_serialization_error err;
-			err.stream() << "Did not have a stream - did you forget to put one into the input object, or to call serialize() ?" << std::flush;
-			throw err;
-		}
-		return *m_pstream;
+	stream_type& stream() noexcept {
+		return m_stream;
 	}
 	
 	const key_type* key_pointer() const noexcept {
 		return m_key;
 	}
 	
-	//! \throw odb_mem_serialization_error
-	void serialize(const typename traits_type::input_reference_type object) {
-		assert(m_key == 0);	// it makes no sense to serialize an object although our key is set ...
-		if (m_pstream && (m_pstream->tellp() != 0 || m_pstream->tellg() != 0)) {
-			odb_mem_serialization_error err;
-			err.stream() << "Cannot serialize object if the input object's stream is not empty" << std::flush;
-			throw err;
-		}
-		
-		if (!m_pstream){
-			create_stream();
-			assert(m_pstream);
-		}
-		
-		m_type = typename traits_type::policy_type().type(object);
-		typename traits_type::policy_type().serialize(object, *m_pstream);
-		m_size = m_pstream->tellp();
-		m_pstream->seekp(0, std::ios_base::beg);
-	}
-	
-	//! @{ \name Memory DB Specific Interface
-	//! Create a new stream if we currently don't own one
-	//! \return pointer to possibly newly created stream
-	//! \note its safe to call this method multiple times or in any state
-	stream_type* create_stream() {
-		if (!m_pstream) {
-			m_pstream = new rw_stream_type;
-			m_owns_stream = true;
-		}
-		return m_pstream;
-	}
-	//! @}
 };
 
 
@@ -294,7 +248,6 @@ public:
 	typedef typename mem_accessor<traits_type>::map_type		map_type;
 	typedef mem_accessor<traits_type>							accessor;
 	typedef mem_forward_iterator<traits_type>					forward_iterator;
-	
 	typedef odb_hash_error<key_type>							hash_error_type;
 	typedef odb_mem_output_object<traits_type>					output_object_type;
 	typedef odb_mem_input_object<traits_type>					input_object_type;
@@ -334,8 +287,12 @@ public:
 	//! \tparam InputObject type providing a type id, a size and the stream to read the object from.
 	//! \warning the iterator stays only valid as long as the database does not change, which is until
 	//! you call a non-constant method
+	//! \tparam InputObject odb_input_object compatible type
 	template <class InputObject>
 	forward_iterator insert(InputObject& object);
+
+	//! Same as above, but will produce the required serialized version of object automatically
+	forward_iterator insert_object(const typename traits_type::input_reference_type object);
 	
 	//! insert the copy's of the contents of the given input iterators into this object database
 	//! The inserted items can be queried using the keys from the input iterators
@@ -347,29 +304,37 @@ public:
 	
 };
 
-
+template <class ObjectTraits>
+typename odb_mem<ObjectTraits>::forward_iterator odb_mem<ObjectTraits>::insert_object(const typename ObjectTraits::input_reference_type inobj)
+{
+	auto policy = typename traits_type::policy_type();
+	output_object_type oobj(policy.type(inobj), policy.compute_size(inobj));
+	auto& odata = oobj.data();
+	odata.reserve(oobj.size());
+	
+	io::back_insert_device<typename output_object_type::data_type> dest(odata);
+	policy.serialize(inobj, dest);
+	
+	assert(odata.size() == oobj.size());
+	typename traits_type::hash_generator_type hashgen;
+	hashgen.update(odata.data(), odata.size());
+	return forward_iterator(m_objs.insert(typename map_type::value_type(hashgen.hash(), std::move(oobj))).first);
+}
 
 template <class ObjectTraits>
 template <class InputObject>
 typename odb_mem<ObjectTraits>::forward_iterator odb_mem<ObjectTraits>::insert(InputObject& iobj)
 {
-	static_assert(sizeof(typename ObjectTraits::char_type) == sizeof(typename InputObject::stream_type::char_type), "char types incompatible");
+	static_assert(sizeof(typename traits_type::char_type) == sizeof(typename InputObject::stream_type::char_type), "char types incompatible");
 	output_object_type oobj(iobj.type(), iobj.size());
 	
-	typename output_object_type::stream_type::char_type buf[parent_type::gCopyChunkSize];
-	typename traits_type::size_type total_bytes_read = 0;
-	auto pkey = iobj.key_pointer();
-	auto& istream = iobj.stream();
 	auto& odata = oobj.data();
-	odata.reserve(iobj.size());
-	
-	for (std::streamsize bytes_read = parent_type::gCopyChunkSize; bytes_read == parent_type::gCopyChunkSize; total_bytes_read += bytes_read) {
-		istream.read(buf, parent_type::gCopyChunkSize);
-		bytes_read = istream.gcount();
-		odata.insert(odata.end(), buf, buf+bytes_read);
-	}// for each chunk to copy
+	odata.reserve(oobj.size());
+	io::back_insert_device<typename output_object_type::data_type> dest(odata);
+	io::copy(iobj.stream(), dest);
 	
 	
+	auto pkey = iobj.key_pointer();
 	if (pkey) {
 		return forward_iterator(m_objs.insert(typename map_type::value_type(*pkey, std::move(oobj))).first);
 	} else {

@@ -47,7 +47,7 @@ struct git_object_policy : public gtl::odb_object_policy<TraitsType>
 	}
 	
 	typename TraitsType::size_type 
-		compute_size(const typename TraitsType::input_reference_type object, std::ostream& stream)
+	compute_size(const typename TraitsType::input_reference_type object, std::ostream* stream=0)
 	{
 		switch(object.type()) 
 		{
