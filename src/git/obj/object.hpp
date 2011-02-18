@@ -13,13 +13,16 @@ GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
 
 //! \brief Thrown for errors during deserialization
-class DeserializationError : public gtl::odb_deserialization_error,
-							 public gtl::streaming_exception
+class ObjectError		: public gtl::odb_object_error,
+						  public gtl::streaming_exception
+{};
+
+//! \brief Thrown for errors during deserialization
+class DeserializationError : public ObjectError
 {};
 
 //! \brief Thrown for errors during serialization
-class SerializationError :	public gtl::odb_serialization_error,
-							public gtl::streaming_exception
+class SerializationError :	public ObjectError
 {};
 
 

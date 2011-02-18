@@ -4,6 +4,7 @@
 #include <gtl/config.h>
 #include <stdint.h>
 #include <exception>
+#include <iostream>
 #include <boost/iostreams/stream.hpp>
 #include <type_traits>
 
@@ -28,38 +29,68 @@ class odb_deserialization_error : public odb_object_error {};
 class odb_serialization_error : public odb_object_error {};
 
 
+/** \brief traits for object policies.
+  */
+struct odb_object_policy_traits
+{
+	//! Type allowing to classify the stored object
+	typedef int object_type;
+	//! Type used to return values by reference
+	typedef void*& output_reference_type;
+	//! Type used when objects are made available to a function by references
+	typedef void* input_reference_type;
+	//! Type of the size of an object. This represents the maximum size in bytes an object may have
+	typedef uint64_t size_type;
+	//! Character type to be used within streams and data storage defined in object databases
+	typedef uchar char_type;
+};
 
-//! \brief policy defining functions to be used in certain situations
-//! Its template parameters should be used to partially specialize the 
-//! methods for the respective serialization and deserializion types used.
-//! The StreamType and ObjectType remain templates, they obey their designated interfaces.
-//! \tparam InputReferenceType type used to provide input objects to the method
-//! \tparam OutputReferenceType type of the output reference
-//! \ingroup ODBPolicy
-template <class InputReferenceType, class OutputReferenceType>
+/** \brief policy defining functions to be used in certain situations
+  * Its template parameters should be used to partially specialize the 
+  * methods for the respective serialization and deserializion types used.
+  * The StreamType and ObjectType remain templates, they obey their designated interfaces.
+  * \tparam TraitsType policy traits for configuration
+  * \ingroup ODBPolicy
+  */
+template <class TraitsType>
 struct odb_object_policy
 {
 	//! @{ \name Serialization Policy
 	
+	//! \return the type of the given object
+	//! \throw odb_object_error
+	typename TraitsType::object_type type(const typename TraitsType::input_reference_type object);
+	
+	//! Compute the uncompressed serialized size of the given object as quickly as possible.
+	//! \param object to compute the size for
+	//! \param stream output stream which can be used to serialize the object into in case the 
+	//! only feasible way to determine the object's size is the actual serialization
+	//! Its encouraged though to compute the size whenever possible, especially if the object is large.
+	//! The stream is only provided to improve efficiency of implementation which have to serialize the object
+	//! to obtain the size. After all, it depends on the database implementation and storage format whether 
+	//! the serialized object size must be known in advance.
+	//! \throw odb_object_error
+	typename TraitsType::size_type compute_size(const typename TraitsType::input_reference_type object, std::ostream& stream);
+	
 	//! Serialize the given object into the given stream.
 	//! \param object object to be serialized
-	//! \param ostream stream to write serialzed object to.
-	
-	//! \tparam StreamType typoe of stream
+	//! \param outObject input object to fill with data, that is type, size and the actual serialized data stream.
+	//! \tparam StreamType ostream compatible type
 	//! \throw odb_serialization_error
 	template <class StreamType>
-	void serialize(InputReferenceType object, StreamType& ostream);
+	void serialize(const typename TraitsType::input_reference_type object, StreamType& stream);
 	
 	//! deserialize the data contained in object to recreate the object it represents
 	//! \param output variable to keep the deserialized object
 	//! \param object database object containing all information, like type, size, stream
-	//! \tparam ObjectType type of database object
+	//! \tparam OutputObjectType obd_output_object compatible type
 	//! \throw odb_deserialization_error
-	template <class ObjectType>
-	static void deserialize(OutputReferenceType out, const ObjectType& object);
+	template <class OutputObjectType>
+	static void deserialize(typename TraitsType::output_reference_type out, const OutputObjectType& object);
 	
 	//! @}
 };
+
 
 
 /** Basic traits type to further specify properties of objects stored in the database
@@ -68,27 +99,14 @@ struct odb_object_policy
   * For brevity, the traits contain a small set of functions to handle serialization features.
   * \ingroup ODBObject
   */
-struct odb_object_traits
+struct odb_object_traits : public odb_object_policy_traits
 {	
-	//! Type allowing to classify the stored object
-	typedef int object_type;
-	//! Type of the size of an object. This represents the maximum size in bytes an object may have
-	typedef uint64_t size_type;
-	//! Type used to return values by reference
-	typedef void*& output_reference_type;
-	//! Type used when objects are made available to a function by references
-	typedef void* input_reference_type;
-	
 	//! hash_generator interface compatible type which is used to generate keys from the contents of streams
 	typedef bool hash_generator_type;
 	//! type of keys used within the object databases to identify objects
 	typedef int key_type;
-	
-	//! Character type to be used within streams and data storage defined in object databases
-	typedef uchar char_type;
-	 
 	//! Policy struct providing additional functionality
-	typedef odb_object_policy<input_reference_type, output_reference_type> policy_type;
+	typedef odb_object_policy<odb_object_policy_traits> policy_type;
 };
 
 
@@ -114,7 +132,6 @@ struct odb_basic_object
 	typename traits_type::size_type size() const {
 		return 0;
 	}
-	
 };
 
 /** \ingroup ODBObject
@@ -127,19 +144,27 @@ struct odb_basic_object
 template <class ObjectTraits, class StreamType>
 struct odb_input_object : public odb_basic_object<ObjectTraits>
 {
+	typedef ObjectTraits traits_type;
 	typedef typename ObjectTraits::key_type key_type;
 	typedef StreamType stream_type;
 	
+	//! Set this instance to use the given size
+	void set_size(typename traits_type::size_type size);
 	
-	/** \return reference to the contained input stream type
-	  */
+	//! Set this instance to the given object type
+	void set_type(typename traits_type::object_type type);
+	
+	//! \return reference to the contained input stream type, ready for modification
 	stream_type& stream();
 	
-	/** \return pointer to key designated to the object, or 0 if a key does not yet exists
-	  */
+	//! \return pointer to key designated to the object, or 0 if a key does not yet exists
 	const typename std::add_pointer<const key_type>::type key_pointer() const {
 		return nullptr;
 	}
+	
+	//! convenience function to serialize a given object into this instance.
+	//! After this call, the type and size will be set to represent the serialized input object
+	void serialize(const typename traits_type::input_reference_type object);
 };
 
 
@@ -183,10 +208,14 @@ struct odb_output_object : public odb_basic_object<ObjectTraits>
 	//! because you cannot generically call a destructor as your code does not know the actual typename.
 	stream_type* new_stream() const;
 	
+	
+	//! \todo delete_stream(**)
+	//! \todo destroy_stream(&);
+	
 	//! construct an object from the deserialized stream and store it in the output reference
 	//! \note uses exceptions to indicate failure (i.e. out of memory, corrupt stream)
 	//! \throw odb_deserialization_error
-	void deserialize(typename traits_type::output_reference_type out) const ;
+	void deserialize(typename traits_type::output_reference_type out) const;
 };
 
 

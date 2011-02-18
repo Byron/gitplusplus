@@ -4,12 +4,14 @@
 #include <gtl/config.h>
 #include <gtl/db/odb.hpp>
 #include <gtl/db/odb_object.hpp>
+#include <gtl/util.hpp>
 
 #include <boost/type_traits/add_pointer.hpp>
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <boost/iostreams/device/array.hpp>
 
+#include <iostream>
 #include <sstream>
 #include <type_traits>
 #include <vector>
@@ -17,12 +19,20 @@
 #include <assert.h>
 #include <utility>
 #include <memory>
-#include <iostream>	// debug
+
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
 
 namespace io = boost::iostreams;
+
+/*! \brief Thrown for errors during serialization
+ * \ingroup ODBException
+ */
+class odb_mem_serialization_error : public odb_serialization_error,
+									public streaming_exception
+{};
+
 
 /** \ingroup ODBObject
   */
@@ -92,12 +102,12 @@ template <class ObjectTraits, class StreamBaseType = std::basic_istream<typename
 class odb_mem_input_object : public odb_input_object<ObjectTraits, StreamBaseType>
 {
 public:
-	typedef ObjectTraits traits_type;
-	typedef typename traits_type::object_type object_type;
-	typedef typename traits_type::size_type size_type;
-	typedef typename traits_type::key_type key_type;
-	typedef typename std::add_pointer<key_type>::type key_pointer_type;
-	typedef StreamBaseType stream_type;
+	typedef ObjectTraits								traits_type;
+	typedef typename traits_type::object_type			object_type;
+	typedef typename traits_type::size_type				size_type;
+	typedef typename traits_type::key_type				key_type;
+	typedef typename std::add_pointer<key_type>::type	key_pointer_type;
+	typedef StreamBaseType								stream_type;
 	
 protected:
 	const object_type m_type;
@@ -119,8 +129,16 @@ public:
 		return m_type;
 	}
 	
+	void set_type(object_type type) noexcept {
+		m_type = type;
+	}
+	
 	size_type size() const noexcept {
 		return m_size;
+	}
+	
+	void set_size(size_type size) noexcept {
+		m_size = size;
 	}
 	
 	stream_type& stream() noexcept {
@@ -129,6 +147,21 @@ public:
 	
 	const key_pointer_type key_pointer() const noexcept {
 		return m_key;
+	}
+	
+	//! \throw odb_mem_serialization_error
+	void serialize(const typename traits_type::input_reference_type object) {
+		assert(m_key == 0);	// it makes no sense to serialize an object although our key is set ...
+		if (m_stream.tellp() != 0) {
+			odb_mem_serialization_error err;
+			err.stream() << "Cannot serialize object if the input object's stream is not empty" << std::flush;
+			throw err;
+		}
+		
+		m_type = typename traits_type::policy_type().type(object);
+		typename traits_type::policy_type().serialize(object, m_stream);
+		m_size = m_stream.tellp();
+		m_stream.seekp(0, std::ios_base::beg);
 	}
 };
 

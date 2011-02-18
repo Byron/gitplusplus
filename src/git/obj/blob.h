@@ -3,7 +3,7 @@
 
 #include <git/config.h>
 #include <git/obj/object.hpp>
-#include <string>
+#include <vector>
 #include <iostream>
 
 GIT_HEADER_BEGIN
@@ -14,28 +14,28 @@ GIT_NAMESPACE_BEGIN
   */
 class Blob : public Object
 {
-private:
-	typedef std::basic_string<uchar> ustring;
-	ustring m_data;
-	
 public:
-	typedef ustring data_type;		//!< type we use to store our data
+	typedef default_char_type			char_type;
+	typedef std::vector<char_type>		data_type;	//!< type we use to store our data
+	
+private:
+	data_type m_data;
 	
 public:
 	//! default constructor
 	Blob();
 	//! default destructor
-	~Blob(){};
+	~Blob(){}
 	
 public:
 	//! \return modifyable data containing the blobs raw character data.
 	//! \note this method should be used to fill or modify the blobs data as required.
-	ustring& data(){
+	data_type& data() {
 		return m_data;
 	}
 	
 	//! \return constant data
-	const ustring& data() const {
+	const data_type& data() const {
 		return m_data;
 	}
 };
