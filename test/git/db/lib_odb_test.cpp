@@ -90,7 +90,7 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 {
 	MemoryODB modb;
 	
-	std::basic_stringstream<uchar> stream;
+	MemoryODB::input_object_type::rw_stream_type stream;
 	stream.write(phello, lenphello);
 	auto s = stream.tellp();
 	BOOST_CHECK(s == lenphello);
@@ -160,6 +160,18 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	BOOST_CHECK(mobj.type == Object::Type::Blob);
 	BOOST_CHECK(mobj.blob.data().size() == it.size());
 	
-	// MemoryODB::Type::Object
+	{
+		MemoryODB::input_object_type iobj(mobj.blob.type(), 0, &stream);
+		//! should fail as stream is not empty
+		BOOST_REQUIRE_THROW(iobj.serialize(mobj.blob), gtl::odb_serialization_error);
+	}
+	
+	{
+		MemoryODB::input_object_type iobj(mobj.blob.type(), 0);
+		iobj.serialize(mobj.blob);
+		BOOST_REQUIRE(iobj.size() == mobj.blob.data().size());
+		modb.insert(iobj);
+		BOOST_CHECK(modb.count() == 1);
+	}
 	
 }

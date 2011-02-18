@@ -201,6 +201,9 @@ struct odb_output_object : public odb_basic_object<ObjectTraits>
 {
 	typedef ObjectTraits traits_type;
 	typedef StreamType stream_type;
+	//! Defines a stream which can be read and written to. This is important in case you want to serialize
+	//! an object from scratch, in which case a temporary stream of that type will be created.
+	typedef StreamType rw_stream_type;
 	
 	//! create data stream which allows access to the serialized object data
 	//! As streams are generally non-copyable, but yet a unique stream needs to be

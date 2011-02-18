@@ -98,7 +98,7 @@ public:
   * This should be suitable for adding objects to the database as streams cannot be copy-constructed.
   * \ingroup ODBObject
   */
-template <class ObjectTraits, class StreamBaseType = std::basic_istream<typename ObjectTraits::char_type> >
+template <class ObjectTraits, class StreamBaseType = std::basic_iostream<typename ObjectTraits::char_type> >
 class odb_mem_input_object : public odb_input_object<ObjectTraits, StreamBaseType>
 {
 public:
@@ -107,6 +107,7 @@ public:
 	typedef typename traits_type::size_type				size_type;
 	typedef typename traits_type::key_type				key_type;
 	typedef StreamBaseType								stream_type;
+	typedef std::basic_stringstream<typename traits_type::char_type> rw_stream_type;
 	
 protected:
 	bool				m_owns_stream;
@@ -179,7 +180,7 @@ public:
 		}
 		
 		m_type = typename traits_type::policy_type().type(object);
-		typename traits_type::policy_type().serialize(object, m_pstream);
+		typename traits_type::policy_type().serialize(object, *m_pstream);
 		m_size = m_pstream->tellp();
 		m_pstream->seekp(0, std::ios_base::beg);
 	}
@@ -190,7 +191,7 @@ public:
 	//! \note its safe to call this method multiple times or in any state
 	stream_type* create_stream() {
 		if (!m_pstream) {
-			m_pstream = new stream_type;
+			m_pstream = new rw_stream_type;
 			m_owns_stream = true;
 		}
 		return m_pstream;
