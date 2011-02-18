@@ -98,7 +98,7 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	
 	// INSERT OPERATION
 	////////////////////
-	MemoryODB::input_object_ref object(Object::Type::Blob, lenphello, stream);
+	MemoryODB::input_object_type object(Object::Type::Blob, lenphello, &stream);
 	BOOST_CHECK(&object.stream() == &stream);
 	BOOST_CHECK(object.size() == lenphello);
 	BOOST_CHECK(object.type() == Object::Type::Blob);
@@ -160,5 +160,6 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	BOOST_CHECK(mobj.type == Object::Type::Blob);
 	BOOST_CHECK(mobj.blob.data().size() == it.size());
 	
+	// MemoryODB::Type::Object
 	
 }

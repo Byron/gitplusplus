@@ -106,24 +106,33 @@ public:
 	typedef typename traits_type::object_type			object_type;
 	typedef typename traits_type::size_type				size_type;
 	typedef typename traits_type::key_type				key_type;
-	typedef typename std::add_pointer<key_type>::type	key_pointer_type;
 	typedef StreamBaseType								stream_type;
 	
 protected:
-	const object_type m_type;
-	const size_type m_size;
-	stream_type& m_stream;
-	const key_pointer_type m_key;
+	bool				m_owns_stream;
+	object_type			m_type;
+	size_type			m_size;
+	stream_type*		m_pstream;
+	const key_type*		m_key;
 	
 public:
-	odb_mem_input_object(object_type type, size_type size, 
-						 stream_type& stream,
-						 const key_pointer_type key_pointer=nullptr) noexcept
-		: m_type(type)
+	odb_mem_input_object(object_type type, size_type size,
+						 stream_type* stream = nullptr,
+						 const key_type* key_pointer = nullptr) noexcept
+		: m_owns_stream(false)
+		, m_type(type)
 		, m_size(size)
-		, m_stream(stream)
+		, m_pstream(stream)
 		, m_key(key_pointer)
 	{}
+	
+	~odb_mem_input_object() {
+		if (m_owns_stream && m_pstream){
+			delete m_pstream;
+			m_owns_stream = false;
+			m_pstream = nullptr;
+		}
+	}
 	
 	object_type type() const noexcept {
 		return m_type;
@@ -141,28 +150,52 @@ public:
 		m_size = size;
 	}
 	
-	stream_type& stream() noexcept {
-		return m_stream;
+	//! \throw odb_mem_serialization_error
+	stream_type& stream() {
+		if (m_pstream == nullptr){
+			odb_mem_serialization_error err;
+			err.stream() << "Did not have a stream - did you forget to put one into the input object, or to call serialize() ?" << std::flush;
+			throw err;
+		}
+		return *m_pstream;
 	}
 	
-	const key_pointer_type key_pointer() const noexcept {
+	const key_type* key_pointer() const noexcept {
 		return m_key;
 	}
 	
 	//! \throw odb_mem_serialization_error
 	void serialize(const typename traits_type::input_reference_type object) {
 		assert(m_key == 0);	// it makes no sense to serialize an object although our key is set ...
-		if (m_stream.tellp() != 0) {
+		if (m_pstream && (m_pstream->tellp() != 0 || m_pstream->tellg() != 0)) {
 			odb_mem_serialization_error err;
 			err.stream() << "Cannot serialize object if the input object's stream is not empty" << std::flush;
 			throw err;
 		}
 		
+		if (!m_pstream){
+			create_stream();
+			assert(m_pstream);
+		}
+		
 		m_type = typename traits_type::policy_type().type(object);
-		typename traits_type::policy_type().serialize(object, m_stream);
-		m_size = m_stream.tellp();
-		m_stream.seekp(0, std::ios_base::beg);
+		typename traits_type::policy_type().serialize(object, m_pstream);
+		m_size = m_pstream->tellp();
+		m_pstream->seekp(0, std::ios_base::beg);
 	}
+	
+	//! @{ \name Memory DB Specific Interface
+	//! Create a new stream if we currently don't own one
+	//! \return pointer to possibly newly created stream
+	//! \note its safe to call this method multiple times or in any state
+	stream_type* create_stream() {
+		if (!m_pstream) {
+			m_pstream = new stream_type;
+			m_owns_stream = true;
+		}
+		return m_pstream;
+	}
+	//! @}
 };
 
 
@@ -263,7 +296,7 @@ public:
 	
 	typedef odb_hash_error<key_type>							hash_error_type;
 	typedef odb_mem_output_object<traits_type>					output_object_type;
-	typedef odb_mem_input_object<traits_type>					input_object_ref;
+	typedef odb_mem_input_object<traits_type>					input_object_type;
 	
 private:
 	map_type m_objs;
