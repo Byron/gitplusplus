@@ -7,10 +7,13 @@
 #include <gtl/util.hpp>
 
 #include <string>
+#include <ctime>
 
 
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
+
+using std::string;
 
 //! \brief Thrown for errors during deserialization
 class ObjectError		: public gtl::odb_object_error,
@@ -24,6 +27,28 @@ class DeserializationError : public ObjectError
 //! \brief Thrown for errors during serialization
 class SerializationError :	public ObjectError
 {};
+
+
+//! Utility storing a name and an email
+struct Actor
+{
+	string name;
+	string email;
+};
+
+//! \brief offset definition (including parsing facilities) to define a timezone offset
+//! from universal time
+struct TimezoneOffset
+{
+	short utz_offset;		//! Offset as universal time zone offset
+};
+
+//! Utility acting like a stamp with an id, as it encapsulates a timestamp too
+struct ActorDate : public Actor
+{
+	time_t			time;			//! Time at which a certain event happend (seconds since epoch)
+	TimezoneOffset	tz_offset;		//! timezone at which the time was recorded
+};
 
 
 /** \brief base for all objects git knows. 

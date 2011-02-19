@@ -13,12 +13,12 @@ GIT_NAMESPACE_BEGIN
 
 union MultiObject 
 {
-	Object::Type type;
+	Object::Type	type;
 	
-	Tree tree;
-	Blob blob;
-	Commit commit;
-	Tag tag;
+	Tree			tree;
+	Blob			blob;
+	Commit			commit;
+	Tag				tag;
 	
 	MultiObject() : type(Object::Type::None) {}
 	~MultiObject();

@@ -2,7 +2,7 @@
 #define GIT_ODB_H
 
 #include <git/config.h>
-#include <git/db/traits.hpp>
+#include <git/db/policy.hpp>
 #include <gtl/db/odb_mem.hpp>
 
 GIT_HEADER_BEGIN

@@ -3,6 +3,7 @@
 
 #include <git/config.h>
 #include <git/obj/object.hpp>
+#include <git/db/traits.hpp>
 #include <vector>
 #include <iostream>
 
@@ -15,8 +16,8 @@ GIT_NAMESPACE_BEGIN
 class Blob : public Object
 {
 public:
-	typedef default_char_type			char_type;
-	typedef std::vector<char_type>		data_type;	//!< type we use to store our data
+	typedef typename git_object_policy_traits::char_type	char_type;
+	typedef std::vector<char_type>							data_type;	//!< type we use to store our data
 	
 private:
 	data_type m_data;
@@ -24,6 +25,9 @@ private:
 public:
 	//! default constructor
 	Blob();
+	Blob(const Blob&) = default;
+	Blob(Blob&&) = default;
+	
 	//! default destructor
 	~Blob(){}
 	
