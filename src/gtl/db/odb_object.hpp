@@ -225,9 +225,10 @@ struct odb_output_object : public odb_basic_object<ObjectTraits>
 	//! because you cannot generically call a destructor as your code does not know the actual typename.
 	stream_type* new_stream() const;
 	
-	
-	//! \todo delete_stream(**)
-	//! \todo destroy_stream(&);
+	//! Destroy an instance of a stream which was manually allocated and obtained using the stream() method
+	//! \note the usage of this method is required to properly deconstruct a stream which was previously constructed 
+	//! into a preallocated memory area
+	void destroy_stream(stream_type* stream) const;
 	
 	//! construct an object from the deserialized stream and store it in the output reference
 	//! \note uses exceptions to indicate failure (i.e. out of memory, corrupt stream)

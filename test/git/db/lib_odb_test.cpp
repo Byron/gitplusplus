@@ -119,7 +119,7 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	// stream verification
 	{
 		MemoryODB::output_object_type::stream_type ostream;
-		ostream.~stream();
+		(*it).destroy_stream(&ostream);	// pretend the object was never constructed
 		(*it).stream(&ostream);
 		
 		uchar buf[lenphello];
