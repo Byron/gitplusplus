@@ -91,7 +91,8 @@ public:
 	template <class StreamType>
 	void serialize(StreamType& ostream)
 	{
-		
+		ostream << "object " << m_obj_hash << std::end;
+		ostream << "object " << m_obj_hash << std::end;
 	}
 	
 	//! @} end serialization

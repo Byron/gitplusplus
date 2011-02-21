@@ -67,4 +67,5 @@ SOURCES += \
     src/git/obj/tree.cpp \
     src/git/obj/commit.cpp \
     src/git/obj/blob.cpp \
-    src/git/obj/tag.cpp
+    src/git/obj/tag.cpp \
+    src/git/obj/object.cpp

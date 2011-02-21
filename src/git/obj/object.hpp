@@ -6,6 +6,7 @@
 #include <gtl/db/odb_object.hpp>
 #include <gtl/util.hpp>
 
+#include <iostream>
 #include <string>
 #include <ctime>
 
@@ -84,9 +85,17 @@ public:
 	inline Type type() const {
 		return m_type;
 	}
-
+	
 };
 
+
+//! Convert strings previously generated using operator >>
+//! \note if the given token does not resolve to a type, Type::None will be returned.
+std::istream& operator >> (std::istream& stream, Object::Type& type);
+
+//! Write type enumeration members into a stream as string, using a format compatible
+//! to be used in git loose objects
+std::ostream& operator << (std::ostream& stream, Object::Type type);
 
 GIT_NAMESPACE_END
 GIT_HEADER_END

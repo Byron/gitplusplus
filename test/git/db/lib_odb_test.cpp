@@ -25,6 +25,20 @@ const std::string hello_hex_sha("AAF4C61DDCC5E8A2DABEDE0F3B482CD9AEA9434D");
 const std::string null_hex_sha("0000000000000000000000000000000000000000");
 
 
+BOOST_AUTO_TEST_CASE(object_type_conversion)
+{
+	Object::Type t(Object::Type::Tag);
+	const Object::Type vals[] = { Object::Type::None, Object::Type::Blob, Object::Type::Tree, 
+								Object::Type::Commit, Object::Type::Tag };
+	const size_t num_vals = 5;
+	for (const Object::Type* i = vals; i < vals + num_vals; ++i) {
+		stringstream s;
+		s << *i;
+		s >> t;
+		BOOST_CHECK(t == *i);
+	}
+}
+
 BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 {
 	// Test SHA1 itself
