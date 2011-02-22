@@ -35,21 +35,54 @@ struct Actor
 {
 	string name;
 	string email;
+	
+	bool operator == (const Actor& rhs) const {
+		return (name == rhs.name && email == rhs.email);
+	}
 };
+
+std::ostream& operator << (std::ostream& stream, const Actor& inst);
+std::istream& operator >> (std::istream& stream, Actor& inst);
+
 
 //! \brief offset definition (including parsing facilities) to define a timezone offset
 //! from universal time
 struct TimezoneOffset
 {
 	short utz_offset;		//! Offset as universal time zone offset
+	
+	TimezoneOffset(short offset)
+		: utz_offset(offset) {}
+	TimezoneOffset& operator = (short offset) {
+		utz_offset = offset;
+		return *this;
+	}
+	operator short() const{
+		return utz_offset;
+	}
 };
+
+std::ostream& operator << (std::ostream& stream, const TimezoneOffset& inst);
+std::istream& operator >> (std::istream& stream, TimezoneOffset& inst);
 
 //! Utility acting like a stamp with an id, as it encapsulates a timestamp too
 struct ActorDate : public Actor
 {
 	time_t			time;			//! Time at which a certain event happend (seconds since epoch)
 	TimezoneOffset	tz_offset;		//! timezone at which the time was recorded
+	
+	ActorDate()
+		: time(0)
+		, tz_offset(0) 
+	{}
+	
+	bool operator == (const ActorDate& rhs) const {
+		return static_cast<const Actor&>(rhs) == *this && time == rhs.time && tz_offset == rhs.tz_offset;
+	}
 };
+
+std::ostream& operator << (std::ostream& stream, const ActorDate& inst);
+std::istream& operator >> (std::istream& stream, ActorDate& inst);
 
 
 /** \brief base for all objects git knows. 

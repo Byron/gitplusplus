@@ -1,5 +1,6 @@
 #include <git/obj/object.hpp>
-
+#include <cstdio>
+#include <assert.h>
 
 GIT_NAMESPACE_BEGIN
 
@@ -65,5 +66,55 @@ std::ostream& operator << (std::ostream& stream, Object::Type type)
 	return stream;
 }
 
+std::ostream& operator << (std::ostream& stream, const Actor& inst)
+{
+	stream << inst.name << " <" << inst.email << ">";
+	return stream;
+}
+
+std::istream& operator >> (std::istream& stream, Actor& inst)
+{
+	stream >> inst.name;
+	stream >> inst.email;
+	inst.email = inst.email.substr(1, inst.email.size()-2);
+	
+	return stream;
+}
+
+std::ostream& operator << (std::ostream& stream, const ActorDate& inst)
+{
+	stream << static_cast<const Actor&>(inst);
+	return stream << " " << inst.time << " " << inst.tz_offset;
+}
+
+std::istream& operator >> (std::istream& stream, ActorDate& inst)
+{
+	stream >> static_cast<Actor&>(inst);
+	return stream >> inst.time >> inst.tz_offset;
+}
+
+std::ostream& operator << (std::ostream& stream, const TimezoneOffset& inst)
+{
+	char buf[17];
+	std::sprintf(buf, "%04i", std::abs((int)inst.utz_offset));
+	if (inst.utz_offset < 0){
+		stream << "-";
+	} else {
+		stream << "+";
+	}
+	
+	return stream << buf;
+}
+
+std::istream& operator >> (std::istream& stream, TimezoneOffset& inst)
+{
+	char c;
+	stream >> c;
+	stream >> inst.utz_offset;
+	if (c == '-') {
+		inst.utz_offset *= -1;
+	}
+	return stream;
+}
 
 GIT_NAMESPACE_END

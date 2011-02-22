@@ -39,6 +39,56 @@ BOOST_AUTO_TEST_CASE(object_type_conversion)
 	}
 }
 
+BOOST_AUTO_TEST_CASE(lib_actor)
+{
+	ActorDate d1, d2, d3;
+	BOOST_CHECK(d1.time == 0 && d1.tz_offset == 0);
+	BOOST_CHECK(d1 == d2);
+	
+	d1.name = "name";
+	d1.email = "email";
+	d1.time = 40;
+	d1.tz_offset = 800;
+	
+	BOOST_CHECK(!(d1 == d2));
+	d2 = d1;
+	BOOST_CHECK(d1 == d2);
+	
+	std::stringstream s;
+	s << d1;
+	s >> d3;
+	BOOST_REQUIRE(d3 == d1);
+}
+
+BOOST_AUTO_TEST_CASE(lib_tag)
+{
+	Tag tag;
+	Tag otag;
+	BOOST_REQUIRE(tag == otag);
+	tag.object_type() = Object::Type::Commit;
+	tag.object_key() = SHA1();
+	tag.name() = "name";
+	tag.message() = "12\nmessage21\n2ndline\n";
+	
+	tag.actor().email = "email";
+	tag.actor().name = "name";
+	tag.actor().time = 1;
+	tag.actor().tz_offset = 800;
+	
+	std::stringstream s;
+	s << tag;
+	s >> otag;
+	BOOST_CHECK(tag.name() == otag.name());
+	BOOST_CHECK(tag.object_type() == otag.object_type());
+	BOOST_CHECK(tag.object_key() == otag.object_key());
+	BOOST_CHECK(tag.actor() == otag.actor());
+	BOOST_CHECK(tag.message() == otag.message());
+	
+	BOOST_REQUIRE(tag == otag);
+	
+	//! \todo maybe, add some fuzzing to be sure we don't unconditionally read garbage
+}
+
 BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 {
 	// Test SHA1 itself
@@ -99,6 +149,8 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	buf << filter.component<SHA1Filter>(0)->hash();
 	BOOST_CHECK(buf.str() == hello_hex_sha);
 }
+
+
 
 BOOST_AUTO_TEST_CASE(mem_db_test)
 {
@@ -179,5 +231,10 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	modb.insert_object(mobj.blob);
 	BOOST_REQUIRE(modb.count() == 1);
 	
+	// TAG SERIALIZATION AND DESERIALIZATION
+	/////////////////////////////////////////
+	
 	
 }
+
+

@@ -11,6 +11,8 @@ GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
 
 using std::string;
+
+struct TagDeserializationError : public DeserializationError {};
 		
 /** \brief represents the contents of a directory, which may be blobs and other trees.
   */
@@ -27,11 +29,16 @@ private:
 	string			m_message;		//! Message provided when the tag was created
 	
 public:
-    Tag() : Object(Object::Type::Tag) {}
+    Tag();
 	Tag(const Tag&) = default;
 	Tag(Tag&&) = default;
 	
 public:
+	bool operator == (const Tag& rhs) {
+		return (m_name == rhs.name() && m_actor == rhs.actor() 
+				&& m_message == rhs.message() && m_obj_type == rhs.object_type() && m_obj_hash == rhs.object_key());
+	}
+	
 	//! \return the type of the object we refer to
 	Object::Type object_type() const {
 		return m_obj_type;
@@ -82,24 +89,14 @@ public:
 		return m_actor;
 	}
 	
-	
-public:
-	//! @{ Serialization
-	
-	//! Write a serialized version of the tag into the given stream
-	//! \tparam StreamType ostream compatible stream
-	template <class StreamType>
-	void serialize(StreamType& ostream)
-	{
-		ostream << "object " << m_obj_hash << std::end;
-		ostream << "object " << m_obj_hash << std::end;
-	}
-	
-	//! @} end serialization
-	
 };
 
 GIT_NAMESPACE_END
 GIT_HEADER_END
+
+//! Write a serialized version of the tag into the given stream
+//! \tparam StreamType ostream compatible stream
+std::ostream& operator << (std::ostream& stream, const git::Tag& tag);
+std::istream& operator >> (std::istream& stream, git::Tag& tag);
 
 #endif // GIT_OBJ_TAG_H
