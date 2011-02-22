@@ -3,6 +3,7 @@
 
 #include <git/config.h>
 #include <git/db/traits.hpp>
+#include <git/db/util.hpp>
 
 #include <gtl/db/odb_object.hpp>
 #include <gtl/util.hpp>
@@ -103,10 +104,12 @@ public:
 	}
 	
 	//! \return uncompressed size of the serialized version
+	//! \param pstream stream which, if not 0, allows to catch the serialization result
+	//! so that it may be reused right away by the caller.
 	//! \note intentionally not virtual as we use it to inherit documentation
 	//! \note the base implementation is generically implemented, subclasses may and possibly should
 	//! implement specific and hence faster versions.
-	size_type size() const;
+	size_type size(git_basic_ostream* pstream=nullptr) const;
 };
 
 GIT_NAMESPACE_END

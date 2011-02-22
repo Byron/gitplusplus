@@ -5,14 +5,10 @@
 #include <iostream>
 
 #include <git/obj/object.hpp>
-#include <git/db/traits.hpp>
+#include <git/db/util.hpp>
 
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
-
-// Typedefs for convenience
-typedef std::basic_ostream<typename git_object_policy_traits::char_type> git_basic_ostream;
-typedef std::basic_istream<typename git_object_policy_traits::char_type> git_basic_istream;
 
 git_basic_ostream& operator << (git_basic_ostream& stream, const Actor& inst);
 git_basic_istream& operator >> (git_basic_istream& stream, Actor& inst);

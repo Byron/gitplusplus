@@ -44,7 +44,6 @@ public:
 		return m_data;
 	}
 	
-	
 	inline size_type size() const {
 		return m_data.size();
 	}
