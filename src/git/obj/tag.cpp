@@ -30,15 +30,6 @@ git_basic_ostream& operator << (git_basic_ostream& stream, const git::Tag& tag)
 	return stream;
 }
 
-/*Object::size_type Tag::size() const 
-{
-	return t_object.size() + t_type.size() + t_tag.size() + t_tagger.size()	// all header tag sizes
-			+ key_type::hash_len * 2		// hex hash len
-			+ 1*4							// 1 space after header tag
-			+ 1*4							// 1 newline after single tag line
-			+ m_message.size() ? m_message.size() + 1 : 0;
-}*/
-
 git_basic_istream& operator >> (git_basic_istream& stream, git::Tag& tag) 
 {
 	std::string tmp;
@@ -96,5 +87,18 @@ git_basic_istream& operator >> (git_basic_istream& stream, git::Tag& tag)
 	
 	return stream;	
 }
+
+/*Object::size_type Tag::size() const 
+{
+	return t_object.size() + t_type.size() + t_tag.size() + t_tagger.size()	// all header tag sizes
+			+ key_type::hash_len * 2		// hex hash len
+			+ m_name.size()
+			// + name len of object type
+			+ 1*4							// 1 space after header tag
+			+ 1*4							// 1 newline after single tag line
+			// todo: actordate size, + individual sizes
+			+ m_message.size() ? m_message.size() + 1 : 0;
+}*/
+
 
 GIT_NAMESPACE_END

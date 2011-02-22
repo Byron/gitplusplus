@@ -91,7 +91,10 @@ public:
 		return m_actor;
 	}
 	
-	//size_type size() const;
+	//! \note Tag::size() can only be implemented if we implement the respective functionality in Actor, 
+	//! which in turn requires the serialization of integers. It would be fastest just to serialize it in these
+	//! simple cases, which is effectively done by the base implementation.
+	// size_type size() const;
 };
 
 git_basic_ostream& operator << (git_basic_ostream& stream, const git::Tag& tag);
