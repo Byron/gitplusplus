@@ -58,6 +58,10 @@ MultiObject::~MultiObject()
 			assert(false);
 		}
 	}// switch Type
+	
+	// Set the type, which allows to use multiobject multiple times in a row
+	// when the destructor is called manually
+	type = Object::Type::None;
 }
 
 GIT_NAMESPACE_END

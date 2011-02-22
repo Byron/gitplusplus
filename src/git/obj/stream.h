@@ -10,6 +10,14 @@
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
 
+//! \brief Thrown for errors during deserialization
+class DeserializationError : public ObjectError
+{};
+
+//! \brief Thrown for errors during serialization
+class SerializationError :	public ObjectError
+{};
+
 git_basic_ostream& operator << (git_basic_ostream& stream, const Actor& inst);
 git_basic_istream& operator >> (git_basic_istream& stream, Actor& inst);
 

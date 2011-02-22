@@ -22,14 +22,6 @@ class ObjectError		: public gtl::odb_object_error,
 						  public gtl::streaming_exception
 {};
 
-//! \brief Thrown for errors during deserialization
-class DeserializationError : public ObjectError
-{};
-
-//! \brief Thrown for errors during serialization
-class SerializationError :	public ObjectError
-{};
-
 
 //! Utility storing a name and an email
 struct Actor
@@ -97,6 +89,11 @@ protected:
 	~Object() { m_type = Type::None; }
 	
 public:
+	
+	//! \return true if we are an object of the same type
+	inline bool operator == (const Object& rhs) const {
+		return rhs.type() == type();
+	}
 	
 	//! \return object type
 	inline Type type() const {

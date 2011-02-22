@@ -22,7 +22,7 @@ struct git_object_policy : public gtl::odb_object_policy<TraitsType>
 	}
 	
 	typename TraitsType::size_type 
-	compute_size(const typename TraitsType::input_reference_type object, std::ostream* stream=0)
+	compute_size(const typename TraitsType::input_reference_type object, std::ostream* stream=nullptr)
 	{
 		switch(object.type()) 
 		{
@@ -72,7 +72,7 @@ struct git_object_policy : public gtl::odb_object_policy<TraitsType>
 			}
 			case Object::Type::Commit: { new (&out.commit) Commit; *pstream >> out.commit; break; }
 			case Object::Type::Tree: { new (&out.tree) Tree; *pstream >> out.tree; break; }
-			case Object::Type::Tag: { new (&out.tag) Tag; *pstream >> out.tag; break; }
+		case Object::Type::Tag: { new (&out.tag) Tag; *pstream >> out.tag; break; }
 			default:
 			{
 				DeserializationError err;

@@ -318,6 +318,7 @@ typename odb_mem<ObjectTraits>::forward_iterator odb_mem<ObjectTraits>::insert_o
 	
 	io::stream<io::back_insert_device<typename output_object_type::data_type> > dest(odata);
 	policy.serialize(inobj, dest);
+	dest << std::flush;
 	
 	assert(odata.size() == oobj.size());
 	typename traits_type::hash_generator_type hashgen;

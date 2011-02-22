@@ -45,8 +45,8 @@ BOOST_AUTO_TEST_CASE(lib_actor)
 	BOOST_CHECK(d1.time == 0 && d1.tz_offset == 0);
 	BOOST_CHECK(d1 == d2);
 	
-	d1.name = "name";
-	d1.email = "email";
+	d1.name = "name lastname";
+	d1.email = "e@mail";
 	d1.time = 40;
 	d1.tz_offset = 800;
 	
@@ -67,11 +67,11 @@ BOOST_AUTO_TEST_CASE(lib_tag)
 	BOOST_REQUIRE(tag == otag);
 	tag.object_type() = Object::Type::Commit;
 	tag.object_key() = SHA1();
-	tag.name() = "name";
+	tag.name() = "name with spaces";
 	tag.message() = "12\nmessage21\n2ndline\n";
 	
-	tag.actor().email = "email";
-	tag.actor().name = "name";
+	tag.actor().email = "email@something";
+	tag.actor().name = "firstname lastname";
 	tag.actor().time = 1;
 	tag.actor().tz_offset = 800;
 	
@@ -233,7 +233,19 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	
 	// TAG SERIALIZATION AND DESERIALIZATION
 	/////////////////////////////////////////
+	Tag tag;
+	tag.name() = "my tag";
+	tag.message() = "my message";
+	tag.actor().name = "me";
+	tag.actor().email = "me@you.com";
 	
+	it = modb.insert_object(tag);
+	BOOST_REQUIRE(modb.count() == 2);
+	
+	mobj.~MultiObject();
+	(*it).deserialize(mobj);
+	
+	BOOST_REQUIRE(tag == mobj.tag);
 	
 }
 

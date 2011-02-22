@@ -72,7 +72,7 @@ struct odb_object_policy
 	//! If the pointer is 0, which is valid, the implementation has to solve the issue itself, for example using 
 	//! an own temporary stream
 	//! \throw odb_object_error
-	typename TraitsType::size_type compute_size(const typename TraitsType::input_reference_type object, std::ostream* stream = 0);
+	typename TraitsType::size_type compute_size(const typename TraitsType::input_reference_type object, std::ostream* stream = nullptr);
 	
 	//! Serialize the given object into the given stream.
 	//! \param object object to be serialized

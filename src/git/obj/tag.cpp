@@ -2,6 +2,7 @@
 #include <git/config.h>
 #include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/copy.hpp>
+#include <string>
 
 GIT_NAMESPACE_BEGIN
 
@@ -50,10 +51,9 @@ git_basic_istream& operator >> (git_basic_istream& stream, git::Tag& tag)
 		throw git::TagDeserializationError();
 	}
 	stream >> tag.object_type();
-	if (tag.object_type() == git::Object::Type::None) {
+	if (tag.object_type() == git::Object::Type::None && tag.object_key() != git::Tag::key_type::null) {
 		throw git::TagDeserializationError();
 	}
-	
 	
 	// TAG NAME 
 	stream >> tmp;
@@ -61,14 +61,15 @@ git_basic_istream& operator >> (git_basic_istream& stream, git::Tag& tag)
 		throw git::TagDeserializationError();
 	}
 	
-	stream >> tag.name();
+	stream.seekg(1, std::ios_base::cur); // skip whitespace
+	std::getline(stream, tag.name(), '\n');
 	
 	// TAGGER
 	stream >> tmp;
 	if (tmp != t_tagger){
 		throw git::TagDeserializationError();
 	}
-	
+	stream.seekg(1, std::ios_base::cur); // skip whitespace
 	stream >> tag.actor();
 
 	// read \n at end of tagger line

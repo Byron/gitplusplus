@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <assert.h>
+#include <string>
 
 GIT_NAMESPACE_BEGIN
 
@@ -76,9 +77,16 @@ git_basic_ostream& operator << (git_basic_ostream& stream, const Actor& inst)
 
 git_basic_istream& operator >> (git_basic_istream& stream, Actor& inst)
 {
-	stream >> inst.name;
-	stream >> inst.email;
-	inst.email = inst.email.substr(1, inst.email.size()-2);
+	std::string buf;
+	std::getline(stream, buf, '>');
+	std::string::size_type i;
+	for (i = 0; i < buf.size() && buf[i] != '<'; ++i);
+	if (i == buf.size()) {
+		throw DeserializationError();
+	}
+	
+	inst.name = buf.substr(0, i-1);		// skip trailing space
+	inst.email = buf.substr(i+1);		// skip trailing >
 	
 	return stream;
 }
