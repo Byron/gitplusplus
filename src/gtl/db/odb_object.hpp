@@ -42,7 +42,7 @@ struct odb_object_policy_traits
 	//! Type of the size of an object. This represents the maximum size in bytes an object may have
 	typedef uint64_t size_type;
 	//! Character type to be used within streams and data storage defined in object databases
-	typedef uchar char_type;
+	typedef char char_type;
 };
 
 /** \brief policy defining functions to be used in certain situations

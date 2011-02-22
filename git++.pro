@@ -51,7 +51,10 @@ HEADERS += \
     src/gtl/db/hash.hpp \
     src/gtl/util.hpp \
     src/git/db/policy.hpp \
-    src/git/obj/stream.h
+    src/git/obj/stream.h \
+    src/gtl/db/hash_generator_stream.hpp \
+    src/gtl/db/hash_generator_filter.hpp \
+    src/gtl/db/hash_generator.hpp
 
 SOURCES += \
     test/git/model/db/odb_test.cpp \

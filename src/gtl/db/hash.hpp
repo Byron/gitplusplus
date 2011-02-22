@@ -30,7 +30,7 @@ struct bad_hex_string : public std::exception
   * \tparam HashLen number of bytes used to store the hash
   * \tparam char_type type representing the hash, needs to be of size 1
   */
-template <size_t HashLen, class CharType=uchar>
+template <size_t HashLen, class CharType=char>
 class basic_hash
 {
 	public:

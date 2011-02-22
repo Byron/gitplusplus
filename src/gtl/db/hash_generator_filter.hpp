@@ -14,7 +14,7 @@ GTL_NAMESPACE_BEGIN
   *		otherwise the hash so far will be lost.
   * \ingroup ODBUtil
   */
-template <class Hash, class Generator, typename Ch=uchar>
+template <class Hash, class Generator, typename Ch=char>
 class generator_filter
 {
 public:

@@ -47,6 +47,7 @@ configure_file(src/git/config.h.in src/git/config.h)
 #####################
 add_library(gitpp STATIC
 			src/git/obj/object.cpp
+			src/git/obj/stream.cpp
 			src/git/obj/tree.cpp
 			src/git/obj/commit.cpp
 			src/git/obj/tag.cpp

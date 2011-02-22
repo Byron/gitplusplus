@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include <git/obj/object.hpp>
+#include <git/db/traits.hpp>
 
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
