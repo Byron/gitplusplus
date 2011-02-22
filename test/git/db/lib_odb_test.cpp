@@ -151,6 +151,10 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 }
 
 
+struct Test {};
+struct VTest {
+	virtual void hello() const {}
+};
 
 BOOST_AUTO_TEST_CASE(mem_db_test)
 {
@@ -178,7 +182,8 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	MemoryODB::forward_iterator fit = modb.begin();
 	BOOST_CHECK(++fit == modb.end());
 	
-	BOOST_CHECK(it.key() ==  SHA1(hello_hex_sha));
+	// This cannot be verified as the implementation adds a header
+	// BOOST_CHECK(it.key() ==  SHA1(hello_hex_sha));
 	BOOST_CHECK(it.type() == Object::Type::Blob);
 	BOOST_CHECK(it.size() == lenphello);
 	
@@ -246,6 +251,12 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	(*it).deserialize(mobj);
 	
 	BOOST_REQUIRE(tag == mobj.tag);
+	
+	// COMMIT SERIALIZATION AND DESERIALIZATION
+	///////////////////////////////////////////
+	
+	
+	// TODO: test object copy from one database to anotherone
 	
 }
 

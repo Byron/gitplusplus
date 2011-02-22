@@ -75,4 +75,5 @@ SOURCES += \
     src/git/obj/tag.cpp \
     src/git/obj/object.cpp \
     src/git/db/policy.cpp \
-    src/git/obj/stream.cpp
+    src/git/obj/stream.cpp \
+    src/git/db/util.cpp

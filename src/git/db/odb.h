@@ -4,6 +4,7 @@
 #include <git/config.h>
 #include <git/db/policy.hpp>
 #include <gtl/db/odb_mem.hpp>
+#include <git/db/util.hpp>
 
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
@@ -16,8 +17,14 @@ GIT_NAMESPACE_BEGIN
   */
 class MemoryODB : public gtl::odb_mem<git_object_traits>
 {
-public:
-	
+	public:
+		virtual void header_hash(	typename traits_type::hash_generator_type& gen, 
+									const output_object_type& obj) const 
+		{
+			typename git_object_policy_traits::char_type hdr[32];
+			ushort hdrlen = loose_object_header(hdr, obj.type(), obj.size());
+			gen.update(hdr, hdrlen);
+		}
 };
 
 

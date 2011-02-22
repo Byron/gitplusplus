@@ -90,6 +90,10 @@ struct odb_object_policy
 	template <class OutputObjectType>
 	static void deserialize(typename TraitsType::output_reference_type out, const OutputObjectType& object);
 	
+	
+	//! update the given hash generator with a header that would be written into the given object's stream
+	//! 
+	
 	//! @}
 };
 

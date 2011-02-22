@@ -260,8 +260,14 @@ private:
 	map_type m_objs;
 	
 public:
+
+	//! @{ \name Subclass Implementation
 	
-	
+	//! Update the given hash with header data bytes, as generated from information contained in the 
+	//! output object. This method is called before any input to the hash generator was provided.
+	//! \param gen hash generator to update with header information
+	//! \param obj output object to be stored in the database, which keeps the type and the size of the object
+	virtual void header_hash(typename traits_type::hash_generator_type& gen, const output_object_type& obj) const {}
 	
 	bool has_object(const key_type& k) const noexcept{
 		return m_objs.find(k) != m_objs.end();
@@ -322,6 +328,7 @@ typename odb_mem<ObjectTraits>::forward_iterator odb_mem<ObjectTraits>::insert_o
 	
 	assert(odata.size() == oobj.size());
 	typename traits_type::hash_generator_type hashgen;
+	header_hash(hashgen, oobj);
 	hashgen.update(odata.data(), odata.size());
 	return forward_iterator(m_objs.insert(typename map_type::value_type(hashgen.hash(), std::move(oobj))).first);
 }
@@ -344,6 +351,7 @@ typename odb_mem<ObjectTraits>::forward_iterator odb_mem<ObjectTraits>::insert(I
 		return forward_iterator(m_objs.insert(typename map_type::value_type(*pkey, std::move(oobj))).first);
 	} else {
 		typename traits_type::hash_generator_type hashgen;
+		header_hash(hashgen, oobj);
 		hashgen.update(odata.data(), odata.size());
 		return forward_iterator(m_objs.insert(typename map_type::value_type(hashgen.hash(), std::move(oobj))).first);
 	}// handle key exists
