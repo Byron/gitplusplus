@@ -34,7 +34,7 @@ SHA1Generator::SHA1Generator()
 	: m_block((WorkspaceBlock*)m_workspace)
 {
 	static_assert(sizeof(uint32) == 4, "int must be 32 bit");
-	static_assert(sizeof(uchar) == 1, "char must be 8 bit");
+	static_assert(sizeof(char) == 1, "char must be 8 bit");
 	reset();
 }
 
@@ -56,7 +56,7 @@ void SHA1Generator::reset() noexcept
 	memset(m_digest, 0, 20);
 }
 
-void SHA1Generator::transform(const uchar* pBuffer)
+void SHA1Generator::transform(const char* pBuffer)
 {
 	uint32 a = m_state[0], b = m_state[1], c = m_state[2], d = m_state[3], e = m_state[4];
 	memcpy(m_block, pBuffer, 64);
@@ -92,7 +92,7 @@ void SHA1Generator::transform(const uchar* pBuffer)
 }
 
 // Use this function to hash in binary data and strings
-void SHA1Generator::update(const uchar* pbData, uint32 uLen)
+void SHA1Generator::update(const char* pbData, uint32 uLen)
 {
 	if (m_finalized){
 		throw BadSHA1GenState();
@@ -132,20 +132,20 @@ void SHA1Generator::finalize()
 	}
 	
 	uint32 i;
-	uchar finalcount[8];
+	char finalcount[8];
 	for (i = 0; i < 8; ++i) {
-		finalcount[i] = (uchar)((m_count[((i >= 4) ? 0 : 1)]
+		finalcount[i] = (char)((m_count[((i >= 4) ? 0 : 1)]
 		                         >> ((3 - (i & 3)) * 8)) & 255);  // Endian independent
 	}
 
-	update((uchar*)"\200", 1);
+	update((char*)"\200", 1);
 	while ((m_count[0] & 504) != 448) {
-		update((uchar*)"\0", 1);
+		update((char*)"\0", 1);
 	}
 
 	update(finalcount, 8); // Cause a SHA1transform()
 	for (i = 0; i < 20; ++i) {
-		m_digest[i] = (uchar)((m_state[i >> 2] >> ((3 - (i & 3)) * 8)) & 0xFF);
+		m_digest[i] = (char)((m_state[i >> 2] >> ((3 - (i & 3)) * 8)) & 0xFF);
 	}
 	
 	m_finalized = 1;

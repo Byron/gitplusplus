@@ -6,7 +6,6 @@
 #include <gtl/db/odb_object.hpp>
 #include <gtl/util.hpp>
 
-#include <iostream>
 #include <string>
 #include <ctime>
 
@@ -41,9 +40,6 @@ struct Actor
 	}
 };
 
-std::ostream& operator << (std::ostream& stream, const Actor& inst);
-std::istream& operator >> (std::istream& stream, Actor& inst);
-
 
 //! \brief offset definition (including parsing facilities) to define a timezone offset
 //! from universal time
@@ -62,9 +58,6 @@ struct TimezoneOffset
 	}
 };
 
-std::ostream& operator << (std::ostream& stream, const TimezoneOffset& inst);
-std::istream& operator >> (std::istream& stream, TimezoneOffset& inst);
-
 //! Utility acting like a stamp with an id, as it encapsulates a timestamp too
 struct ActorDate : public Actor
 {
@@ -80,10 +73,6 @@ struct ActorDate : public Actor
 		return static_cast<const Actor&>(rhs) == *this && time == rhs.time && tz_offset == rhs.tz_offset;
 	}
 };
-
-std::ostream& operator << (std::ostream& stream, const ActorDate& inst);
-std::istream& operator >> (std::istream& stream, ActorDate& inst);
-
 
 /** \brief base for all objects git knows. 
   * They don't contain more information than their type and data, which is solely defined in derived types.
@@ -120,15 +109,6 @@ public:
 	}
 	
 };
-
-
-//! Convert strings previously generated using operator >>
-//! \note if the given token does not resolve to a type, Type::None will be returned.
-std::istream& operator >> (std::istream& stream, Object::Type& type);
-
-//! Write type enumeration members into a stream as string, using a format compatible
-//! to be used in git loose objects
-std::ostream& operator << (std::ostream& stream, Object::Type type);
 
 GIT_NAMESPACE_END
 GIT_HEADER_END
