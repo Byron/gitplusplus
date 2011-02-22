@@ -91,10 +91,9 @@ public:
 		return m_actor;
 	}
 	
+	//size_type size() const;
 };
 
-//! Write a serialized version of the tag into the given stream
-//! \tparam StreamType ostream compatible stream
 git_basic_ostream& operator << (git_basic_ostream& stream, const git::Tag& tag);
 git_basic_istream& operator >> (git_basic_istream& stream, git::Tag& tag);
 

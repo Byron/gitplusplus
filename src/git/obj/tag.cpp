@@ -12,19 +12,32 @@ Tag::Tag()
 {
 }
 
+const string t_object("object");
+const string t_type("type");
+const string t_tag("tag");
+const string t_tagger("tagger");
+
 git_basic_ostream& operator << (git_basic_ostream& stream, const git::Tag& tag)
 {
-	stream << "object " << tag.object_key() << std::endl;
-	stream << "type " << tag.object_type() << std::endl;
-	stream << "tag " << tag.name() << std::endl;
-	stream << "tagger " << tag.actor() << std::endl;
+	stream << t_object << " " << tag.object_key() << std::endl;
+	stream << t_type << " " <<  tag.object_type() << std::endl;
+	stream << t_tag << " " << tag.name() << std::endl;
+	stream << t_tagger << " " << tag.actor() << std::endl;
 	// empty line only given if we have a message
 	if (tag.message().size()) {
 		stream << std::endl << tag.message();
 	}
-	
 	return stream;
 }
+
+/*Object::size_type Tag::size() const 
+{
+	return t_object.size() + t_type.size() + t_tag.size() + t_tagger.size()	// all header tag sizes
+			+ key_type::hash_len * 2		// hex hash len
+			+ 1*4							// 1 space after header tag
+			+ 1*4							// 1 newline after single tag line
+			+ m_message.size() ? m_message.size() + 1 : 0;
+}*/
 
 git_basic_istream& operator >> (git_basic_istream& stream, git::Tag& tag) 
 {
@@ -32,7 +45,7 @@ git_basic_istream& operator >> (git_basic_istream& stream, git::Tag& tag)
 	stream >> tmp;
 	
 	// OBJECT
-	if (tmp != "object") {
+	if (tmp != t_object) {
 		throw git::TagDeserializationError();
 	}
 	//! \todo revise this, as it could be problematic for other implementations which 
@@ -42,7 +55,7 @@ git_basic_istream& operator >> (git_basic_istream& stream, git::Tag& tag)
 	
 	// OBJECT TYPE
 	stream >> tmp;
-	if (tmp != "type") {
+	if (tmp != t_type) {
 		throw git::TagDeserializationError();
 	}
 	stream >> tag.object_type();
@@ -53,7 +66,7 @@ git_basic_istream& operator >> (git_basic_istream& stream, git::Tag& tag)
 	
 	// TAG NAME 
 	stream >> tmp;
-	if (tmp != "tag") {
+	if (tmp != t_tag) {
 		throw git::TagDeserializationError();
 	}
 	
@@ -61,7 +74,7 @@ git_basic_istream& operator >> (git_basic_istream& stream, git::Tag& tag)
 	
 	// TAGGER
 	stream >> tmp;
-	if (tmp != "tagger"){
+	if (tmp != t_tagger){
 		throw git::TagDeserializationError();
 	}
 	

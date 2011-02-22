@@ -4,6 +4,7 @@
 #include <git/config.h>
 #include <git/obj/object.hpp>
 #include <git/db/traits.hpp>
+#include <git/obj/stream.h>
 #include <vector>
 #include <iostream>
 
@@ -42,7 +43,15 @@ public:
 	const data_type& data() const {
 		return m_data;
 	}
+	
+	
+	inline size_type size() const {
+		return m_data.size();
+	}
 };
+
+git_basic_ostream& operator << (git_basic_ostream& stream, const Blob& inst);
+git_basic_istream& operator >> (git_basic_istream& stream, Blob& inst);
 
 GIT_NAMESPACE_END
 GIT_HEADER_END

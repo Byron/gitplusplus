@@ -3,6 +3,7 @@
 
 #include <git/config.h>
 #include <git/obj/object.hpp>
+#include <git/obj/stream.h>
 
 
 GIT_HEADER_BEGIN
@@ -15,6 +16,9 @@ class Commit : public Object
 public:
     Commit() : Object(Object::Type::Commit) {}
 };
+
+git_basic_ostream& operator << (git_basic_ostream& stream, const Commit& inst);
+git_basic_istream& operator >> (git_basic_istream& stream, Commit& inst);
 
 GIT_NAMESPACE_END
 GIT_HEADER_END

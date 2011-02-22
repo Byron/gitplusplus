@@ -4,17 +4,28 @@
 #include <git/config.h>
 #include <git/db/sha1.h>
 #include <git/db/sha1_gen.h>
-#include <git/obj/object.hpp>
 
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
 
+class Object;
 union MultiObject;
+
+/** \brief Enumeration specifying codes representing object type known to git
+  */
+enum class ObjectType : uchar
+{
+	None,
+	Blob,
+	Tree,
+	Commit,
+	Tag
+};
 
 struct git_object_policy_traits
 {
 	//! Type allowing to classify the stored object
-	typedef Object::Type object_type;
+	typedef ObjectType object_type;
 	//! max size of serialized objects
 	typedef uint64_t size_type;
 	//! use unsigned bytes as general storage

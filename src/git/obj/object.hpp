@@ -2,6 +2,7 @@
 #define GIT_OBJ_BASE_HPP
 
 #include <git/config.h>
+#include <git/db/traits.hpp>
 
 #include <gtl/db/odb_object.hpp>
 #include <gtl/util.hpp>
@@ -80,16 +81,9 @@ struct ActorDate : public Actor
 class Object
 {
 public:
-	/** \brief Enumeration specifying codes representing object type known to git
-	  */
-	enum class Type : uchar
-	{
-		None,
-		Blob,
-		Tree,
-		Commit,
-		Tag
-	};
+	//! typedef for compatability and convenience
+	typedef ObjectType Type;
+	typedef git_object_policy_traits::size_type size_type;
 	
 protected:
 	Type m_type;
@@ -108,6 +102,11 @@ public:
 		return m_type;
 	}
 	
+	//! \return uncompressed size of the serialized version
+	//! \note intentionally not virtual as we use it to inherit documentation
+	//! \note the base implementation is generically implemented, subclasses may and possibly should
+	//! implement specific and hence faster versions.
+	size_type size() const;
 };
 
 GIT_NAMESPACE_END
