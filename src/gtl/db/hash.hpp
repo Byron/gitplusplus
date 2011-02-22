@@ -140,13 +140,9 @@ class basic_hash
 template <size_t HashLen, class CharType>
 const basic_hash<HashLen, CharType> basic_hash<HashLen, CharType>::null((CharType)0);
 
-
-GTL_HEADER_END
-GTL_NAMESPACE_END
-
 //! Output basic_hash as hex into a stream
 template <size_t HashLen, class CharType>
-std::ostream& operator << (std::ostream& out, const gtl::basic_hash<HashLen, CharType>& rhs)
+std::basic_ostream<CharType>& operator << (std::basic_ostream<CharType>& out, const gtl::basic_hash<HashLen, CharType>& rhs)
 {
 	// Only blocks at maxStrl bytes
 	for(uint32 i = 0; i < HashLen; ++i) {
@@ -156,5 +152,9 @@ std::ostream& operator << (std::ostream& out, const gtl::basic_hash<HashLen, Cha
 	}
 	return out;
 }
+
+GTL_HEADER_END
+GTL_NAMESPACE_END
+
 
 #endif // ODB_HASH_HPP

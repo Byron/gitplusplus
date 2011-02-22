@@ -77,7 +77,6 @@ BOOST_AUTO_TEST_CASE(lib_tag)
 	
 	std::stringstream s;
 	s << tag;
-	std::cerr << s.str();
 	s >> otag;
 	BOOST_CHECK(tag.name() == otag.name());
 	BOOST_CHECK(tag.object_type() == otag.object_type());
