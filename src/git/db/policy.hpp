@@ -60,6 +60,20 @@ struct git_object_policy : public gtl::odb_object_policy<TraitsType>
 				io::copy(source_stream, ostream);
 				break;
 			}
+			case Object::Type::Commit:
+			{
+				break;
+			}
+			case Object::Type::Tree:
+			{
+				break;				
+			}
+			case Object::Type::Tag:
+			{
+				const Tag& tag = static_cast<const Tag&>(object);
+				ostream << tag;
+				break;
+			}
 			default:
 			{
 				SerializationError err;
@@ -72,18 +86,31 @@ struct git_object_policy : public gtl::odb_object_policy<TraitsType>
 	template <class ODBObjectType>
 	void deserialize(typename TraitsType::output_reference_type out, const ODBObjectType& object)
 	{
+		std::unique_ptr<typename ODBObjectType::stream_type> pstream(object.new_stream());
 		switch(object.type())
 		{
 			case Object::Type::Blob:
 			{
 				new (&out.blob) Blob;
 				out.blob.data().reserve(object.size());
-				std::unique_ptr<typename ODBObjectType::stream_type> pstream(object.new_stream());
 				io::back_insert_device<Blob::data_type> insert_stream(out.blob.data());
 				io::copy(*pstream, insert_stream);
 				break;
 			}
-			
+			case Object::Type::Commit:
+			{
+				break;
+			}
+			case Object::Type::Tree:
+			{
+				break;				
+			}
+			case Object::Type::Tag:
+			{
+				new (&out.tag) Tag;
+				*pstream >> out.tag;
+				break;
+			}
 			default:
 			{
 				DeserializationError err;

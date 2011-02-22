@@ -5,6 +5,8 @@
 #include <git/obj/object.hpp>
 #include <git/db/traits.hpp>
 #include <git/db/sha1.h>
+#include <git/obj/stream.h>
+
 #include <string>
 
 GIT_HEADER_BEGIN
@@ -91,12 +93,12 @@ public:
 	
 };
 
-GIT_NAMESPACE_END
-GIT_HEADER_END
-
 //! Write a serialized version of the tag into the given stream
 //! \tparam StreamType ostream compatible stream
-std::ostream& operator << (std::ostream& stream, const git::Tag& tag);
-std::istream& operator >> (std::istream& stream, git::Tag& tag);
+git_basic_ostream& operator << (git_basic_ostream& stream, const git::Tag& tag);
+git_basic_istream& operator >> (git_basic_istream& stream, git::Tag& tag);
+
+GIT_NAMESPACE_END
+GIT_HEADER_END
 
 #endif // GIT_OBJ_TAG_H

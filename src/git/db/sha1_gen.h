@@ -39,7 +39,7 @@ public:
   * \note Based on 100% free public domain implementation of the SHA-1 algorithm
   * by Dominik Reichl Web: http://www.dominik-reichl.de/
   */
-class SHA1Generator : public gtl::hash_generator<SHA1, uchar, uint32>
+class SHA1Generator : public gtl::hash_generator<SHA1, char, uint32>
 {
 	private:
 	union WorkspaceBlock
@@ -59,7 +59,7 @@ class SHA1Generator : public gtl::hash_generator<SHA1, uchar, uint32>
 		//! \param pbData location to read bytes from
 		//! \param uLen number of bytes to read
 		//! \throw gtl::bad_state
-		void update(const uchar* pbData, uint32 uLen);
+		void update(const char* pbData, uint32 uLen);
 		
 		//! Finalize hash, called before using digest() method the first time
 		//! The user may, but is not required to make this call automatically.
@@ -68,7 +68,7 @@ class SHA1Generator : public gtl::hash_generator<SHA1, uchar, uint32>
 		void finalize();
 
 		//! \return 20 byte digest buffer
-		inline const uchar* digest() noexcept {
+		inline const char* digest() noexcept {
 			if (m_update_called & (!m_finalized)){
 				finalize();
 				assert(m_finalized);
@@ -90,13 +90,13 @@ class SHA1Generator : public gtl::hash_generator<SHA1, uchar, uint32>
 	private:
 		
 		// Private SHA-1 transformation
-		inline void transform(const uchar* pBuffer);
+		inline void transform(const char* pBuffer);
 		
 		uint32 m_state[5];
 		uint32 m_count[2];
 		uint32 m_finalized; // Memory alignment padding - used as flag too
-		uchar m_buffer[64];
-		uchar m_digest[20];
+		char m_buffer[64];
+		char m_digest[20];
 		uint32 m_update_called;// memory alignment and flag to indicate update was called
 		
 		// Member variables

@@ -1,4 +1,5 @@
 #include "git/obj/tag.h"
+#include <git/config.h>
 #include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/copy.hpp>
 
@@ -11,9 +12,7 @@ Tag::Tag()
 {
 }
 
-GIT_NAMESPACE_END
-
-std::ostream& operator << (std::ostream& stream, const git::Tag& tag)
+git_basic_ostream& operator << (git_basic_ostream& stream, const git::Tag& tag)
 {
 	stream << "object " << tag.object_key() << std::endl;
 	stream << "type " << tag.object_type() << std::endl;
@@ -27,7 +26,7 @@ std::ostream& operator << (std::ostream& stream, const git::Tag& tag)
 	return stream;
 }
 
-std::istream& operator >> (std::istream& stream, git::Tag& tag) 
+git_basic_istream& operator >> (git_basic_istream& stream, git::Tag& tag) 
 {
 	std::string tmp;
 	stream >> tmp;
@@ -84,3 +83,5 @@ std::istream& operator >> (std::istream& stream, git::Tag& tag)
 	
 	return stream;	
 }
+
+GIT_NAMESPACE_END

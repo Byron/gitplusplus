@@ -19,7 +19,7 @@
 using namespace std;
 using namespace git;
 
-const uchar* const phello = (const uchar*)"hello";
+const char* const phello = "hello";
 const size_t lenphello = 5;
 const std::string hello_hex_sha("AAF4C61DDCC5E8A2DABEDE0F3B482CD9AEA9434D");
 const std::string null_hex_sha("0000000000000000000000000000000000000000");
@@ -92,7 +92,7 @@ BOOST_AUTO_TEST_CASE(lib_tag)
 BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 {
 	// Test SHA1 itself
-	uchar raw[20] = {'a','b','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a'};
+	char raw[20] = {'a','b','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a'};
 	SHA1 s;
 	SHA1 o(raw);
 	SHA1 a('x');
@@ -114,7 +114,7 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	sgen.hash(s);
 	BOOST_CHECK(SHA1(sgen.digest())==s);	// duplicate call
 	BOOST_CHECK_THROW(sgen.finalize(), gtl::bad_state);
-	BOOST_CHECK_THROW(sgen.update((uchar*)"hi", 2), gtl::bad_state);
+	BOOST_CHECK_THROW(sgen.update("hi", 2), gtl::bad_state);
 	
 	
 	buf << s;
@@ -122,7 +122,7 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	buf.seekp(0, std::ios_base::beg);
 	
 	BOOST_CHECK(SHA1(hello_hex_sha) == s);
-	BOOST_CHECK(SHA1((const uchar*)hello_hex_sha.c_str(), 40) == s);
+	BOOST_CHECK(SHA1(hello_hex_sha.c_str(), 40) == s);
 	
 	sgen.reset();
 	// after a reset, the state changes
@@ -132,19 +132,18 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	BOOST_CHECK(o == SHA1::null);
 	BOOST_CHECK(buf.str() == null_hex_sha);
 	// after reset, update works
-	sgen.update((uchar*)"hi", 2);
+	sgen.update("hi", 2);
 	
 	
 	// TEST FILTER
 	BOOST_CHECK(SHA1Filter().hash() == SHA1::null);
-	std::basic_stringstream<uchar> null;
-	//std::basic_stringstream<uchar> in(phello);
-	boost::iostreams::stream<boost::iostreams::basic_array_source<uchar> > in(phello, lenphello);
-	boost::iostreams::filtering_stream<boost::iostreams::input, uchar> filter;
+	std::stringstream null;
+	boost::iostreams::stream<boost::iostreams::basic_array_source<char> > in(phello, lenphello);
+	boost::iostreams::filtering_stream<boost::iostreams::input, char> filter;
 	filter.push(SHA1Filter());
 	filter.push(in);
 	boost::iostreams::copy(filter, null);
-	BOOST_CHECK(std::basic_string<uchar>(phello) == null.str());
+	BOOST_CHECK(std::string(phello) == null.str());
 	buf.seekp(0, std::ios::beg);
 	buf << filter.component<SHA1Filter>(0)->hash();
 	BOOST_CHECK(buf.str() == hello_hex_sha);
@@ -188,7 +187,7 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 		(*it).destroy_stream(&ostream);	// pretend the object was never constructed
 		(*it).stream(&ostream);
 		
-		uchar buf[lenphello];
+		char buf[lenphello];
 		ostream.read(buf, lenphello);
 		
 		BOOST_REQUIRE((size_t)ostream.gcount() == lenphello);

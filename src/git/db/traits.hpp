@@ -18,7 +18,7 @@ struct git_object_policy_traits
 	//! max size of serialized objects
 	typedef uint64_t size_type;
 	//! use unsigned bytes as general storage
-	typedef uchar char_type;
+	typedef char char_type;
 	//! Type used to return values by reference
 	typedef MultiObject& output_reference_type;
 	//! Type used to provide unpacked object values.
@@ -35,7 +35,6 @@ struct git_object_traits_base : public git_object_policy_traits
 	//! Using SHA1 as key
 	typedef SHA1 key_type;
 };
-
 
 GIT_NAMESPACE_END
 GIT_HEADER_END

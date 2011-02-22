@@ -112,8 +112,8 @@ CharType fromhex(const CharType* c2)
 	hc[1] = std::toupper(c2[1]);
 	
 	CharType out;
-	out = map[c2[0]] << 4;
-	out |= map[c2[1]];
+	out = map[(uchar)c2[0]] << 4;
+	out |= map[(uchar)c2[1]];
 	
 	return out;
 }

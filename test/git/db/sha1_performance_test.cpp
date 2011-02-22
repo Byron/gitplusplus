@@ -15,7 +15,7 @@ BOOST_AUTO_TEST_CASE(sha1_performance)
 	SHA1Generator sgen;
 	const size_t MB = 1024*1024;
 	static const size_t nb = MB*100;
-	boost::scoped_array<const uchar> mem(new uchar[nb]);
+	boost::scoped_array<const char> mem(new char[nb]);
 	BOOST_CHECK(mem.get());
 	boost::timer t;
 	sgen.update(mem.get(), nb);

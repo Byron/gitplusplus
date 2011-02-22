@@ -316,7 +316,7 @@ typename odb_mem<ObjectTraits>::forward_iterator odb_mem<ObjectTraits>::insert_o
 	auto& odata = oobj.data();
 	odata.reserve(oobj.size());
 	
-	io::back_insert_device<typename output_object_type::data_type> dest(odata);
+	io::stream<io::back_insert_device<typename output_object_type::data_type> > dest(odata);
 	policy.serialize(inobj, dest);
 	
 	assert(odata.size() == oobj.size());
