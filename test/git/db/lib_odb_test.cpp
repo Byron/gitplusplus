@@ -58,6 +58,10 @@ BOOST_AUTO_TEST_CASE(lib_actor)
 	s << d1;
 	s >> d3;
 	BOOST_REQUIRE(d3 == d1);
+	
+	// empty names are not allowed
+	ActorDate d4;
+	BOOST_REQUIRE_THROW(s << d4, DeserializationError);
 }
 
 BOOST_AUTO_TEST_CASE(lib_commit)
@@ -321,13 +325,25 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 		mobj.~MultiObject();
 		(*it).deserialize(mobj);
 		
-		BOOST_CHECK(mobj.type == Object::Type::Tree);
 		BOOST_REQUIRE(mobj.tree == tree);
 	}
 	
 	// COMMIT SERIALIZATION AND DESERIALIZATION
 	///////////////////////////////////////////
-	
+	{
+		Commit commit;
+		commit.author().name = "this";
+		commit.committer().name = "that";
+		commit.message() = "hi";
+		
+		it = modb.insert_object(commit);
+		BOOST_REQUIRE(modb.count() == 4);
+		
+		mobj.~MultiObject();
+		(*it).deserialize(mobj);
+		
+		BOOST_REQUIRE(mobj.commit == commit);
+	}
 	
 	// TODO: test object copy from one database to anotherone
 	
