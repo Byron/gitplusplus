@@ -13,7 +13,12 @@ GIT_NAMESPACE_BEGIN
 
 using std::string;
 
-/** \brief Represents the contents of a directory
+/** \brief Represents the contents of a directory.
+  * A tree is a sorted map of elements, which represent a database object identified by a key,
+  * a name within the (virtual) filesystem as well as the stat compatible mode of the file.
+  * 
+  * Elements can be obtained using the elements() method, and manipulated using the std::map which
+  * maps names to Element instances.
   */
 class Tree : public Object
 {

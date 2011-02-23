@@ -295,8 +295,8 @@ public:
 	//! The input object is a structure keeping information about the possibly existing Key, the type
 	//! as well as the actual stream which contains the data to be copied into the memory database.
 	//! \tparam InputObject type providing a type id, a size and the stream to read the object from.
-	//! \warning the iterator stays only valid as long as the database does not change, which is until
-	//! you call a non-constant method
+	//! \note the iterator is guaranteed to stay valid even if the database is changed in the meanwhile, but
+	//! not, of course, if the element it points to is deleted.
 	//! \tparam InputObject odb_input_object compatible type
 	template <class InputObject>
 	forward_iterator insert(InputObject& object);

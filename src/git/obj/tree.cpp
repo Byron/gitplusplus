@@ -41,14 +41,26 @@ git_basic_istream& operator >> (git_basic_istream& stream, Tree& inst)
 	string name;		// reuse possibly reserved memory
 	name.reserve(64);	// optimize allocation
 	
-	while (!!stream)
+	while (stream.good())
 	{
+		// parse mode
+		try {
+			stream.get(c);
+			// see whether the stream is depleted (case if we don't throw exceptions
+			if (!stream) {
+				break;
+			}
+		} catch (std::ios_base::failure) {
+			// if we are at the end, abort this
+			// It depends on the configuration whether this throws
+			break;
+		} // handle stream exceptions
+		
 		name.clear();
 		Tree::Element elm;	// we will move the element in
 		elm.mode = 0;
-		
-		// parse mode
-		for(stream.get(c); c != ' '; stream.get(c)) {
+
+		for(; c != ' '; stream.get(c)) {
 			elm.mode = (elm.mode << 3) + (c - '0');
 		}
 		

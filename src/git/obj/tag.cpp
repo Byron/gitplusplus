@@ -76,14 +76,21 @@ git_basic_istream& operator >> (git_basic_istream& stream, git::Tag& tag)
 	char c[1];
 	stream.readsome(c, 1);
 	
-	// MESSAGE	
-	if (!stream.eof()) {
-		// read all the rest, which should be the message
+	// MESSAGE
+	try {
 		// read newline between tagger and message
 		stream.readsome(c, 1);
-		
+	} catch(std::ios_base::failure) {
+		// ignore failures possibly based on exceptions thrown by the stream
+		// This really depends on its configuration
+	}
+	
+	if (stream.good()) {
+		tag.message().clear();
 		boost::iostreams::back_insert_device<std::string> msgstream(tag.message());
 		boost::iostreams::copy(stream, msgstream);
+	} else {
+		tag.message().clear();
 	}
 	
 	return stream;	

@@ -87,12 +87,14 @@ BOOST_AUTO_TEST_CASE(lib_tag)
 	BOOST_REQUIRE(tag == otag);
 	
 	// empty message
-	s.seekp(0, std::ios::beg);
-	s.seekg(0, std::ios::beg);
 	tag.message().clear();
-	s << tag;
-	s >> otag;
-	BOOST_REQUIRE(tag == otag);
+	for (bool exc = false; exc != true; exc = true) {
+		std::stringstream s2;
+		s2.exceptions(exc ? std::ios_base::eofbit : std::ios_base::goodbit);
+		s2 << tag;
+		s2 >> otag;
+		BOOST_CHECK(tag == otag);
+	}// verify exception handling
 	
 	
 	//! \todo maybe, add some fuzzing to be sure we don't unconditionally read garbage
@@ -108,15 +110,15 @@ BOOST_AUTO_TEST_CASE(lib_tree)
 	elms.insert(Tree::map_type::value_type("hi there", Tree::Element(0100644, SHA1())));
 	elms.insert(Tree::map_type::value_type("hello world", Tree::Element(0040755, SHA1())));
 	
-	std::stringstream s;
-	s.exceptions(std::istream::eofbit);
-	s << tree;
-	BOOST_CHECK(true);
-	s >> otree;
-	BOOST_CHECK(otree.elements().size() == tree.elements().size());
-	BOOST_CHECK(otree.elements().begin()->first == tree.elements().begin()->first);
-	std::cerr << otree << std::endl;
-	BOOST_REQUIRE(otree == tree);
+	for (bool exc = false; exc != true; exc = true) {
+		std::stringstream s;
+		s.exceptions(exc ? std::ios_base::eofbit : std::ios_base::goodbit);
+		s << tree;
+		s >> otree;
+		BOOST_CHECK(otree.elements().size() == tree.elements().size());
+		BOOST_CHECK(otree.elements().begin()->first == tree.elements().begin()->first);
+		BOOST_REQUIRE(otree == tree);
+	}// for each exception state
 }
 
 BOOST_AUTO_TEST_CASE(lib_sha1_facility)
@@ -179,11 +181,6 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	BOOST_CHECK(buf.str() == hello_hex_sha);
 }
 
-
-struct Test {};
-struct VTest {
-	virtual void hello() const {}
-};
 
 BOOST_AUTO_TEST_CASE(mem_db_test)
 {
@@ -267,19 +264,36 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	
 	// TAG SERIALIZATION AND DESERIALIZATION
 	/////////////////////////////////////////
-	Tag tag;
-	tag.name() = "my tag";
-	tag.message() = "my message";
-	tag.actor().name = "me";
-	tag.actor().email = "me@you.com";
+	{
+		Tag tag;
+		tag.name() = "my tag";
+		tag.message() = "my message";
+		tag.actor().name = "me";
+		tag.actor().email = "me@you.com";
+		
+		it = modb.insert_object(tag);
+		BOOST_REQUIRE(modb.count() == 2);
+		
+		mobj.~MultiObject();
+		(*it).deserialize(mobj);
+		
+		BOOST_REQUIRE(tag == mobj.tag);
+	}
 	
-	it = modb.insert_object(tag);
-	BOOST_REQUIRE(modb.count() == 2);
-	
-	mobj.~MultiObject();
-	(*it).deserialize(mobj);
-	
-	BOOST_REQUIRE(tag == mobj.tag);
+	// TREE SERIALIZATION AND DESERIALIZATION
+	///////////////////////////////////////////
+	{
+		Tree tree;
+		tree.elements().insert(Tree::map_type::value_type("hi.txt", Tree::Element(0140644, SHA1(hello_hex_sha))));
+		it = modb.insert_object(tree);
+		BOOST_REQUIRE(modb.count() == 3);
+		
+		mobj.~MultiObject();
+		(*it).deserialize(mobj);
+		
+		BOOST_CHECK(mobj.type == Object::Type::Tree);
+		BOOST_REQUIRE(mobj.tree == tree);
+	}
 	
 	// COMMIT SERIALIZATION AND DESERIALIZATION
 	///////////////////////////////////////////
