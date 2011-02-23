@@ -18,6 +18,8 @@ class DeserializationError : public ObjectError
 class SerializationError :	public ObjectError
 {};
 
+//! @{ \name Stream Operators
+
 git_basic_ostream& operator << (git_basic_ostream& stream, const Actor& inst);
 git_basic_istream& operator >> (git_basic_istream& stream, Actor& inst);
 
@@ -34,6 +36,8 @@ git_basic_istream& operator >> (git_basic_istream& stream, Object::Type& type);
 //! Write type enumeration members into a stream as string, using a format compatible
 //! to be used in git loose objects
 git_basic_ostream& operator << (git_basic_ostream& stream, Object::Type type);
+
+//! @}
 
 GIT_NAMESPACE_END
 GIT_HEADER_END

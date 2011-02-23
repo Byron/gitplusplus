@@ -60,6 +60,36 @@ BOOST_AUTO_TEST_CASE(lib_actor)
 	BOOST_REQUIRE(d3 == d1);
 }
 
+BOOST_AUTO_TEST_CASE(lib_commit)
+{
+	for (uint enc = 0; enc < 2; enc++) {
+		for (uint multi = 0; multi < 2; multi++) {
+			Commit c, oc;
+			BOOST_CHECK(c == oc);
+			
+			c.message() = "\nstarts with newline\nhello there ends with newline\n\n";
+			c.author().name = "authoria";
+			c.committer().name = "commiteria";
+			
+			c.parent_keys().push_back(SHA1(SHA1::null));
+			if (multi) {
+				c.parent_keys().push_back(SHA1(hello_hex_sha));
+			}
+			if (enc) {
+				c.encoding() = "myencoding";
+			}
+			
+			BOOST_CHECK(!(c == oc));
+			
+			std::stringstream s;
+			s << c;
+			s >> oc;
+			
+			BOOST_REQUIRE(c == oc);
+		}// end multi-parent mode
+	}// end encoding loop
+}
+
 BOOST_AUTO_TEST_CASE(lib_tag)
 {
 	Tag tag;
@@ -88,7 +118,7 @@ BOOST_AUTO_TEST_CASE(lib_tag)
 	
 	// empty message
 	tag.message().clear();
-	for (bool exc = false; exc != true; exc = true) {
+	for (uint exc = 0; exc < 2; exc++) {
 		std::stringstream s2;
 		s2.exceptions(exc ? std::ios_base::eofbit : std::ios_base::goodbit);
 		s2 << tag;
@@ -110,7 +140,7 @@ BOOST_AUTO_TEST_CASE(lib_tree)
 	elms.insert(Tree::map_type::value_type("hi there", Tree::Element(0100644, SHA1())));
 	elms.insert(Tree::map_type::value_type("hello world", Tree::Element(0040755, SHA1())));
 	
-	for (bool exc = false; exc != true; exc = true) {
+	for (uint exc = 0; exc < 2; exc++) {
 		std::stringstream s;
 		s.exceptions(exc ? std::ios_base::eofbit : std::ios_base::goodbit);
 		s << tree;

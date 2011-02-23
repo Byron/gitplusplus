@@ -71,7 +71,10 @@ git_basic_ostream& operator << (git_basic_ostream& stream, Object::Type type)
 
 git_basic_ostream& operator << (git_basic_ostream& stream, const Actor& inst)
 {
-	stream << inst.name << " <" << inst.email << ">";
+	if (inst.name.size() == 0){
+		throw DeserializationError();
+	}
+	stream << inst.name << " <" << inst.email << '>';
 	return stream;
 }
 
@@ -94,7 +97,7 @@ git_basic_istream& operator >> (git_basic_istream& stream, Actor& inst)
 git_basic_ostream& operator << (git_basic_ostream& stream, const ActorDate& inst)
 {
 	stream << static_cast<const Actor&>(inst);
-	return stream << " " << inst.time << " " << inst.tz_offset;
+	return stream << ' ' << inst.time << ' ' << inst.tz_offset;
 }
 
 git_basic_istream& operator >> (git_basic_istream& stream, ActorDate& inst)
@@ -108,9 +111,9 @@ git_basic_ostream& operator << (git_basic_ostream& stream, const TimezoneOffset&
 	char buf[17];
 	std::sprintf(buf, "%04i", std::abs((int)inst.utz_offset));
 	if (inst.utz_offset < 0){
-		stream << "-";
+		stream << '-';
 	} else {
-		stream << "+";
+		stream << '+';
 	}
 	
 	return stream << buf;

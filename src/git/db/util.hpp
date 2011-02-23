@@ -11,9 +11,10 @@ GIT_NAMESPACE_BEGIN
 
 namespace io = boost::iostreams;
 
-// Typedefs for convenience
+//! @{ \name Typedefs for convenience
 typedef std::basic_ostream<typename git_object_policy_traits::char_type> git_basic_ostream;
 typedef std::basic_istream<typename git_object_policy_traits::char_type> git_basic_istream;
+//! @}
 
 //! Write a loose object header into the given memory pointer
 //! \param hdr character pointer with 32 bytes of allocated memory

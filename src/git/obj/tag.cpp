@@ -5,6 +5,8 @@
 #include <string>
 
 GIT_NAMESPACE_BEGIN
+		
+//! \cond
 
 Tag::Tag()
 	: Object(Object::Type::Tag)
@@ -20,10 +22,10 @@ const string t_tagger("tagger");
 
 git_basic_ostream& operator << (git_basic_ostream& stream, const git::Tag& tag)
 {
-	stream << t_object << " " << tag.object_key() << std::endl;
-	stream << t_type << " " <<  tag.object_type() << std::endl;
-	stream << t_tag << " " << tag.name() << std::endl;
-	stream << t_tagger << " " << tag.actor() << std::endl;
+	stream << t_object << ' ' << tag.object_key() << std::endl;
+	stream << t_type << ' ' <<  tag.object_type() << std::endl;
+	stream << t_tag << ' ' << tag.name() << std::endl;
+	stream << t_tagger << ' ' << tag.actor() << std::endl;
 	// empty line only given if we have a message
 	if (tag.message().size()) {
 		stream << std::endl << tag.message();
@@ -34,16 +36,17 @@ git_basic_ostream& operator << (git_basic_ostream& stream, const git::Tag& tag)
 git_basic_istream& operator >> (git_basic_istream& stream, git::Tag& tag) 
 {
 	std::string tmp;
+	char c;
+	
 	stream >> tmp;
 	
 	// OBJECT
 	if (tmp != t_object) {
 		throw git::TagDeserializationError();
 	}
-	//! \todo revise this, as it could be problematic for other implementations which 
-	//! are more than just a byte array.
-	stream >> tmp;
-	new (&tag.object_key()) typename git::Tag::key_type(tmp);	
+	
+	stream.get(c);				// space
+	stream >> tag.object_key();
 	
 	// OBJECT TYPE
 	stream >> tmp;
@@ -61,7 +64,7 @@ git_basic_istream& operator >> (git_basic_istream& stream, git::Tag& tag)
 		throw git::TagDeserializationError();
 	}
 	
-	stream.seekg(1, std::ios_base::cur); // skip whitespace
+	stream.get(c);			// space
 	std::getline(stream, tag.name(), '\n');
 	
 	// TAGGER
@@ -69,17 +72,16 @@ git_basic_istream& operator >> (git_basic_istream& stream, git::Tag& tag)
 	if (tmp != t_tagger){
 		throw git::TagDeserializationError();
 	}
-	stream.seekg(1, std::ios_base::cur); // skip whitespace
+	stream.get(c);			// space
 	stream >> tag.actor();
 
 	// read \n at end of tagger line
-	char c[1];
-	stream.readsome(c, 1);
+	stream.get(c);
 	
 	// MESSAGE
 	try {
 		// read newline between tagger and message
-		stream.readsome(c, 1);
+		stream.get(c);
 	} catch(std::ios_base::failure) {
 		// ignore failures possibly based on exceptions thrown by the stream
 		// This really depends on its configuration
@@ -108,5 +110,7 @@ git_basic_istream& operator >> (git_basic_istream& stream, git::Tag& tag)
 			+ m_message.size() ? m_message.size() + 1 : 0;
 }*/
 
+
+//! \endcond
 
 GIT_NAMESPACE_END
