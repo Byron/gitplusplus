@@ -66,7 +66,6 @@ BOOST_AUTO_TEST_CASE(lib_tag)
 	Tag otag;
 	BOOST_REQUIRE(tag == otag);
 	tag.object_type() = Object::Type::Commit;
-	tag.object_key() = SHA1();
 	tag.name() = "name with spaces";
 	tag.message() = "12\nmessage21\n2ndline\n";
 	
@@ -87,7 +86,37 @@ BOOST_AUTO_TEST_CASE(lib_tag)
 	
 	BOOST_REQUIRE(tag == otag);
 	
+	// empty message
+	s.seekp(0, std::ios::beg);
+	s.seekg(0, std::ios::beg);
+	tag.message().clear();
+	s << tag;
+	s >> otag;
+	BOOST_REQUIRE(tag == otag);
+	
+	
 	//! \todo maybe, add some fuzzing to be sure we don't unconditionally read garbage
+}
+
+BOOST_AUTO_TEST_CASE(lib_tree)
+{
+	Tree tree, otree;
+	BOOST_REQUIRE(tree == otree);
+	
+	
+	Tree::map_type& elms = tree.elements();
+	elms.insert(Tree::map_type::value_type("hi there", Tree::Element(0100644, SHA1())));
+	elms.insert(Tree::map_type::value_type("hello world", Tree::Element(0040755, SHA1())));
+	
+	std::stringstream s;
+	s.exceptions(std::istream::eofbit);
+	s << tree;
+	BOOST_CHECK(true);
+	s >> otree;
+	BOOST_CHECK(otree.elements().size() == tree.elements().size());
+	BOOST_CHECK(otree.elements().begin()->first == tree.elements().begin()->first);
+	std::cerr << otree << std::endl;
+	BOOST_REQUIRE(otree == tree);
 }
 
 BOOST_AUTO_TEST_CASE(lib_sha1_facility)

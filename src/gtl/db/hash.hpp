@@ -27,6 +27,9 @@ struct bad_hex_string : public std::exception
   * The instance represents a hash and provides common functionality to convert
   * it into human readable formats. It contains an array of predefined size
   * 
+  * \warning the internal bytes array will not be initialized for performance reasons, 
+  * you have to do this yourself, for instance by copy-constructing using the null static member.
+  * 
   * \tparam HashLen number of bytes used to store the hash
   * \tparam char_type type representing the hash, needs to be of size 1
   */
@@ -84,7 +87,14 @@ class basic_hash
 			init_from_hex(reinterpret_cast<const char_type*>(data.c_str()), data.size());
 		}
 
+		//! Copy constructor
 		basic_hash(const basic_hash& rhs) {
+			memcpy(m_hash, rhs.m_hash, HashLen);
+		}
+		
+		//! move constructor - our implementation doesn't allow for any improvement
+		//! we don't heap-allocate our data
+		basic_hash(basic_hash&& rhs) {
 			memcpy(m_hash, rhs.m_hash, HashLen);
 		}
 
@@ -101,6 +111,16 @@ class basic_hash
 		
 		//! Use a basic_hash instance as char pointer
 		inline operator char_type const * () const {
+			return m_hash;
+		}
+		
+		//! \return read-only byte array
+		inline const char_type* bytes() const {
+			return m_hash;
+		}
+		
+		//! \return writable byte array
+		inline char_type* bytes() {
 			return m_hash;
 		}
 
