@@ -1,5 +1,5 @@
-#ifndef GIT_ODB_H
-#define GIT_ODB_H
+#ifndef GIT_ODB_MEM_H
+#define GIT_ODB_MEM_H
 
 #include <git/config.h>
 #include <git/db/policy.hpp>
@@ -31,4 +31,4 @@ class MemoryODB : public gtl::odb_mem<git_object_traits>
 GIT_NAMESPACE_END
 GIT_HEADER_END
 
-#endif // GIT_ODB_H
+#endif // GIT_ODB_MEM_H

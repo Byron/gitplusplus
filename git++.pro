@@ -19,7 +19,6 @@ HEADERS += \
     model/git/db/odb_iter.hpp \
     model/git/db/odb_alloc.hpp \
     model/git/db/odb.hpp \
-    src/git/db/odb.h \
     src/gitmodel/db/odb_stream.hpp \
     src/gitmodel/db/odb_obj.hpp \
     src/gitmodel/db/odb_mem.hpp \
@@ -56,13 +55,14 @@ HEADERS += \
     src/gtl/db/hash_generator_filter.hpp \
     src/gtl/db/hash_generator.hpp \
     src/git/db/util.hpp \
-    src/gtl/db/odb_loose.hpp
+    src/gtl/db/odb_loose.hpp \
+    src/git/db/odb_mem.h \
+    src/git/db/odb_loose.h
 
 SOURCES += \
     test/git/model/db/odb_test.cpp \
     src/git/lib/db/odb.cpp \
     test/git/model/db/model_odb_test.cpp \
-    src/git/db/odb.cpp \
     test/git/db/lib_odb_test.cpp \
     test/gitmodel/db/model_odb_test.cpp \
     src/git/db/sha1.cpp \
@@ -77,4 +77,7 @@ SOURCES += \
     src/git/obj/object.cpp \
     src/git/db/policy.cpp \
     src/git/obj/stream.cpp \
-    src/git/db/util.cpp
+    src/git/db/util.cpp \
+    src/git/db/odb_mem.cpp \
+    src/git/db/odb_loose.cpp \
+    src/git/obj/multiobj.cpp

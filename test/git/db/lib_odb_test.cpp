@@ -2,7 +2,8 @@
 #define BOOST_TEST_MODULE git_lib
 #include <gtl/testutil.hpp>
 #include <boost/test/test_tools.hpp>
-#include <git/db/odb.h>
+#include <git/db/odb_loose.h>
+#include <git/db/odb_mem.h>
 
 #include <git/db/sha1.h>
 #include <git/db/sha1_gen.h>
@@ -350,3 +351,7 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 }
 
 
+BOOST_AUTO_TEST_CASE(loose_db_test)
+{
+	LooseODB lodb("hi");
+}

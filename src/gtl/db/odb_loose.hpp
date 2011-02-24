@@ -40,11 +40,11 @@ struct odb_loose_traits
 	
 	//! amount of hash-characters used as directory into which to put the loose object files.
 	//! One hash character will translate into two hexadecimal characters
-	static uint32_t num_prefix_characters = 1;
+	static const uint32_t num_prefix_characters = 1;
 	
 	//! if true, the header will not be compressed, only the following datastream. This can be advantageous
 	//! if you want to reuse that exact stream some place else.
-	static bool compress_header = true;
+	static const bool compress_header = true;
 	
 	//! Represents a policy type which provides implementations for key-functionality of the object database
 	typedef odb_loose_policy policy_type;
@@ -72,6 +72,8 @@ protected:
 	
 public:
 	
+	odb_loose_output_object(odb_loose_output_object&&) = default;
+	
 	odb_loose_output_object()
 		: m_initialzed(false) 
 	{}
@@ -84,8 +86,11 @@ public:
 	this_type& operator = (const this_type& rhs) {
 		m_initialzed = rhs.m_initialzed;
 		m_path = rhs.m_path;
-		m_size = rhs.m_size;
-		m_obj_type = rhs.m_obj_type;
+		
+		if (m_initialzed) {
+			m_size = rhs.m_size;
+			m_obj_type = rhs.m_obj_type;
+		}
 		return *this;
 	}
 	
@@ -125,10 +130,10 @@ public:
 	typedef ObjectTraits						traits_type;
 	typedef Traits								db_traits_type;
 	typedef odb_loose_output_object<ObjectTraits, Traits> output_object_type;
-	typedef typename traits_type::key_type		key_type;
-	typedef typename traits_type::size_type		size_type;
-	typedef typename traits_type::object_tpye	object_type;
-	typedef mem_accessor<traits_type>			this_type;
+	typedef typename traits_type::key_type						key_type;
+	typedef typename traits_type::size_type						size_type;
+	typedef typename traits_type::object_tpye					object_type;
+	typedef loose_accessor<traits_type, db_traits_type>			this_type;
 	
 public:
 	key_type					m_key;
@@ -273,18 +278,18 @@ template <class ObjectTraits, class Traits>
 class odb_loose : public odb_base<ObjectTraits>
 {
 public:
-	typedef ObjectTraits							traits_type;
-	typedef Traits									db_traits_type;
-	typedef typename ObjectTraits::key_type			key_type;
-	typedef typename db_traits_type::path_type		path_type;
+	typedef ObjectTraits											traits_type;
+	typedef Traits													db_traits_type;
+	typedef typename ObjectTraits::key_type							key_type;
+	typedef typename db_traits_type::path_type						path_type;
 	
 	typedef odb_loose_output_object<traits_type, db_traits_type>	output_object_type;
-	typedef odb_ref_input_object<traits_type>		input_object_type;
+	typedef odb_ref_input_object<traits_type>						input_object_type;
 	
-	typedef loose_accessor<traits_type>				accessor;
-	typedef loose_forward_iterator<traits_type>		forward_iterator;
+	typedef loose_accessor<traits_type, db_traits_type>				accessor;
+	typedef loose_forward_iterator<traits_type, db_traits_type>		forward_iterator;
 
-	typedef odb_hash_error<key_type>				hash_error_type;
+	typedef odb_hash_error<key_type>								hash_error_type;
 	
 protected:
 	path_type		m_root;							//!< root path containing all loose object files
