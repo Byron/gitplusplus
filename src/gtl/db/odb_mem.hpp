@@ -138,21 +138,16 @@ public:
 		return m_iter->second;
 	}
 	
+	inline typename std::add_pointer<const typename map_type::value_type::second_type>::type 
+		operator->() const noexcept {
+		return &m_iter->second;
+	}
+	
 	//! \return key instance which identifyies our object within this map
 	//! \note this method is an optional addition, just because our implementation provides this information
 	//! for free.
 	inline const typename map_type::value_type::first_type& key() const noexcept {
 		return m_iter->first;
-	}
-	
-	//! \return uncompressed size of the object in bytes
-	inline size_type size() const noexcept {
-		return m_iter->second.size();
-	}
-	
-	//! \return type of object stored in the stream
-	inline typename traits_type::object_type type() const noexcept {
-		return m_iter->second.type();
 	}
 };
 

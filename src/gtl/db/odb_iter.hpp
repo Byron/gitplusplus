@@ -34,20 +34,14 @@ public:
 	
 	
 	//! \return a new instance of an output object which allows accessing the data
-	//! \note the implementor is supposed to decuple the output object as much as possible from 
-	//! the iteration, it must remain valid even if the iterator advances.
-	//! \note -> semantics not supported intentionally, as querying the object can be expensive,
-	//! hence the implementor gets the chance to implement the size() and type() methods
-	//! directly inside of the iterator reusing its iteration state.
+	//! \note the implementor is not required to decuple the output object from the iterator
+	//! , but it must be copy-constructible so that the user can create a separate, independent copy
 	template <class OutputObject>
 	OutputObject operator*();
 	
-	//! \return size of the data store in the stream
-	typename traits_type::size_type size() const;
-	
-	//! \return type id identifying the type of object contained in the stream
-	typename traits_type::object_type type() const;
-	
+	//! Implements support for -> semantics
+	template <class OutputObject>
+	OutputObject operator->();
 };
 
 /** \ingroup ODBIter

@@ -244,8 +244,8 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	
 	// This cannot be verified as the implementation adds a header
 	// BOOST_CHECK(it.key() ==  SHA1(hello_hex_sha));
-	BOOST_CHECK(it.type() == Object::Type::Blob);
-	BOOST_CHECK(it.size() == lenphello);
+	BOOST_CHECK(it->type() == Object::Type::Blob);
+	BOOST_CHECK(it->size() == lenphello);
 	
 	// stream verification
 	{
@@ -264,12 +264,12 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	// Access the item using the key
 	BOOST_CHECK(modb.has_object(it.key()));
 	MemoryODB::accessor acc = modb.object(it.key());
-	BOOST_CHECK(acc.type() == it.type());
-	BOOST_CHECK(acc.size() == it.size());
+	BOOST_CHECK(acc->type() == it->type());
+	BOOST_CHECK(acc->size() == it->size());
 	
 	fit = modb.begin();
-	BOOST_CHECK(fit.type() == it.type());
-	BOOST_CHECK(fit.size() == it.size());
+	BOOST_CHECK(fit->type() == it->type());
+	BOOST_CHECK(fit->size() == it->size());
 	BOOST_CHECK(fit.key() == it.key());
 	
 	// test adapter
@@ -289,7 +289,7 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	(*it).deserialize(mobj);
 	
 	BOOST_CHECK(mobj.type == Object::Type::Blob);
-	BOOST_CHECK(mobj.blob.data().size() == it.size());
+	BOOST_CHECK(mobj.blob.data().size() == it->size());
 	
 	
 	// insert directly

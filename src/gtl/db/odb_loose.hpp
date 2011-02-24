@@ -157,18 +157,17 @@ public:
 		return m_obj;
 	}
 	
+	//! allow -> semantics
+	inline const output_object_type* operator->() const {
+		// initialize if required
+		return &m_obj;
+	}
+	
 public:
 	const key_type& key() const {
 		return m_key;
 	}
 	
-	size_type size() const {
-		return this->operator *().size();
-	}
-	
-	object_type type() const {
-		return this->operator *().type();
-	}
 };
 
 /** \brief iterator for all loose objects in the database.

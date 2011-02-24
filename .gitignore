@@ -1,5 +1,5 @@
 *.o
-*.user
+*.user*
 CMakeCache.txt
 CMakeFiles
 Makefile
