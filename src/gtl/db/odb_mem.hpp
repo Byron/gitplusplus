@@ -99,65 +99,6 @@ public:
 };
 
 
-/** \brief an implementation of memory input objects using a reference to the actual stream.
-  * This should be suitable for adding objects to the database as streams cannot be copy-constructed.
-  * \ingroup ODBObject
-  */
-template <class ObjectTraits, class StreamBaseType = std::basic_istream<typename ObjectTraits::char_type> >
-class odb_mem_input_object : public odb_input_object<ObjectTraits, StreamBaseType>
-{
-public:
-	typedef ObjectTraits								traits_type;
-	typedef typename traits_type::object_type			object_type;
-	typedef typename traits_type::size_type				size_type;
-	typedef typename traits_type::key_type				key_type;
-	typedef StreamBaseType								stream_type;
-	
-protected:
-	object_type			m_type;
-	size_type			m_size;
-	stream_type&		m_stream;
-	const key_type*		m_key;
-	
-public:
-	odb_mem_input_object(object_type type, size_type size,
-						 stream_type& stream,
-						 const key_type* key_pointer = nullptr) noexcept
-		: m_type(type)
-		, m_size(size)
-		, m_stream(stream)
-		, m_key(key_pointer)
-	{}
-	
-	
-	object_type type() const noexcept {
-		return m_type;
-	}
-	
-	void set_type(object_type type) noexcept {
-		m_type = type;
-	}
-	
-	size_type size() const noexcept {
-		return m_size;
-	}
-	
-	void set_size(size_type size) noexcept {
-		m_size = size;
-	}
-	
-	//! \throw odb_mem_serialization_error
-	stream_type& stream() noexcept {
-		return m_stream;
-	}
-	
-	const key_type* key_pointer() const noexcept {
-		return m_key;
-	}
-	
-};
-
-
 /** Iterator providing access to a single element of the memory odb.
   * It's value can be queried read-only, and it cannot be used in iterations.
   * \ingroup ODBIter
@@ -216,6 +157,7 @@ public:
 };
 
 /** \ingroup ODBIter
+  * \todo derive from boost::iterator_facade, which would allow to remove plenty of boilerplate
   */
 template <class ObjectTraits>
 class mem_forward_iterator : public mem_accessor<ObjectTraits>
@@ -228,11 +170,11 @@ public:
 	mem_forward_iterator(const Iterator& it)
 		: mem_accessor<ObjectTraits>(it) {}
 	
-	mem_forward_iterator& operator++() noexcept {
+	mem_forward_iterator& operator++() {
 		++(this->m_iter); return *this;
 	}
-	mem_forward_iterator operator++(int) noexcept {
-		mem_forward_iterator cpy(*this); ++(*this); return cpy;
+	mem_forward_iterator operator++(int) {
+		mem_forward_iterator cpy(*this); ++(this->m_iter); return cpy;
 	}
 };
 
@@ -254,9 +196,9 @@ public:
 	typedef mem_forward_iterator<traits_type>					forward_iterator;
 	typedef odb_hash_error<key_type>							hash_error_type;
 	typedef odb_mem_output_object<traits_type>					output_object_type;
-	typedef odb_mem_input_object<traits_type>					input_object_type;
+	typedef odb_ref_input_object<traits_type>					input_object_type;
 	
-private:
+protected:
 	map_type m_objs;
 	
 public:
@@ -267,7 +209,11 @@ public:
 	//! output object. This method is called before any input to the hash generator was provided.
 	//! \param gen hash generator to update with header information
 	//! \param obj output object to be stored in the database, which keeps the type and the size of the object
+	//! \todo maybe put this into a database specific policy instead. As long as we only call one method though, 
+	//! it might not be worth an own policy.
 	virtual void header_hash(typename traits_type::hash_generator_type& gen, const output_object_type& obj) const {}
+	
+	//! @}
 	
 	bool has_object(const key_type& k) const noexcept{
 		return m_objs.find(k) != m_objs.end();

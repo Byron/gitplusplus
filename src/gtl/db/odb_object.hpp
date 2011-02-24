@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include <exception>
 #include <iostream>
-#include <boost/iostreams/stream.hpp>
 #include <type_traits>
 
 GTL_HEADER_BEGIN
@@ -89,10 +88,6 @@ struct odb_object_policy
 	//! \throw odb_deserialization_error
 	template <class OutputObjectType>
 	static void deserialize(typename TraitsType::output_reference_type out, const OutputObjectType& object);
-	
-	
-	//! update the given hash generator with a header that would be written into the given object's stream
-	//! 
 	
 	//! @}
 };
@@ -186,6 +181,63 @@ struct odb_input_object : public odb_basic_object<ObjectTraits>
 };
 
 
+/** \brief an implementation of an input objects using a reference to the actual stream.
+  * This should be suitable for adding objects to the database as streams cannot be copy-constructed.
+  * \ingroup ODBObject
+  */
+template <class ObjectTraits, class StreamBaseType = std::basic_istream<typename ObjectTraits::char_type> >
+class odb_ref_input_object : public odb_input_object<ObjectTraits, StreamBaseType>
+{
+public:
+	typedef ObjectTraits								traits_type;
+	typedef typename traits_type::object_type			object_type;
+	typedef typename traits_type::size_type				size_type;
+	typedef typename traits_type::key_type				key_type;
+	typedef StreamBaseType								stream_type;
+	
+protected:
+	object_type			m_type;
+	size_type			m_size;
+	stream_type&		m_stream;
+	const key_type*		m_key;
+	
+public:
+	odb_ref_input_object(object_type type, size_type size,
+						 stream_type& stream,
+						 const key_type* key_pointer = nullptr)
+		: m_type(type)
+		, m_size(size)
+		, m_stream(stream)
+		, m_key(key_pointer)
+	{}
+	
+	
+	object_type type() const noexcept {
+		return m_type;
+	}
+	
+	void set_type(object_type type) noexcept {
+		m_type = type;
+	}
+	
+	size_type size() const noexcept {
+		return m_size;
+	}
+	
+	void set_size(size_type size) noexcept {
+		m_size = size;
+	}
+	
+	stream_type& stream() noexcept {
+		return m_stream;
+	}
+	
+	const key_type* key_pointer() const noexcept {
+		return m_key;
+	}
+};
+
+
 /** \brief A handle to a stream of object information for reading
   * \ingroup ODBObject
   * Streams are simple structures which only know their data size, 
@@ -200,6 +252,7 @@ struct odb_output_object : public odb_basic_object<ObjectTraits>
 {
 	typedef ObjectTraits traits_type;
 	typedef StreamType stream_type;
+	
 	//! Defines a stream which can be read and written to. This is important in case you want to serialize
 	//! an object from scratch, in which case a temporary stream of that type will be created.
 	typedef StreamType rw_stream_type;
