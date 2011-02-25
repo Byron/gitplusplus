@@ -57,7 +57,8 @@ HEADERS += \
     src/git/db/util.hpp \
     src/gtl/db/odb_loose.hpp \
     src/git/db/odb_mem.h \
-    src/git/db/odb_loose.h
+    src/git/db/odb_loose.h \
+    test/git/fixture.hpp
 
 SOURCES += \
     test/git/model/db/odb_test.cpp \

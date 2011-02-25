@@ -10,6 +10,7 @@
 #include <git/obj/blob.h>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <utility>
+#include <git/fixture.hpp>
 
 #include <iostream>
 #include <sstream>
@@ -351,7 +352,8 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 }
 
 
-BOOST_AUTO_TEST_CASE(loose_db_test)
+BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 {
-	LooseODB lodb("hi");
+	LooseODB lodb(rw_dir());
+	
 }

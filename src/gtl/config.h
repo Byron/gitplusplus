@@ -32,6 +32,9 @@
   */
 
 
+// Its not worth using version 3 just because we would need one function, unique_file
+// #define BOOST_FILESYSTEM_VERSION 3
+
 #define GTL_HEADER_BEGIN
 #define GTL_HEADER_END
 
