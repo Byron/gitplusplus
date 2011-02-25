@@ -4,7 +4,9 @@
 #include <gtl/config.h>
 #include <gtl/db/odb.hpp>
 #include <gtl/db/odb_object.hpp>
+#include <gtl/db/hash_generator_filter.hpp>sh
 #include <boost/iostreams/filter/zlib.hpp>
+#include <boost/iostreams/filtering_stream.hpp>
 #include <boost/filesystem.hpp>
 #include <cstring>
 
@@ -13,6 +15,61 @@ GTL_NAMESPACE_BEGIN
 
 namespace io = boost::iostreams;
 namespace fs = boost::filesystem;
+
+//! Tag specifying the header is supposed to be compressed, as well as the rest of the data stream
+struct compress_header_tag {};
+//! Tag specifying the header is supposed to stay uncompressed, while the data stream is compressed
+struct uncompressed_header_tag {};
+
+
+//! \brief stream suitable for reading any kind of loose object format
+//! This is the base template which is partially specialized for the respective header tags
+//! \tparam ObjectTraits traits for some general git settings
+template <class ObjectTraits, class Traits, class HeaderTag=typename Traits::header_tag>
+class loose_object_input_stream
+{
+};
+
+/** Partial specialization of the base template to allow handling fully compressed files, that is
+  * the header and the data stream are part of a single compressed stream.
+  */
+template <class ObjectTraits, class Traits>
+class loose_object_input_stream<ObjectTraits, Traits, compress_header_tag> : 
+        public io::filtering_stream<io::input, typename ObjectTraits::char_type>
+{
+public:
+	typedef Traits			db_traits_type;
+	typedef ObjectTraits	traits_type;
+	typedef typename db_traits_type::path_type path_type;
+	
+	//! Initalize the instance for reading the given file.
+	loose_object_input_stream()
+	{
+		// init filter
+	}
+	
+public:
+	// interface
+	// Set the path we should operate on
+	void set_path(const path_type& path) {
+		// see if we have a sink already, if so, pop it
+		// put in the new sink
+	}
+	
+};
+
+/** Partial specialization dealing with partially compressed files.
+  * The header is read uncompressed, the stream is compressed.
+  */
+template <class ObjectTraits, class Traits>
+class loose_object_input_stream<ObjectTraits, Traits, uncompressed_header_tag>
+{
+	typedef Traits			db_traits_type;
+	typedef ObjectTraits	traits_type;
+	
+	
+
+};
 
 //! \brief policy providing key implementations for the loose object database
 //! \note this struct just defines the interface, the actual implementation needs 
@@ -43,16 +100,18 @@ struct odb_loose_traits
 	//! One hash character will translate into two hexadecimal characters
 	static const uint32_t num_prefix_characters = 1;
 	
-	//! if true, the header will not be compressed, only the following datastream. This can be advantageous
-	//! if you want to reuse that exact stream some place else.
-	static const bool compress_header = true;
+	//! Tag specifying how the header should be handled
+	typedef compress_header_tag header_tag;
 	
 	//! Represents a policy type which provides implementations for key-functionality of the object database
 	typedef odb_loose_policy policy_type;
 };
 
 /** \brief object providing access to a specific database object. Depending on the actual object format, this 
-  * may involve partial decompression of the object's data stream
+  * may involve partial decompression of the object's data stream.
+  * \note when you query any information about the object, like its type or size, a stream will be opened
+  * and kept open for further reading. This implies you should dispose this object as soon as possible to 
+  * release the associated system resources.
   */
 template <class ObjectTraits, class Traits>
 class odb_loose_output_object
@@ -139,6 +198,7 @@ public:
 	//! @}
 };
 
+
 /** \brief accessor pointing to one item in the database.
   */
 template <class ObjectTraits, class Traits>
@@ -201,8 +261,8 @@ public:
 	//! make plenty of assumptions, this would be easy to write too.
 	key_type key() const {
 		// convert path to temporary key
-		typedef typename fs::path::string_type::value_type char_type;
-		typedef typename fs::path::string_type string_type;
+		typedef typename path_type::string_type::value_type char_type;
+		typedef typename path_type::string_type string_type;
 		assert(!m_obj.path().empty());
 		
 		string_type filename = m_obj.path().filename();
@@ -225,7 +285,12 @@ public:
 
 /** \brief iterator for all loose objects in the database.
   * It iterates folders and files within these folders until the folder interation is depleted.
+  * \tparam ObjectTraits traits specifying general git parameters and types
+  * \tparam Traits traits to configure the database implentation
   * \todo derive from boost::iterator_facade, which would allow to remove plenty of boilerplate
+  * \note the iterator keeps an internal object which is changed on each iteration step. If you queried 
+  * its information once, it will use system resources. On the next step, these are being released automatically
+  * as the object then points to a different path.
   */
 template <class ObjectTraits, class Traits>
 class loose_forward_iterator : public loose_accessor<ObjectTraits, Traits>
@@ -252,7 +317,7 @@ protected:
 		// would be false-positive if we increment m_iter at the end of our iteration
 		for (++m_iter; m_iter != end; ++m_iter){
 			if (fs::is_regular_file(m_iter->status())) {
-				const fs::path& path = m_iter->path();
+				const path_type& path = m_iter->path();
 				
 				// verify path tokens are composed to be one of our known files (it must be possible to 
 				// construct a key from it)
