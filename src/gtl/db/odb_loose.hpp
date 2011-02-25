@@ -61,12 +61,12 @@ public:
 	typedef Traits								db_traits_type;
 	typedef typename db_traits_type::path_type	path_type;
 	typedef typename traits_type::size_type		size_type;
-	typedef typename traits_type::object_tpye	object_type;
+	typedef typename traits_type::object_type	object_type;
 	typedef odb_loose_output_object				this_type;
 	
 protected:
 	path_type			m_path;
-	bool				m_initialzed;
+	bool				m_initialized;
 	size_type			m_size;
 	object_type			m_obj_type;
 	
@@ -75,19 +75,24 @@ public:
 	odb_loose_output_object(odb_loose_output_object&&) = default;
 	
 	odb_loose_output_object()
-		: m_initialzed(false) 
+		: m_initialized(false) 
 	{}
+	
+	odb_loose_output_object(const this_type& rhs)
+	{
+		*this = rhs;
+	}
 	
 	odb_loose_output_object(const path_type& obj_path)
 		: m_path(obj_path)
-	    , m_initialzed(false)
+	    , m_initialized(false)
 	{};
 	
 	this_type& operator = (const this_type& rhs) {
-		m_initialzed = rhs.m_initialzed;
+		m_initialized = rhs.m_initialized;
 		m_path = rhs.m_path;
 		
-		if (m_initialzed) {
+		if (m_initialized) {
 			m_size = rhs.m_size;
 			m_obj_type = rhs.m_obj_type;
 		}
@@ -132,12 +137,16 @@ public:
 	typedef odb_loose_output_object<ObjectTraits, Traits> output_object_type;
 	typedef typename traits_type::key_type						key_type;
 	typedef typename traits_type::size_type						size_type;
-	typedef typename traits_type::object_tpye					object_type;
+	typedef typename traits_type::object_type					object_type;
 	typedef loose_accessor<traits_type, db_traits_type>			this_type;
 	
-public:
+protected:
 	key_type					m_key;
 	mutable output_object_type	m_obj;
+	
+protected:
+	//! Default constructor, only for derived types
+	loose_accessor() {}
 	
 public:
 	//! Initialize this instance with a key to operate upon.
@@ -188,7 +197,7 @@ public:
 	typedef odb_loose_output_object<ObjectTraits, Traits> output_object_type;
 	typedef typename traits_type::key_type		key_type;
 	typedef typename traits_type::size_type		size_type;
-	typedef typename traits_type::object_tpye	object_type;
+	typedef typename traits_type::object_type	object_type;
 	typedef typename db_traits_type::path_type	path_type;
 	typedef loose_forward_iterator				this_type;
 	
@@ -200,15 +209,20 @@ protected:
 	//! increment our iterator to the next object file
 	void next() {
 		boost::filesystem::recursive_directory_iterator end;
-		for (;m_iter != end; ++m_iter){
+		// have to increment m_iter prior to looping as we broke out the previous loop,
+		// which fails to increment m_iter. This is good, as comparisons with end (from the user side)
+		// would be false-positive if we increment m_iter at the end of our iteration
+		for (++m_iter; m_iter != end; ++m_iter){
 			if (fs::is_regular_file(m_iter->status())) {
 				const fs::path& path = m_iter->path();
+				
 				// verify path tokens are composed to be one of our known files (it must be possible to 
 				// construct a key from it)
 				if (path.filename().size()/2 == key_type::hash_len - db_traits_type::num_prefix_characters &&
 				    (*(--(--path.end()))).size()/2 == db_traits_type::num_prefix_characters)
 				{
-					m_obj = output_object_type(m_iter->path());
+					m_obj = output_object_type(path);
+					std::cerr << "Found one: " << path.filename() << std::endl;
 					break;
 				}
 			}
@@ -218,11 +232,11 @@ protected:
 public:
 	loose_forward_iterator(const path_type& root)
 	    : m_iter(root)
-	{next();}
+	{}
 	
 	//! default constructor, used as end iterator
 	loose_forward_iterator()
-	{next();}
+	{}
 	
 	//! copy constructor
 	loose_forward_iterator(const this_type& rhs)
@@ -256,6 +270,10 @@ public:
 	
 	size_type size() const {
 		return m_obj.size();
+	}
+	
+	const key_type& key() const {
+		return this->m_key;
 	}
 	
 	const output_object_type& operator*() const {
@@ -318,7 +336,8 @@ public:
 	}
 	
 	size_t count() const {
-		return _count(begin(), end());
+		auto start(begin());
+		return _count(start, end());
 	}
 };
 

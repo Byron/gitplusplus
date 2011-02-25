@@ -70,11 +70,12 @@ protected:
 	
 	//! Slow counting of members by iteration. Use your own implementation if it makes sense
 	template <class Iterator>
-	size_t _count(Iterator& start, Iterator& end) const
+	size_t _count(Iterator& start,const Iterator& end) const
 	{
 		size_t out = 0;
 		for (; start != end; ++start, ++out);
-		return out;
+		// out is one too high as it was increment before we figured out that end was already reached.
+		return out-1;
 	}
 	
 	//! @}
