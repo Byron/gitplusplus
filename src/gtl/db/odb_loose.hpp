@@ -6,6 +6,7 @@
 #include <gtl/db/odb_object.hpp>
 #include <boost/iostreams/filter/zlib.hpp>
 #include <boost/filesystem.hpp>
+#include <cstring>
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
@@ -64,11 +65,18 @@ public:
 	typedef typename traits_type::object_type	object_type;
 	typedef odb_loose_output_object				this_type;
 	
+private:
+	//! Initialize our stream for reading, basically read-in the header information
+	//! and keep the stream available for actual data reading
+	void init() const {
+		m_initialized = true;
+	}
+	
 protected:
-	path_type			m_path;
-	bool				m_initialized;
-	size_type			m_size;
-	object_type			m_obj_type;
+	path_type					m_path;
+	mutable bool				m_initialized;
+	mutable size_type			m_size;
+	mutable object_type			m_obj_type;
 	
 public:
 	
@@ -100,12 +108,16 @@ public:
 	}
 	
 	object_type type() const {
-		// todo init info
+		if (!m_initialized){
+			init();
+		}
 		return m_obj_type;
 	}
 	
 	size_type size() const {
-		// todo initialize
+		if (!m_initialized){
+			init();
+		}
 		return m_size;
 	}
 	
@@ -120,6 +132,7 @@ public:
 	
 	//! modifyable version of our internal path
 	path_type& path() {
+		m_initialized = false;	// could change the path, and usually does !
 		return m_path;
 	}
 	
@@ -138,51 +151,77 @@ public:
 	typedef typename traits_type::key_type						key_type;
 	typedef typename traits_type::size_type						size_type;
 	typedef typename traits_type::object_type					object_type;
+	typedef typename db_traits_type::path_type					path_type;
 	typedef loose_accessor<traits_type, db_traits_type>			this_type;
 	
 protected:
-	key_type					m_key;
 	mutable output_object_type	m_obj;
 	
 protected:
 	//! Default constructor, only for derived types
-	loose_accessor() {}
+	loose_accessor(){}
 	
 public:
 	//! Initialize this instance with a key to operate upon.
 	//! It should, but is not required, to point to a valid object
-	loose_accessor(const key_type& key)
-		: m_key(key)
+	loose_accessor(const path_type& objpath)
+		: m_obj(objpath)
 	{}
+	
+	loose_accessor(const this_type& rhs) 
+	    : m_obj(rhs.m_obj)
+	{}
+	
+	loose_accessor(this_type&&) = default;
 	
 	//! Equality comparison of compatible iterators
 	inline bool operator==(const this_type& rhs) const {
-		return m_key == rhs.m_key;
+		return m_obj == rhs.m_obj;
 	}
 	
 	//! Inequality comparison
 	inline bool operator!=(const this_type& rhs) const {
-		return !(m_key == rhs.m_key);
+		return !(m_obj == rhs.m_obj);
 	}
 	
 	//! allows access to the actual input object
 	inline const output_object_type& operator*() const {
-		// initialize if required
 		return m_obj;
 	}
 	
 	//! allow -> semantics
 	inline const output_object_type* operator->() const {
-		// initialize if required
 		return &m_obj;
 	}
 	
 public:
-	const key_type& key() const {
-		return m_key;
+	//! \return key matching our path
+	//! \note this generates the key instance from our object's path
+	//! \todo implementation could be more efficient by manually parsing the path's buffer - if we 
+	//! make plenty of assumptions, this would be easy to write too.
+	key_type key() const {
+		// convert path to temporary key
+		typedef typename fs::path::string_type::value_type char_type;
+		typedef typename fs::path::string_type string_type;
+		assert(!m_obj.path().empty());
+		
+		string_type filename = m_obj.path().filename();
+		string_type parent_dir = m_obj.path().parent_path().filename();
+		assert(filename.size()/2 == key_type::hash_len - db_traits_type::num_prefix_characters);
+		assert(parent_dir.size()/2 == db_traits_type::num_prefix_characters);
+		
+		// try to be more efficient regarding allocation by reserving the pre-determined
+		// mount of bytes. Could be static buffer.
+		string_type tmp;
+		tmp.reserve(key_type::hash_len*2);
+		tmp.insert(tmp.end(), parent_dir.begin(), parent_dir.end());
+		tmp.insert(tmp.end(), filename.begin(), filename.end());
+		
+		return key_type(tmp);
 	}
 	
 };
+
 
 /** \brief iterator for all loose objects in the database.
   * It iterates folders and files within these folders until the folder interation is depleted.
@@ -203,7 +242,6 @@ public:
 	
 protected:
 	boost::filesystem::recursive_directory_iterator m_iter;
-	output_object_type								m_obj;	// object at current iteration
 	
 protected:
 	//! increment our iterator to the next object file
@@ -221,8 +259,7 @@ protected:
 				if (path.filename().size()/2 == key_type::hash_len - db_traits_type::num_prefix_characters &&
 				    (*(--(--path.end()))).size()/2 == db_traits_type::num_prefix_characters)
 				{
-					m_obj = output_object_type(path);
-					std::cerr << "Found one: " << path.filename() << std::endl;
+					this->m_obj.path() = path;
 					break;
 				}
 			}
@@ -232,7 +269,7 @@ protected:
 public:
 	loose_forward_iterator(const path_type& root)
 	    : m_iter(root)
-	{}
+	{next();}
 	
 	//! default constructor, used as end iterator
 	loose_forward_iterator()
@@ -240,9 +277,11 @@ public:
 	
 	//! copy constructor
 	loose_forward_iterator(const this_type& rhs)
-	    : m_iter(rhs.m_iter)
-		, m_obj(rhs.m_obj) 
+	    : loose_accessor<ObjectTraits, Traits>(rhs)
+	    , m_iter(rhs.m_iter)
 	{}
+	
+	loose_forward_iterator(this_type&&) = default;
 	
 	//! Equality comparison of compatible iterators
 	inline bool operator==(const this_type& rhs) const {
@@ -260,24 +299,6 @@ public:
 	
 	this_type operator++(int) {
 		this_type cpy(*this); next(); return cpy;
-	}
-	
-public:
-	
-	object_type type() const {
-		return m_obj.type();
-	}
-	
-	size_type size() const {
-		return m_obj.size();
-	}
-	
-	const key_type& key() const {
-		return this->m_key;
-	}
-	
-	const output_object_type& operator*() const {
-		return m_obj;
 	}
 	
 };

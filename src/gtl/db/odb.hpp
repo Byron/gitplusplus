@@ -74,8 +74,7 @@ protected:
 	{
 		size_t out = 0;
 		for (; start != end; ++start, ++out);
-		// out is one too high as it was increment before we figured out that end was already reached.
-		return out-1;
+		return out;
 	}
 	
 	//! @}

@@ -24,6 +24,7 @@ using namespace git;
 const char* const phello = "hello";
 const size_t lenphello = 5;
 const std::string hello_hex_sha("AAF4C61DDCC5E8A2DABEDE0F3B482CD9AEA9434D");
+const std::string hello_hex_sha_lc("aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d");
 const std::string null_hex_sha("0000000000000000000000000000000000000000");
 
 
@@ -172,6 +173,9 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	BOOST_CHECK(s == o);
 	BOOST_CHECK(s[0] == 'a');
 	BOOST_CHECK(s[1] == 'b');
+	
+	// upper/lower case hex input yields same results
+	BOOST_REQUIRE(SHA1(hello_hex_sha) == SHA1(hello_hex_sha_lc));
 	
 	
 	// GENERATOR
@@ -356,4 +360,11 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 {
 	LooseODB lodb(rw_dir());
 	BOOST_REQUIRE(lodb.count() == 10);
+	
+	auto end = lodb.end();
+	uint count=0;
+	for (auto it=lodb.begin(); it != end; ++it, ++count){
+		cerr << "object " << count << " at " << it->path() << " " << it.key() << " " << it->type() << " " << it->size() << endl;
+	} 
+	
 }
