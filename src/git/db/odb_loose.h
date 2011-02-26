@@ -18,7 +18,7 @@ struct git_loose_odb_policy : public gtl::odb_loose_policy
 /** \brief configures the loose object database to be conforming with a default 
   * git repository
   */
-struct git_loose_odb_traits : public gtl::odb_loose_traits
+struct git_loose_odb_traits : public gtl::odb_loose_traits<git_object_traits>
 {
 	
 };

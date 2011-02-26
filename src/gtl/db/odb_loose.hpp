@@ -4,10 +4,13 @@
 #include <gtl/config.h>
 #include <gtl/db/odb.hpp>
 #include <gtl/db/odb_object.hpp>
-#include <gtl/db/hash_generator_filter.hpp>sh
+#include <gtl/db/hash_generator_filter.hpp>
+#include <boost/iostreams/device/file.hpp>
 #include <boost/iostreams/filter/zlib.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/filesystem.hpp>
+#include <assert.h>
+#include <string>
 #include <cstring>
 
 GTL_HEADER_BEGIN
@@ -35,26 +38,76 @@ class loose_object_input_stream
   */
 template <class ObjectTraits, class Traits>
 class loose_object_input_stream<ObjectTraits, Traits, compress_header_tag> : 
-        public io::filtering_stream<io::input, typename ObjectTraits::char_type>
+        protected io::filtering_stream<io::input, typename ObjectTraits::char_type>
 {
 public:
 	typedef Traits			db_traits_type;
 	typedef ObjectTraits	traits_type;
+	typedef typename traits_type::char_type char_type;
+	typedef loose_object_input_stream<ObjectTraits, Traits, compress_header_tag> this_type;
+	typedef io::filtering_stream<io::input, char_type> parent_type;
+	typedef typename traits_type::size_type size_type;
+	typedef typename traits_type::object_type object_type;
 	typedef typename db_traits_type::path_type path_type;
-	
-	//! Initalize the instance for reading the given file.
-	loose_object_input_stream()
-	{
-		// init filter
-	}
+	typedef typename db_traits_type::decompression_filter_type decompression_filter_type;
+
+protected:
+	object_type	m_type;		//!< object type as parsed from the header
+	size_type	m_size;		//!< uncompressed size in bytes as parsed from the header
+	std::string m_buf;		//!< buffer to keep pre-read bytes. Currently assuming char
+	std::string::const_iterator m_ibuf;	//!< current position into the buffer
 	
 public:
-	// interface
-	// Set the path we should operate on
+	
+	//! default constructor
+	loose_object_input_stream(){
+		push(decompression_filter_type());
+	}
+	
+	loose_object_input_stream(this_type&&) = default;
+
+	
+public:
+	
+	//! @{ \name Interface
+	//! Set the path we should operate on. This interface allows 
+	//! set and change the path on demand, which results in an opened file.
+	//! \param path empty or non-empty path
 	void set_path(const path_type& path) {
 		// see if we have a sink already, if so, pop it
-		// put in the new sink
+		// put in the new sink.
+		assert(size() < 3);
+		if (size() == 2) {
+			this->pop();
+		}
+		if (!path.empty()) {
+			this->push(io::basic_file_source<char_type>(path.string()));
+			
+			// update our header information
+			m_ibuf = m_buf.end();		// make sure the following calls bypass the buffer
+			size_t header_len = db_traits_type::policy_type().parse_header(*this, m_buf, m_type, m_size);
+			m_ibuf = m_buf.begin();
+			std::advance(m_ibuf, header_len);
+		}
 	}
+	
+	object_type type() const {
+		return m_type;
+	}
+	
+	size_type size() const {
+		return m_size;
+	}
+
+	//! @} interface
+	
+	
+	//! @{ \name Stream Interface
+	
+	this_type& read(char_type* buf, std::streamsize n) {
+		std::cerr << "read called: " << buf << " " << n << std::endl;
+	}
+	//! @}
 	
 };
 
@@ -76,22 +129,41 @@ class loose_object_input_stream<ObjectTraits, Traits, uncompressed_header_tag>
 //! to be provided by the derived type.
 struct odb_loose_policy
 {
-	
+	/** Parse the header from the given stream. The format is known only by the 
+	  * implementation, which throws an exception if the header could not be parsed
+	  * \return number of bytes that actually belonged to the header.
+	  * \param in the input stream to read from
+	  * \param buf std::string compatible buffer which must be filled with all characters
+	  * read from the stream. Only some of these characters are defining the actual header, whose
+	  * size if indicated by the methods return value.
+	  * \param type parsed object type
+	  * \param size parsed size
+	  */
+	template <class StreamType, class StringType, class ObjectType, class SizeType>
+	size_t parse_header(StreamType& in, StringType buf, ObjectType& type, SizeType& size);
 };
 
 /** Default traits for the loose object database.
   * \note by default, it uses the zlib compression library which usually involves
   * external dependencies which must be met for the program to run.
   */
+template <class ObjectTraits>
 struct odb_loose_traits
 {
+	typedef ObjectTraits traits_type;
+	
 	//! type suitable to be used for compression within the 
 	//! boost iostreams filtering framework.
+	//! \todo there should be a way to define the char_type, but its a bit occluded
 	typedef io::zlib_compressor compression_filter_type;
 	
 	//! type compatible to the boost filtering framework to decompress what 
 	//! was previously compressed.
+	//! \todo there should be a way to define the char_type, but its a bit occluded
 	typedef io::zlib_decompressor decompression_filter_type;
+	
+	//! type generating a filter based on the hash_filter template, using the predefined hash generator
+	typedef generator_filter<typename traits_type::key_type, typename traits_type::hash_generator_type> hash_filter_type;
 	
 	//! type to be used as path. The interface must comply to the boost filesystem path
 	typedef boost::filesystem::path path_type;
@@ -119,6 +191,7 @@ class odb_loose_output_object
 public:
 	typedef ObjectTraits						traits_type;
 	typedef Traits								db_traits_type;
+	typedef loose_object_input_stream<traits_type, db_traits_type, typename db_traits_type::header_tag> stream_type;
 	typedef typename db_traits_type::path_type	path_type;
 	typedef typename traits_type::size_type		size_type;
 	typedef typename traits_type::object_type	object_type;
@@ -128,14 +201,14 @@ private:
 	//! Initialize our stream for reading, basically read-in the header information
 	//! and keep the stream available for actual data reading
 	void init() const {
+		m_stream.set_path(m_path);
 		m_initialized = true;
 	}
 	
 protected:
 	path_type					m_path;
 	mutable bool				m_initialized;
-	mutable size_type			m_size;
-	mutable object_type			m_obj_type;
+	mutable stream_type			m_stream;
 	
 public:
 	
@@ -145,39 +218,33 @@ public:
 		: m_initialized(false) 
 	{}
 	
-	odb_loose_output_object(const this_type& rhs)
+	/*odb_loose_output_object(const this_type& rhs)
+	    : m_path(rhs.m_path)
+	    , m_initialized(rhs.m_initialized)
 	{
-		*this = rhs;
-	}
+		if (m_initialized){
+			// todo: set our stream to the same state as the other stream. Usually streams 
+			// are not copyable, which makes it more difficult.
+		}
+	}*/
 	
 	odb_loose_output_object(const path_type& obj_path)
 		: m_path(obj_path)
 	    , m_initialized(false)
 	{};
 	
-	this_type& operator = (const this_type& rhs) {
-		m_initialized = rhs.m_initialized;
-		m_path = rhs.m_path;
-		
-		if (m_initialized) {
-			m_size = rhs.m_size;
-			m_obj_type = rhs.m_obj_type;
-		}
-		return *this;
-	}
-	
 	object_type type() const {
 		if (!m_initialized){
 			init();
 		}
-		return m_obj_type;
+		return m_stream.type();
 	}
 	
 	size_type size() const {
 		if (!m_initialized){
 			init();
 		}
-		return m_size;
+		return m_stream.size();
 	}
 	
 	// todo: stream interface
