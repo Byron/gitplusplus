@@ -12,7 +12,15 @@ GIT_NAMESPACE_BEGIN
   */
 struct git_loose_odb_policy : public gtl::odb_loose_policy
 {
-	
+	template <class StreamType, class StringType, class ObjectType, class SizeType>
+	size_t parse_header(StreamType& in, StringType buf, ObjectType& type, SizeType& size)
+	{
+		const size_t buflen = 512;
+		typename StringType::value_type cbuf[buflen];
+		in.read(cbuf, buflen);
+		
+		return 0;
+	}
 };
 
 /** \brief configures the loose object database to be conforming with a default 
@@ -20,7 +28,8 @@ struct git_loose_odb_policy : public gtl::odb_loose_policy
   */
 struct git_loose_odb_traits : public gtl::odb_loose_traits<git_object_traits>
 {
-	
+	//! override default policy for our implementation
+	typedef git_loose_odb_policy policy_type;
 };
 
 /** \ingroup ODB

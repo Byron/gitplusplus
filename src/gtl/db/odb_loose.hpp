@@ -35,6 +35,7 @@ class loose_object_input_stream
 
 /** Partial specialization of the base template to allow handling fully compressed files, that is
   * the header and the data stream are part of a single compressed stream.
+  * \note this type is not copy-constructible or movable. It should be movable though ... which is not (yet) the case.
   */
 template <class ObjectTraits, class Traits>
 class loose_object_input_stream<ObjectTraits, Traits, compress_header_tag> : 
@@ -61,11 +62,9 @@ public:
 	
 	//! default constructor
 	loose_object_input_stream(){
+		std::cerr << "was constructed" << std::endl;
 		push(decompression_filter_type());
 	}
-	
-	loose_object_input_stream(this_type&&) = default;
-
 	
 public:
 	
@@ -76,6 +75,7 @@ public:
 	void set_path(const path_type& path) {
 		// see if we have a sink already, if so, pop it
 		// put in the new sink.
+		std::cerr << "my size = "<< size() << std::endl;
 		assert(size() < 3);
 		if (size() == 2) {
 			this->pop();
@@ -85,7 +85,7 @@ public:
 			
 			// update our header information
 			m_ibuf = m_buf.end();		// make sure the following calls bypass the buffer
-			size_t header_len = db_traits_type::policy_type().parse_header(*this, m_buf, m_type, m_size);
+			size_t header_len = typename db_traits_type::policy_type().parse_header(*this, m_buf, m_type, m_size);
 			m_ibuf = m_buf.begin();
 			std::advance(m_ibuf, header_len);
 		}
@@ -201,21 +201,22 @@ private:
 	//! Initialize our stream for reading, basically read-in the header information
 	//! and keep the stream available for actual data reading
 	void init() const {
-		m_stream.set_path(m_path);
+		m_pstream->set_path(m_path);
 		m_initialized = true;
 	}
 	
 protected:
-	path_type					m_path;
-	mutable bool				m_initialized;
-	mutable stream_type			m_stream;
+	path_type								m_path;
+	mutable bool							m_initialized;
+	mutable std::unique_ptr<stream_type>	m_pstream;		//!< use of unique ptr as it is movable
 	
 public:
 	
 	odb_loose_output_object(odb_loose_output_object&&) = default;
 	
 	odb_loose_output_object()
-		: m_initialized(false) 
+		: m_initialized(false)
+	    , m_pstream(new stream_type)
 	{}
 	
 	/*odb_loose_output_object(const this_type& rhs)
@@ -231,20 +232,21 @@ public:
 	odb_loose_output_object(const path_type& obj_path)
 		: m_path(obj_path)
 	    , m_initialized(false)
+	    , m_pstream(new stream_type)
 	{};
 	
 	object_type type() const {
 		if (!m_initialized){
 			init();
 		}
-		return m_stream.type();
+		return m_pstream->type();
 	}
 	
 	size_type size() const {
 		if (!m_initialized){
 			init();
 		}
-		return m_stream.size();
+		return m_pstream->size();
 	}
 	
 	// todo: stream interface
@@ -288,15 +290,17 @@ protected:
 	//! Default constructor, only for derived types
 	loose_accessor(){}
 	
+private:
+	//! only allow move construction due to our file stream
+	loose_accessor(const this_type& rhs) 
+	    : m_obj(rhs.m_obj)
+	{}
+	
 public:
 	//! Initialize this instance with a key to operate upon.
 	//! It should, but is not required, to point to a valid object
 	loose_accessor(const path_type& objpath)
 		: m_obj(objpath)
-	{}
-	
-	loose_accessor(const this_type& rhs) 
-	    : m_obj(rhs.m_obj)
 	{}
 	
 	loose_accessor(this_type&&) = default;
@@ -397,6 +401,13 @@ protected:
 			}
 		}// scrub iterator until we have a file
 	}
+
+private:
+	//! copy constructor - currently we only allow move semantics due to our file stream
+	loose_forward_iterator(const this_type& rhs)
+	    : loose_accessor<ObjectTraits, Traits>(rhs)
+	    , m_iter(rhs.m_iter)
+	{}
 	
 public:
 	loose_forward_iterator(const path_type& root)
@@ -405,12 +416,6 @@ public:
 	
 	//! default constructor, used as end iterator
 	loose_forward_iterator()
-	{}
-	
-	//! copy constructor
-	loose_forward_iterator(const this_type& rhs)
-	    : loose_accessor<ObjectTraits, Traits>(rhs)
-	    , m_iter(rhs.m_iter)
 	{}
 	
 	loose_forward_iterator(this_type&&) = default;
