@@ -4,22 +4,25 @@
 #include <git/config.h>
 #include <git/db/policy.hpp>
 #include <gtl/db/odb_loose.hpp>
+#include <boost/iostreams/stream.hpp>
+#include <boost/iostreams/device/array.hpp>
 
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
+
+namespace io = boost::iostreams;
 
 /** \todo still to be implemented/defined
   */
 struct git_loose_odb_policy : public gtl::odb_loose_policy
 {
-	template <class StreamType, class StringType, class ObjectType, class SizeType>
-	size_t parse_header(StreamType& in, StringType buf, ObjectType& type, SizeType& size)
+	template <class CharType, class ObjectType, class SizeType>
+	size_t parse_header(CharType* buf, size_t buflen, ObjectType& type, SizeType& size)
 	{
-		const size_t buflen = 512;
-		typename StringType::value_type cbuf[buflen];
-		in.read(cbuf, buflen);
-		
-		return 0;
+		io::stream<io::basic_array_source<CharType> > stream(buf, buflen);
+		stream >> type;
+		stream >> size;
+		return (size_t)stream.tellg() + 1;	// includes terminating 0
 	}
 };
 

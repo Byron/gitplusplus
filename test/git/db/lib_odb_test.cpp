@@ -365,6 +365,6 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 	uint count=0;
 	for (auto it=lodb.begin(); it != end; ++it, ++count){
 		cerr << "object " << count << " at " << it->path() << " " << it.key() << " " << it->type() << " " << it->size() << endl;
-	} 
+	}
 	
 }

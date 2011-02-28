@@ -28,42 +28,46 @@ struct uncompressed_header_tag {};
 //! \brief stream suitable for reading any kind of loose object format
 //! This is the base template which is partially specialized for the respective header tags
 //! \tparam ObjectTraits traits for some general git settings
-template <class ObjectTraits, class Traits, class HeaderTag=typename Traits::header_tag>
+template <class ObjectTraits, class Traits, class HeaderTag=typename Traits::header_tag, size_t BufLen=512>
 class loose_object_input_stream
 {
 };
 
 /** Partial specialization of the base template to allow handling fully compressed files, that is
   * the header and the data stream are part of a single compressed stream.
+  * \tparam BufLen amount of bytes to read into a buffer. It must be big enough to hold the enitre header.
+  * It will be read into a preallocated array of bytes, and bytes not belonging to the header 
+  * will be returned again during normal reads.
   * \note this type is not copy-constructible or movable. It should be movable though ... which is not (yet) the case.
   */
-template <class ObjectTraits, class Traits>
-class loose_object_input_stream<ObjectTraits, Traits, compress_header_tag> : 
+template <class ObjectTraits, class Traits, size_t BufLen>
+class loose_object_input_stream<ObjectTraits, Traits, compress_header_tag, BufLen> : 
         protected io::filtering_stream<io::input, typename ObjectTraits::char_type>
 {
 public:
-	typedef Traits			db_traits_type;
-	typedef ObjectTraits	traits_type;
-	typedef typename traits_type::char_type char_type;
+	typedef Traits																db_traits_type;
+	typedef ObjectTraits														traits_type;
+	typedef typename traits_type::char_type										char_type;
 	typedef loose_object_input_stream<ObjectTraits, Traits, compress_header_tag> this_type;
-	typedef io::filtering_stream<io::input, char_type> parent_type;
-	typedef typename traits_type::size_type size_type;
-	typedef typename traits_type::object_type object_type;
-	typedef typename db_traits_type::path_type path_type;
-	typedef typename db_traits_type::decompression_filter_type decompression_filter_type;
+	typedef io::filtering_stream<io::input, char_type>							parent_type;
+	typedef typename traits_type::size_type										size_type;
+	typedef typename traits_type::object_type									object_type;
+	typedef typename db_traits_type::path_type									path_type;
+	typedef typename db_traits_type::decompression_filter_type					decompression_filter_type;
+	static const size_t															buflen = BufLen;
 
 protected:
-	object_type	m_type;		//!< object type as parsed from the header
-	size_type	m_size;		//!< uncompressed size in bytes as parsed from the header
-	std::string m_buf;		//!< buffer to keep pre-read bytes. Currently assuming char
-	std::string::const_iterator m_ibuf;	//!< current position into the buffer
+	object_type					m_type;		//!< object type as parsed from the header
+	size_type					m_size;		//!< uncompressed size in bytes as parsed from the header
+	char_type					m_buf[BufLen];		//!< buffer to keep pre-read bytes. Currently assuming char
+	char_type*					m_ibuf;		//!< current position into the buffer
 	
 public:
 	
 	//! default constructor
 	loose_object_input_stream(){
-		std::cerr << "was constructed" << std::endl;
-		push(decompression_filter_type());
+		this->push(decompression_filter_type());
+		m_ibuf = m_buf + BufLen;
 	}
 	
 public:
@@ -75,19 +79,17 @@ public:
 	void set_path(const path_type& path) {
 		// see if we have a sink already, if so, pop it
 		// put in the new sink.
-		std::cerr << "my size = "<< size() << std::endl;
-		assert(size() < 3);
-		if (size() == 2) {
+		assert(parent_type::size() < 3);
+		if (parent_type::size() == 2) {
 			this->pop();
 		}
 		if (!path.empty()) {
 			this->push(io::basic_file_source<char_type>(path.string()));
 			
 			// update our header information
-			m_ibuf = m_buf.end();		// make sure the following calls bypass the buffer
-			size_t header_len = typename db_traits_type::policy_type().parse_header(*this, m_buf, m_type, m_size);
-			m_ibuf = m_buf.begin();
-			std::advance(m_ibuf, header_len);
+			parent_type::read(&m_buf[0], BufLen);
+			size_t header_len = typename db_traits_type::policy_type().parse_header(m_buf, buflen, m_type, m_size);
+			m_ibuf = m_buf + header_len;
 		}
 	}
 	
@@ -106,6 +108,7 @@ public:
 	
 	this_type& read(char_type* buf, std::streamsize n) {
 		std::cerr << "read called: " << buf << " " << n << std::endl;
+		return *this;
 	}
 	//! @}
 	
@@ -132,16 +135,15 @@ struct odb_loose_policy
 	/** Parse the header from the given stream. The format is known only by the 
 	  * implementation, which throws an exception if the header could not be parsed
 	  * \return number of bytes that actually belonged to the header.
-	  * \param in the input stream to read from
-	  * \param buf std::string compatible buffer which must be filled with all characters
-	  * read from the stream. Only some of these characters are defining the actual header, whose
-	  * size if indicated by the methods return value.
+	  * \param buf character buffer filled with header_read_buf_len bytes pre-read from the 
+	  * input stream
 	  * \param type parsed object type
 	  * \param size parsed size
 	  */
-	template <class StreamType, class StringType, class ObjectType, class SizeType>
-	size_t parse_header(StreamType& in, StringType buf, ObjectType& type, SizeType& size);
+	template <class CharType, class ObjectType, class SizeType>
+	size_t parse_header(CharType* buf, size_t buflen, ObjectType& type, SizeType& size);
 };
+
 
 /** Default traits for the loose object database.
   * \note by default, it uses the zlib compression library which usually involves
@@ -201,6 +203,9 @@ private:
 	//! Initialize our stream for reading, basically read-in the header information
 	//! and keep the stream available for actual data reading
 	void init() const {
+		if (m_pstream.get() == nullptr) {
+			m_pstream.reset(new stream_type);
+		}
 		m_pstream->set_path(m_path);
 		m_initialized = true;
 	}
@@ -216,7 +221,6 @@ public:
 	
 	odb_loose_output_object()
 		: m_initialized(false)
-	    , m_pstream(new stream_type)
 	{}
 	
 	/*odb_loose_output_object(const this_type& rhs)
@@ -232,7 +236,6 @@ public:
 	odb_loose_output_object(const path_type& obj_path)
 		: m_path(obj_path)
 	    , m_initialized(false)
-	    , m_pstream(new stream_type)
 	{};
 	
 	object_type type() const {
