@@ -106,8 +106,27 @@ public:
 	
 	//! @{ \name Stream Interface
 	
-	this_type& read(char_type* buf, std::streamsize n) {
-		std::cerr << "read called: " << buf << " " << n << std::endl;
+	//! \todo set gcount up properly - this would be very important
+	//! for stream-copy operations
+	this_type& read(char_type* buf, std::streamsize n) 
+	{
+		// end of our temporary buffer reached ?
+		const char_type* bufend = m_buf + buflen;
+		if (m_ibuf == bufend){
+			parent_type::read(buf, n);
+			return *this;
+		}
+		
+		std::streamsize nbytes_to_copy = std::min(n, bufend - m_ibuf);
+		memcpy(buf, m_ibuf, nbytes_to_copy);
+		m_ibuf += nbytes_to_copy;
+		
+		if(nbytes_to_copy < n) {
+			// read remaining bytes from stream
+			parent_type::read(buf+nbytes_to_copy, n - nbytes_to_copy);
+			// Adjust gcount (well, don't know how to do that in an implementation agnostic way)
+		}
+		
 		return *this;
 	}
 	//! @}
@@ -116,14 +135,13 @@ public:
 
 /** Partial specialization dealing with partially compressed files.
   * The header is read uncompressed, the stream is compressed.
+  * \todo implement uncompressed header stream
   */
 template <class ObjectTraits, class Traits>
 class loose_object_input_stream<ObjectTraits, Traits, uncompressed_header_tag>
 {
 	typedef Traits			db_traits_type;
 	typedef ObjectTraits	traits_type;
-	
-	
 
 };
 
@@ -252,7 +270,29 @@ public:
 		return m_pstream->size();
 	}
 	
-	// todo: stream interface
+	void stream(stream_type* out_stream) const {
+		new (out_stream) stream_type;
+		out_stream->set_path(m_path);
+	}
+	
+	stream_type* new_stream() const {
+		// release our own one, otherwise create a new one
+		if (m_pstream.get() != nullptr) {
+			m_initialized = false;
+			return m_pstream.release();
+		}
+		stream_type* stream = new stream_type;
+		stream->set_path(m_path);
+		return stream;
+	}
+	
+	void destroy_stream(stream_type* stream) const {
+		stream->~loose_object_input_stream();
+	}
+	
+	void deserialize(typename traits_type::output_reference_type out) const {
+		typename traits_type::policy_type().deserialize(out, *this);
+	}
 	
 	//! @{ Interface
 	
@@ -277,9 +317,9 @@ template <class ObjectTraits, class Traits>
 class loose_accessor :	public odb_accessor<ObjectTraits>
 {
 public:
-	typedef ObjectTraits						traits_type;
-	typedef Traits								db_traits_type;
-	typedef odb_loose_output_object<ObjectTraits, Traits> output_object_type;
+	typedef ObjectTraits										traits_type;
+	typedef Traits												db_traits_type;
+	typedef odb_loose_output_object<ObjectTraits, Traits>		output_object_type;
 	typedef typename traits_type::key_type						key_type;
 	typedef typename traits_type::size_type						size_type;
 	typedef typename traits_type::object_type					object_type;
@@ -464,6 +504,7 @@ public:
 	
 	typedef odb_loose_output_object<traits_type, db_traits_type>	output_object_type;
 	typedef odb_ref_input_object<traits_type>						input_object_type;
+	typedef typename output_object_type::stream_type				input_stream_type;
 	
 	typedef loose_accessor<traits_type, db_traits_type>				accessor;
 	typedef loose_forward_iterator<traits_type, db_traits_type>		forward_iterator;

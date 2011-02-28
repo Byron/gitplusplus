@@ -290,7 +290,9 @@ struct odb_output_object : public odb_basic_object<ObjectTraits>
 	//! construct an object from the deserialized stream and store it in the output reference
 	//! \note uses exceptions to indicate failure (i.e. out of memory, corrupt stream)
 	//! \throw odb_deserialization_error
-	void deserialize(typename traits_type::output_reference_type out) const;
+	void deserialize(typename traits_type::output_reference_type out) const {
+		typename traits_type::policy_type().deserialize(out, *this);
+	}
 };
 
 

@@ -20,6 +20,7 @@
 
 using namespace std;
 using namespace git;
+namespace io = boost::iostreams;
 
 const char* const phello = "hello";
 const size_t lenphello = 5;
@@ -358,13 +359,35 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 
 BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 {
+	typedef typename git_object_traits::char_type char_type;
+	typedef typename LooseODB::input_stream_type input_stream_type;
 	LooseODB lodb(rw_dir());
 	BOOST_REQUIRE(lodb.count() == 10);
 	
+	const size_t buflen = 512;
+	char_type buf[buflen];
+	
 	auto end = lodb.end();
 	uint count=0;
-	for (auto it=lodb.begin(); it != end; ++it, ++count){
+	for (auto it=lodb.begin(); it != end; ++it, ++count) {
 		cerr << "object " << count << " at " << it->path() << " " << it.key() << " " << it->type() << " " << it->size() << endl;
+		// test new stream
+		input_stream_type* stream = it->new_stream();
+		assert(stream != 0);
+		stream->read(buf, buflen);
+		delete stream;
+		
+		// test custom memory location
+		char sbuf[sizeof(input_stream_type)];
+		stream = (input_stream_type*)sbuf;
+		it->stream(stream);
+		stream->read(buf, buflen);
+		it->destroy_stream(stream);
+		
+		// test deserialization
+		MultiObject mobj;
+		it->deserialize(mobj);
+		BOOST_REQUIRE(it->type() == mobj.type);
 	}
 	
 }
