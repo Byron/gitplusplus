@@ -371,6 +371,7 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 	uint count=0;
 	for (auto it=lodb.begin(); it != end; ++it, ++count) {
 		cerr << "object " << count << " at " << it->path() << " " << it.key() << " " << it->type() << " " << it->size() << endl;
+		
 		// test new stream
 		input_stream_type* stream = it->new_stream();
 		assert(stream != 0);
@@ -389,5 +390,4 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 		it->deserialize(mobj);
 		BOOST_REQUIRE(it->type() == mobj.type);
 	}
-	
 }

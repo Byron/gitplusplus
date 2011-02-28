@@ -18,9 +18,15 @@ GIT_NAMESPACE_BEGIN
 using std::string;
 
 //! \brief Thrown for errors during deserialization
-class ObjectError		: public gtl::odb_object_error,
-						  public gtl::streaming_exception
-{};
+class ObjectError		:	public gtl::streaming_exception,
+							public gtl::odb_object_error
+						  
+{
+	const char* what() const throw() {
+		// pass through to right base
+		return streaming_exception::what();
+	}
+};
 
 
 //! Utility storing a name and an email

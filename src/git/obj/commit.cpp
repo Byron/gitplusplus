@@ -70,7 +70,9 @@ git_basic_istream& operator >> (git_basic_istream& stream, Commit& inst)
 	// tree key
 	stream >> tmp;
 	if (tmp != t_tree) {
-		throw DeserializationError();
+		DeserializationError err;
+		err.stream() << "expected " << t_tree << ", got " << tmp;
+		throw err;
 	}
 	stream.get(c);			// space
 	stream >> inst.tree_key();
@@ -85,7 +87,9 @@ git_basic_istream& operator >> (git_basic_istream& stream, Commit& inst)
 	
 	// author
 	if (tmp != t_author) {
-		throw DeserializationError();
+		DeserializationError err;
+		err.stream() << "expected " << t_author << ", got " << tmp;
+		throw err;
 	}
 	
 	// space
@@ -95,7 +99,9 @@ git_basic_istream& operator >> (git_basic_istream& stream, Commit& inst)
 	// committer
 	stream >> tmp;
 	if (tmp != t_committer) {
-		throw DeserializationError();
+		DeserializationError err;
+		err.stream() << "expected " << t_committer << ", got " << tmp;
+		throw err;
 	}
 	
 	stream.get(c);				// space
@@ -111,7 +117,9 @@ git_basic_istream& operator >> (git_basic_istream& stream, Commit& inst)
 		stream.get(c);			// newline to separate message
 	} else {
 		if (c != '\n') {
-			throw DeserializationError();
+			DeserializationError err;
+			err.stream() << "expected newline, got '" << c << "'";
+			throw err;
 		}
 	}
 	

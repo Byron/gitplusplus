@@ -74,6 +74,11 @@ git_basic_istream& operator >> (git_basic_istream& stream, Tree& inst)
 		inst.elements().insert(Tree::map_type::value_type(name, std::move(elm)));
 	}// while stream is available
 	
+	if (inst.elements().size() == 0) {
+		DeserializationError err;
+		err.stream() << "Couldn't deserialize any tree element";
+		throw err;
+	}
 	
 	return stream;
 }

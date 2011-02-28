@@ -42,7 +42,7 @@ class loose_object_input_stream
   */
 template <class ObjectTraits, class Traits, size_t BufLen>
 class loose_object_input_stream<ObjectTraits, Traits, compress_header_tag, BufLen> : 
-        protected io::filtering_stream<io::input, typename ObjectTraits::char_type>
+        public io::filtering_stream<io::input, typename ObjectTraits::char_type>
 {
 public:
 	typedef Traits																db_traits_type;

@@ -91,6 +91,10 @@ public:
 	data_type& data() noexcept {
 		return m_data;
 	}
+	
+	void deserialize(typename traits_type::output_reference_type out) const {
+		typename traits_type::policy_type().deserialize(out, *this);
+	}
 };
 
 

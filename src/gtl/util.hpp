@@ -4,6 +4,7 @@
 #include <gtl/config.h>
 #include <cctype>
 #include <sstream>
+#include <cstring>
 #include <memory>
 
 GTL_HEADER_BEGIN
@@ -49,6 +50,38 @@ class streaming_exception
 			}
 			return _buf.c_str();
 		}
+};
+
+/** \brief an exception base keeping a static message detailing the cause of the exception being thrown.
+  * \note as the c character string is copied, and if the allocation fails, a static information message about the
+  * incident will be shown instead.
+  */
+class message_exception
+{
+private:
+	char* m_msg;
+	
+protected:
+	message_exception(const char* msg = nullptr) {
+		m_msg = nullptr;
+		if (msg) {
+			const size_t msglen(std::strlen(msg));
+			m_msg = new char[msglen+1];
+			if (m_msg != nullptr) {
+				std::memcpy(m_msg, msg, msglen+1);	// copy terminating 0
+			} 
+		}
+	}
+	
+	~message_exception() {
+		if (m_msg){
+			delete [] m_msg;
+		}
+	}
+	
+	virtual const char* what() const throw() {
+		return m_msg == nullptr ? "failed to allocated memory to keep exception message" : m_msg;
+	}
 };
 
 

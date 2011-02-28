@@ -7,6 +7,13 @@
 #include <git/obj/tree.h>
 
 GIT_NAMESPACE_BEGIN
+
+class TypeError : public ObjectError
+{
+	const char* what() const throw() {
+		return "Invalid object type";
+	}
+};
 		
 Object::size_type Object::size(git_basic_ostream* pstream) const
 {
@@ -24,9 +31,7 @@ Object::size_type Object::size(git_basic_ostream* pstream) const
 		case Object::Type::Tree: { *ps << static_cast<const Tree&>(*this); break; }
 		default:
 		{
-			ObjectError err;
-			err.stream() << "Invalid object type for size() computation: " << m_type;
-			throw err;
+			throw TypeError();
 		}
 	}// end type switch
 	
