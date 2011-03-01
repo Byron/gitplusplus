@@ -26,6 +26,8 @@ struct git_object_policy_traits
 {
 	//! Type allowing to classify the stored object
 	typedef ObjectType object_type;
+	//! None type for objects
+	static const object_type null_object_type = object_type::None;
 	//! max size of serialized objects
 	typedef uint64_t size_type;
 	//! use unsigned bytes as general storage

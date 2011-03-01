@@ -4,6 +4,7 @@
 #include <git/config.h>
 #include <git/db/policy.hpp>
 #include <gtl/db/odb_loose.hpp>
+
 #include <boost/iostreams/stream.hpp>
 #include <boost/iostreams/device/array.hpp>
 
@@ -20,8 +21,12 @@ struct git_loose_odb_policy : public gtl::odb_loose_policy
 	size_t parse_header(CharType* buf, size_t buflen, ObjectType& type, SizeType& size)
 	{
 		io::stream<io::basic_array_source<CharType> > stream(buf, buflen);
+		assert(stream.good());
 		stream >> type;
 		stream >> size;
+		std::string tmp;
+		stream >> tmp;
+		std::cerr << "in parse_header: " << tmp << std::endl;
 		return (size_t)stream.tellg() + 1;	// includes terminating 0
 	}
 };

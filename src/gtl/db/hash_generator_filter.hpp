@@ -2,7 +2,7 @@
 #define GENERATOR_FILTER_HPP
 
 #include <gtl/config.h>
-#include <boost/iostreams/filter/aggregate.hpp>
+#include <boost/iostreams/filter/aggregate.hpp>	// just to pull in some other types, its not used as a base class
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
