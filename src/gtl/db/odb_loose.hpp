@@ -44,9 +44,6 @@ public:
 protected:
 	object_type					m_type;		//!< object type as parsed from the header
 	size_type					m_size;		//!< uncompressed size in bytes as parsed from the header
-	char_type					m_buf[BufLen];		//!< buffer to keep pre-read bytes
-	char_type*					m_ibuf;		//!< current position into the buffer
-	char_type*					m_ebuf;		//!< end position into the buffer
 
 private:
 	header_filter(header_filter&&) = default;
@@ -55,19 +52,25 @@ private:
 private:
 	
 	template <class Source>
-	void update_values(Source& src)
+	std::streamsize update_values(Source& src, char_type*& buf)
 	{
 		// update our header information
-		std::streamsize nb = boost::iostreams::read(src, &m_buf[0], BufLen);
-		size_t header_len = typename db_traits_type::policy_type().parse_header(&m_buf[0], nb, m_type, m_size);
-		m_ibuf = m_buf + header_len;
-		m_ebuf = m_buf + nb;
-		std::cerr << m_type << ": header_filter.update_values: hlen = " << header_len << ", read total of " << nb << " bytes" << std::endl;
+		std::streamsize nb = boost::iostreams::read(src, buf, BufLen);
+		size_t header_len = typename db_traits_type::policy_type().parse_header(buf, nb, m_type, m_size);
+		buf += header_len;
+		std::cerr << "update_values: headerlen = " << header_len << ", bytes read=" << nb << std::endl;
+		return nb;
 	}
 	
 	inline bool needs_update() const {
 		return m_type == traits_type::null_object_type;
 	}
+	
+	//! Make this instance ready for a new underlying stream
+	void reset() {
+		m_type = traits_type::null_object_type;
+	}
+	
 	
 public:
 	explicit header_filter()
@@ -76,9 +79,6 @@ public:
 	header_filter(const this_type& rhs) {
 		// its probably a rare case that we actually have to duplicate an initialized filter
 		if (!rhs.needs_update()){
-			std::memcpy(m_buf, rhs.m_buf, BufLen);
-			m_ibuf = m_buf + (rhs.m_ibuf - rhs.m_buf);
-			m_ebuf = m_buf + (rhs.m_ebuf - rhs.m_buf);
 			m_type = rhs.m_type;
 			m_size = rhs.m_size;
 		} else {
@@ -90,13 +90,7 @@ public:
 public:
 	
 	//! @{ \name Interface
-	//! Make this instance ready for a new underlying stream
-	void reset() {
-		m_type = traits_type::null_object_type;
-		m_ibuf = m_buf;
-		m_ebuf = m_buf + BufLen;
-	}
-	
+
 	object_type type() const {
 		return m_type;
 	}
@@ -116,27 +110,28 @@ public:
     template<typename Source>
     std::streamsize read(Source& src, char_type* s, std::streamsize n)
     {
+		// We require this to happen in one step as we do not cache pre-read header data
+		assert(n >= this->optimal_buffer_size());
 		static_assert(BufLen < 1024*4, "putpack doesn't work if we cannot buffer the whole buflen");
-		if (m_ibuf == m_ebuf){
-			return boost::iostreams::read(src, s, n);
-		}
-		
+		std::streamsize bytes_handled = -1;
 		if (needs_update()) {
-			update_values(src);
+			char_type buf[BufLen];
+			char_type* bstart(buf);
+			
+			auto nb = update_values(src, bstart);
+			bytes_handled = nb-(bstart-buf);
+			std::memcpy(s, bstart, bytes_handled);
+			s += bytes_handled;
+			n -= nb;
 		}
 		
-		std::streamsize nbytes_to_copy = std::min(n, m_ebuf - m_ibuf);
-		memcpy(s, m_ibuf, nbytes_to_copy);
-		m_ibuf += nbytes_to_copy;
-		
-		if(nbytes_to_copy < n) {
-			std::cerr << "Depleted buffer, reading " << n - nbytes_to_copy << std::endl;
-			// read remaining bytes from stream, update the actual amount of bytes read
-			nbytes_to_copy += boost::iostreams::read(src, s + nbytes_to_copy, n - nbytes_to_copy);
-			std::cerr << "read total of " << nbytes_to_copy << " bytes" << std::endl;
+		const std::streamsize bytes_read = boost::iostreams::read(src, s, n);
+		if (bytes_read > -1){		// handle eof
+			bytes_handled += bytes_read;
 		}
 		
-		return nbytes_to_copy;
+		std::cerr << "hfilter.read: " << n << ", bytes_handled=" << bytes_handled << ", needs_update = " << needs_update() <<  std::endl;
+		return bytes_handled;
     }
 
     /*template<typename Sink>
@@ -145,11 +140,11 @@ public:
         std::streamsize result = boost::iostreams::write(snk, s, n);
     }*/
 	
-    /*template<typename Sink>
+    template<typename Sink>
     void close(Sink& sink, BOOST_IOS::openmode which)
     {
-		m_ibuf = m_buf+BufLen;
-    }*/
+		reset();
+    }
 	
 	//! @} stream interface
 	
@@ -200,10 +195,7 @@ public:
 	
 	//! default constructor
 	loose_object_input_stream(){
-		this->push(header_filter_type());
-		this->push(decompression_filter_type());
-		this->set_auto_close(false);
-		this->exceptions(std::ios_base::eofbit|std::ios_base::badbit|std::ios_base::failbit);
+		// this->exceptions(std::ios_base::eofbit|std::ios_base::badbit|std::ios_base::failbit);
 	}
 	
 public:
@@ -213,21 +205,21 @@ public:
 	//! set and change the path on demand, which results in an opened file.
 	//! \param path empty or non-empty path
 	void set_path(const path_type& path) {
-		// see if we have a sink already, if so, pop it
-		// put in the new sink.
-		assert(parent_type::size() < 4);
-		if (parent_type::size() == 3) {
-			this->pop();
-		}
 		if (!path.empty()) {
+			// rebuild ourselves, chain elements cannot be reused
+			this->reset();		// empty ourselves
+			this->push(header_filter_type());
+			this->push(decompression_filter_type());
 			this->push(io::basic_file_source<char_type>(path.string()));
+			this->set_auto_close(true);
+			
 			// cause an update of the underlying stream, without taking any valueable bytes
 			// off the stream. As we have to take at least 1 byte to trigger the chain, we put it 
 			// pack into the last buffered filter, which happens to be ours.
-			std::cerr << "stream.set_path" << std::endl;
+			std::cerr << "stream.set_path: " << path << std::endl;
+			assert(!this->eof());
+			
 			char_type buf[1];
-			auto* hfilter = this->component<header_filter_type>(0);
-			hfilter->reset();
 			this->read(&buf[0], 1);
 			this->unget();	// operates on our internal buffer
 			

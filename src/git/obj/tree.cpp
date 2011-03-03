@@ -56,17 +56,18 @@ git_basic_istream& operator >> (git_basic_istream& stream, Tree& inst)
 			// It depends on the configuration whether this throws
 			break;
 		}
-		std::cerr << "got char: " << (uint)c << " eof = " << stream.eof() << std::endl;
+		std::cerr << "got char: " << (uint)c << " ,eof = " << stream.eof() << std::endl;
 		name.clear();
 		Tree::Element elm;	// we will move the element in
 		elm.mode = 0;
 
-		for(; c != ' '; stream.get(c)) {
-			std::cerr << c ;
+		for (; c != ' '; stream.get(c)) {
+			std::cerr << c;
 			elm.mode = (elm.mode << 3) + (c - '0');
 		}
 		// parse name
 		std::getline(stream, name, '\0');
+		std::cerr << " " << name << std::endl;
 		
 		// parse hash
 		stream.read(elm.key.bytes(), Tree::key_type::hash_len);
