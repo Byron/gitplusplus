@@ -270,7 +270,9 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	
 	// Access the item using the key
 	BOOST_CHECK(modb.has_object(it.key()));
+	BOOST_REQUIRE(!modb.has_object(MemoryODB::key_type::null));
 	MemoryODB::accessor acc = modb.object(it.key());
+	BOOST_REQUIRE_THROW(modb.object(MemoryODB::key_type::null), gtl::odb_error);
 	BOOST_CHECK(acc->type() == it->type());
 	BOOST_CHECK(acc->size() == it->size());
 	
@@ -362,7 +364,8 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 	typedef typename git_object_traits::char_type char_type;
 	typedef typename LooseODB::input_stream_type input_stream_type;
 	LooseODB lodb(rw_dir());
-	BOOST_REQUIRE(lodb.count() == 10);
+	const uint num_objects = 10;
+	BOOST_REQUIRE(lodb.count() == num_objects);
 	
 	const size_t buflen = 512;
 	char_type buf[buflen];
@@ -370,7 +373,12 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 	auto end = lodb.end();
 	uint count=0;
 	for (auto it=lodb.begin(); it != end; ++it, ++count) {
-		cerr << "object " << it.key() << " " << count << " at " << it->path() << " " << it->type() << " " << it->size() << endl;
+		BOOST_REQUIRE(lodb.has_object(it.key()));
+		{
+			LooseODB::accessor acc = lodb.object(it.key());
+			BOOST_REQUIRE(acc->size() == it->size());
+			BOOST_REQUIRE(acc->type() == it->type());
+		}// end accessor lifetime
 		
 		// test new stream
 		input_stream_type* stream = it->new_stream();
@@ -390,4 +398,7 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 		it->deserialize(mobj);
 		BOOST_REQUIRE(it->type() == mobj.type);
 	}
+	BOOST_REQUIRE(count == num_objects);
+	BOOST_REQUIRE(!lodb.has_object(LooseODB::key_type::null));
+	BOOST_REQUIRE_THROW(lodb.object(LooseODB::key_type::null), gtl::odb_error);
 }

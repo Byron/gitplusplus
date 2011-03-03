@@ -4,6 +4,7 @@
 #include <gtl/config.h>
 #include <gtl/db/odb.hpp>
 #include <gtl/db/odb_object.hpp>
+#include <gtl/util.hpp>
 #include <gtl/db/hash_generator_filter.hpp>
 #include <boost/iostreams/device/file.hpp>
 #include <boost/iostreams/filter/zlib.hpp>
@@ -597,6 +598,7 @@ public:
 	typedef ObjectTraits											traits_type;
 	typedef Traits													db_traits_type;
 	typedef typename ObjectTraits::key_type							key_type;
+	typedef odb_hash_error<key_type>								hash_error_type;
 	typedef typename db_traits_type::path_type						path_type;
 	
 	typedef odb_loose_output_object<traits_type, db_traits_type>	output_object_type;
@@ -606,10 +608,32 @@ public:
 	typedef loose_accessor<traits_type, db_traits_type>				accessor;
 	typedef loose_forward_iterator<traits_type, db_traits_type>		forward_iterator;
 
-	typedef odb_hash_error<key_type>								hash_error_type;
-	
 protected:
 	path_type		m_root;							//!< root path containing all loose object files
+	
+protected:
+	//! Generate a path for the given key - it doesn't necessarily exist
+	void path_from_key(const key_type& key, path_type& out_path) const 
+	{
+		out_path = m_root;
+		typename traits_type::char_type buf[key_type::hash_len*2+1];
+		
+		for (uint i = 0; i < db_traits_type::num_prefix_characters; ++i) {
+			auto hc(gtl::tohex(key.bytes()[i]));
+			buf[i*2+0] = std::tolower(hc[0]);
+			buf[i*2+1] = std::tolower(hc[1]);
+		}
+		buf[db_traits_type::num_prefix_characters*2] = '\0';
+		out_path /= &buf[0];		// cstring style append
+		
+		for (uint i = db_traits_type::num_prefix_characters; i < key_type::hash_len; ++i) {
+			auto hc(gtl::tohex(key.bytes()[i]));
+			buf[i*2+0] = std::tolower(hc[0]);
+			buf[i*2+1] = std::tolower(hc[1]);
+		}
+		buf[key_type::hash_len*2] = '\0';
+		out_path /= &buf[db_traits_type::num_prefix_characters*2];
+	}
 	
 public:
 	odb_loose(const path_type& root)
@@ -619,11 +643,19 @@ public:
 	
 public:
 	bool has_object(const key_type& k) const {
-		return false;
+		path_type path;
+		path_from_key(k, path);
+		return fs::is_regular_file(path);
 	}
 	
 	accessor object(const key_type& k) const {
-		
+		path_type path;
+		path_from_key(k, path);
+		if (!fs::is_regular_file(path)){
+			throw hash_error_type(k);
+		}
+		// this one should be moved automatically
+		return accessor(std::move(path));
 	}
 	
 	forward_iterator begin() const {

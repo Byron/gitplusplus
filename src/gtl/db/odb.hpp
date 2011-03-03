@@ -30,11 +30,17 @@ class odb_error : public std::exception
 template <class HashType>
 class odb_hash_error :	public odb_error,
 						public streaming_exception
+						
+						
 {
 	public:
 		odb_hash_error(const HashType& hash) {
 			stream() << "object " << hash << " does not exist in database";
 		}
+		
+	virtual const char* what() const throw() {
+		return streaming_exception::what();
+	}
 		
 };
 
