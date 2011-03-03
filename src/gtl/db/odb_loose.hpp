@@ -46,6 +46,7 @@ protected:
 	size_type					m_size;		//!< uncompressed size in bytes as parsed from the header
 	char_type					m_buf[BufLen];		//!< buffer to keep pre-read bytes
 	char_type*					m_ibuf;		//!< current position into the buffer
+	char_type*					m_ebuf;		//!< end position into the buffer
 
 private:
 	header_filter(header_filter&&) = default;
@@ -58,8 +59,9 @@ private:
 	{
 		// update our header information
 		std::streamsize nb = boost::iostreams::read(src, &m_buf[0], BufLen);
-		size_t header_len = typename db_traits_type::policy_type().parse_header(m_buf, nb, m_type, m_size);
+		size_t header_len = typename db_traits_type::policy_type().parse_header(&m_buf[0], nb, m_type, m_size);
 		m_ibuf = m_buf + header_len;
+		m_ebuf = m_buf + nb;
 		std::cerr << m_type << ": header_filter.update_values: hlen = " << header_len << ", read total of " << nb << " bytes" << std::endl;
 	}
 	
@@ -76,6 +78,7 @@ public:
 		if (!rhs.needs_update()){
 			std::memcpy(m_buf, rhs.m_buf, BufLen);
 			m_ibuf = m_buf + (rhs.m_ibuf - rhs.m_buf);
+			m_ebuf = m_buf + (rhs.m_ebuf - rhs.m_buf);
 			m_type = rhs.m_type;
 			m_size = rhs.m_size;
 		} else {
@@ -91,6 +94,7 @@ public:
 	void reset() {
 		m_type = traits_type::null_object_type;
 		m_ibuf = m_buf;
+		m_ebuf = m_buf + BufLen;
 	}
 	
 	object_type type() const {
@@ -112,9 +116,8 @@ public:
     template<typename Source>
     std::streamsize read(Source& src, char_type* s, std::streamsize n)
     {
-		std::cerr << "READ CALLED: " << n << std::endl;
-		const char_type*const bufend = m_buf + BufLen;
-		if (m_ibuf == bufend){
+		static_assert(BufLen < 1024*4, "putpack doesn't work if we cannot buffer the whole buflen");
+		if (m_ibuf == m_ebuf){
 			return boost::iostreams::read(src, s, n);
 		}
 		
@@ -122,13 +125,15 @@ public:
 			update_values(src);
 		}
 		
-		std::streamsize nbytes_to_copy = std::min(n, bufend - m_ibuf);
+		std::streamsize nbytes_to_copy = std::min(n, m_ebuf - m_ibuf);
 		memcpy(s, m_ibuf, nbytes_to_copy);
 		m_ibuf += nbytes_to_copy;
 		
 		if(nbytes_to_copy < n) {
+			std::cerr << "Depleted buffer, reading " << n - nbytes_to_copy << std::endl;
 			// read remaining bytes from stream, update the actual amount of bytes read
 			nbytes_to_copy += boost::iostreams::read(src, s + nbytes_to_copy, n - nbytes_to_copy);
+			std::cerr << "read total of " << nbytes_to_copy << " bytes" << std::endl;
 		}
 		
 		return nbytes_to_copy;
@@ -195,8 +200,10 @@ public:
 	
 	//! default constructor
 	loose_object_input_stream(){
-		this->push(decompression_filter_type());
 		this->push(header_filter_type());
+		this->push(decompression_filter_type());
+		this->set_auto_close(false);
+		this->exceptions(std::ios_base::eofbit|std::ios_base::badbit|std::ios_base::failbit);
 	}
 	
 public:
@@ -214,20 +221,26 @@ public:
 		}
 		if (!path.empty()) {
 			this->push(io::basic_file_source<char_type>(path.string()));
-			// zero reads trigger an update of the underlying stream
+			// cause an update of the underlying stream, without taking any valueable bytes
+			// off the stream. As we have to take at least 1 byte to trigger the chain, we put it 
+			// pack into the last buffered filter, which happens to be ours.
+			std::cerr << "stream.set_path" << std::endl;
 			char_type buf[1];
-			this->component<header_filter_type>(1)->reset();
-			this->read(buf, 0);
+			auto* hfilter = this->component<header_filter_type>(0);
+			hfilter->reset();
+			this->read(&buf[0], 1);
+			this->unget();	// operates on our internal buffer
+			
 			assert(this->type() != traits_type::null_object_type);
 		}
 	}
 	
 	object_type type() const {
-		return this->component<header_filter_type>(1)->type();
+		return this->component<header_filter_type>(0)->type();
 	}
 	
 	size_type size() const {
-		return this->component<header_filter_type>(1)->size();
+		return this->component<header_filter_type>(0)->size();
 	}
 
 	//! @} interface
