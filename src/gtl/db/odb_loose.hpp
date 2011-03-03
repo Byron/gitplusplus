@@ -19,6 +19,130 @@ GTL_NAMESPACE_BEGIN
 namespace io = boost::iostreams;
 namespace fs = boost::filesystem;
 
+
+/** \brief filter which automatically parses the header of a stream and makes the type and size 
+  * information available after the first read operation.
+  */
+template <class ObjectTraits, class Traits, size_t BufLen>
+class header_filter
+{
+public:
+	typedef ObjectTraits														traits_type;
+	typedef Traits																db_traits_type;
+	typedef header_filter<traits_type, db_traits_type, BufLen>					this_type;
+	typedef typename traits_type::char_type										char_type;
+	typedef typename traits_type::size_type										size_type;
+	typedef typename traits_type::object_type									object_type;
+	
+    struct category
+        : boost::iostreams::input,
+          boost::iostreams::filter_tag,
+          boost::iostreams::multichar_tag,
+          boost::iostreams::optimally_buffered_tag
+        { };
+	
+protected:
+	object_type					m_type;		//!< object type as parsed from the header
+	size_type					m_size;		//!< uncompressed size in bytes as parsed from the header
+
+private:
+	header_filter(header_filter&&) = default;
+	
+	
+private:
+	
+	template <class Source>
+	std::streamsize update_values(Source& src, char_type*& buf)
+	{
+		// update our header information
+		std::streamsize nb = boost::iostreams::read(src, buf, BufLen);
+		size_t header_len = typename db_traits_type::policy_type().parse_header(buf, nb, m_type, m_size);
+		buf += header_len;
+		return nb;
+	}
+	
+	inline bool needs_update() const {
+		return m_type == traits_type::null_object_type;
+	}
+	
+	//! Make this instance ready for a new underlying stream
+	void reset() {
+		m_type = traits_type::null_object_type;
+	}
+	
+	
+public:
+	explicit header_filter()
+	{reset();}
+	
+	header_filter(const this_type& rhs) {
+		// its probably a rare case that we actually have to duplicate an initialized filter
+		if (!rhs.needs_update()){
+			m_type = rhs.m_type;
+			m_size = rhs.m_size;
+		} else {
+			// otherwise its just a normal construction
+			reset();
+		}
+	}
+	
+public:
+	
+	//! @{ \name Interface
+
+	object_type type() const {
+		return m_type;
+	}
+	
+	size_type size() const {
+		return m_size;
+	}
+	
+	//! @} interface
+	
+	
+	//! @{ \name Stream Interface
+	std::streamsize optimal_buffer_size() const { return 1024*4; }
+	
+	//! \note we may intentionally accept reads of 0 values to force an update
+	//! of our internal values
+    template<typename Source>
+    std::streamsize read(Source& src, char_type* s, std::streamsize n)
+    {
+		// We require this to happen in one step as we do not cache pre-read header data
+		assert(n >= this->optimal_buffer_size());
+		static_assert(BufLen < 1024*4, "putpack doesn't work if we cannot buffer the whole buflen");
+		std::streamsize bytes_handled = -1;
+		if (needs_update()) {
+			char_type buf[BufLen];
+			char_type* bstart(buf);
+			
+			auto nb = update_values(src, bstart);
+			bytes_handled = nb-(bstart-buf);
+			std::memcpy(s, bstart, bytes_handled);
+			s += bytes_handled;
+			n -= nb;
+		}
+		
+		const std::streamsize bytes_read = boost::iostreams::read(src, s, n);
+		if (bytes_read > -1){		// handle eof
+			bytes_handled += bytes_read;
+		}
+		
+		return bytes_handled;
+    }
+
+    /*template<typename Sink>
+    std::streamsize write(Sink& snk, const char_type* s, std::streamsize n)
+    {
+        std::streamsize result = boost::iostreams::write(snk, s, n);
+    }*/
+	
+	//! @} stream interface
+	
+};
+
+
 //! Tag specifying the header is supposed to be compressed, as well as the rest of the data stream
 struct compress_header_tag {};
 //! Tag specifying the header is supposed to stay uncompressed, while the data stream is compressed
@@ -33,6 +157,7 @@ class loose_object_input_stream
 {
 };
 
+
 /** Partial specialization of the base template to allow handling fully compressed files, that is
   * the header and the data stream are part of a single compressed stream.
   * \tparam BufLen amount of bytes to read into a buffer. It must be big enough to hold the enitre header.
@@ -42,12 +167,13 @@ class loose_object_input_stream
   */
 template <class ObjectTraits, class Traits, size_t BufLen>
 class loose_object_input_stream<ObjectTraits, Traits, compress_header_tag, BufLen> : 
-        public io::filtering_stream<io::input, typename ObjectTraits::char_type>
+        public io::filtering_stream<io::input, char> // was ObjectTraits::CharTraits
 {
 public:
 	typedef Traits																db_traits_type;
 	typedef ObjectTraits														traits_type;
 	typedef typename traits_type::char_type										char_type;
+	typedef header_filter<traits_type, db_traits_type, BufLen>					header_filter_type;
 	typedef loose_object_input_stream<ObjectTraits, Traits, compress_header_tag> this_type;
 	typedef io::filtering_stream<io::input, char_type>							parent_type;
 	typedef typename traits_type::size_type										size_type;
@@ -56,18 +182,12 @@ public:
 	typedef typename db_traits_type::decompression_filter_type					decompression_filter_type;
 	static const size_t															buflen = BufLen;
 
-protected:
-	object_type					m_type;		//!< object type as parsed from the header
-	size_type					m_size;		//!< uncompressed size in bytes as parsed from the header
-	char_type					m_buf[BufLen];		//!< buffer to keep pre-read bytes. Currently assuming char
-	char_type*					m_ibuf;		//!< current position into the buffer
-	
+
 public:
 	
 	//! default constructor
 	loose_object_input_stream(){
-		this->push(decompression_filter_type());
-		m_ibuf = m_buf + BufLen;
+		// this->exceptions(std::ios_base::eofbit|std::ios_base::badbit|std::ios_base::failbit);
 	}
 	
 public:
@@ -77,59 +197,36 @@ public:
 	//! set and change the path on demand, which results in an opened file.
 	//! \param path empty or non-empty path
 	void set_path(const path_type& path) {
-		// see if we have a sink already, if so, pop it
-		// put in the new sink.
-		assert(parent_type::size() < 3);
-		if (parent_type::size() == 2) {
-			this->pop();
-		}
 		if (!path.empty()) {
+			// rebuild ourselves, chain elements cannot be reused
+			this->reset();		// empty ourselves
+			this->push(header_filter_type());
+			this->push(decompression_filter_type());
 			this->push(io::basic_file_source<char_type>(path.string()));
+			this->set_auto_close(true);
 			
-			// update our header information
-			parent_type::read(&m_buf[0], BufLen);
-			size_t header_len = typename db_traits_type::policy_type().parse_header(m_buf, buflen, m_type, m_size);
-			m_ibuf = m_buf + header_len;
+			// cause an update of the underlying stream, without taking any valueable bytes
+			// off the stream. As we have to take at least 1 byte to trigger the chain, we put it 
+			// pack into the last buffered filter, which happens to be ours.
+			assert(!this->eof());
+			
+			char_type buf[1];
+			this->read(&buf[0], 1);
+			this->unget();	// operates on our internal buffer
+			
+			assert(this->type() != traits_type::null_object_type);
 		}
 	}
 	
 	object_type type() const {
-		return m_type;
+		return this->component<header_filter_type>(0)->type();
 	}
 	
 	size_type size() const {
-		return m_size;
+		return this->component<header_filter_type>(0)->size();
 	}
 
 	//! @} interface
-	
-	
-	//! @{ \name Stream Interface
-	
-	//! \todo set gcount up properly - this would be very important
-	//! for stream-copy operations
-	this_type& read(char_type* buf, std::streamsize n) 
-	{
-		// end of our temporary buffer reached ?
-		const char_type* bufend = m_buf + buflen;
-		if (m_ibuf == bufend){
-			parent_type::read(buf, n);
-			return *this;
-		}
-		
-		std::streamsize nbytes_to_copy = std::min(n, bufend - m_ibuf);
-		memcpy(buf, m_ibuf, nbytes_to_copy);
-		m_ibuf += nbytes_to_copy;
-		
-		if(nbytes_to_copy < n) {
-			// read remaining bytes from stream
-			parent_type::read(buf+nbytes_to_copy, n - nbytes_to_copy);
-			// Adjust gcount (well, don't know how to do that in an implementation agnostic way)
-		}
-		
-		return *this;
-	}
-	//! @}
 	
 };
 
@@ -137,8 +234,8 @@ public:
   * The header is read uncompressed, the stream is compressed.
   * \todo implement uncompressed header stream
   */
-template <class ObjectTraits, class Traits>
-class loose_object_input_stream<ObjectTraits, Traits, uncompressed_header_tag>
+template <class ObjectTraits, class Traits, size_t BufLen>
+class loose_object_input_stream<ObjectTraits, Traits, uncompressed_header_tag, BufLen>
 {
 	typedef Traits			db_traits_type;
 	typedef ObjectTraits	traits_type;

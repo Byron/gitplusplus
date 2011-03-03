@@ -34,6 +34,8 @@ struct odb_object_policy_traits
 {
 	//! Type allowing to classify the stored object
 	typedef int object_type;
+	//! value which equals null or nullptr if it was a pointer, in terms of an object type
+	static const object_type null_object_type = 0;
 	//! Type used to return values by reference
 	typedef void*& output_reference_type;
 	//! Type used when objects are made available to a function by references

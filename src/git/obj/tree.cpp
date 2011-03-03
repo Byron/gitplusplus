@@ -46,24 +46,23 @@ git_basic_istream& operator >> (git_basic_istream& stream, Tree& inst)
 		// parse mode
 		try {
 			stream.get(c);
-			// see whether the stream is depleted (case if we don't throw exceptions
-			if (!stream) {
+			// see whether the stream is depleted (case if we don't throw exceptions)
+			if (!stream.good()) {
 				break;
 			}
 		} catch (std::ios_base::failure) {
 			// if we are at the end, abort this
 			// It depends on the configuration whether this throws
 			break;
-		} // handle stream exceptions
+		}
 		
 		name.clear();
 		Tree::Element elm;	// we will move the element in
 		elm.mode = 0;
 
-		for(; c != ' '; stream.get(c)) {
+		for (; c != ' '; stream.get(c)) {
 			elm.mode = (elm.mode << 3) + (c - '0');
 		}
-		
 		// parse name
 		std::getline(stream, name, '\0');
 		

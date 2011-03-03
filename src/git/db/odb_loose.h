@@ -4,6 +4,7 @@
 #include <git/config.h>
 #include <git/db/policy.hpp>
 #include <gtl/db/odb_loose.hpp>
+
 #include <boost/iostreams/stream.hpp>
 #include <boost/iostreams/device/array.hpp>
 

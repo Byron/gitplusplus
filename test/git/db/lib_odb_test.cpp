@@ -370,7 +370,7 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 	auto end = lodb.end();
 	uint count=0;
 	for (auto it=lodb.begin(); it != end; ++it, ++count) {
-		cerr << "object " << count << " at " << it->path() << " " << it.key() << " " << it->type() << " " << it->size() << endl;
+		cerr << "object " << it.key() << " " << count << " at " << it->path() << " " << it->type() << " " << it->size() << endl;
 		
 		// test new stream
 		input_stream_type* stream = it->new_stream();
