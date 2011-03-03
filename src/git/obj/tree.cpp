@@ -43,7 +43,6 @@ git_basic_istream& operator >> (git_basic_istream& stream, Tree& inst)
 	
 	while (stream.good())
 	{
-		std::cerr << "reading tree item" << std::endl;
 		// parse mode
 		try {
 			stream.get(c);
@@ -56,24 +55,21 @@ git_basic_istream& operator >> (git_basic_istream& stream, Tree& inst)
 			// It depends on the configuration whether this throws
 			break;
 		}
-		std::cerr << "got char: " << (uint)c << " ,eof = " << stream.eof() << std::endl;
+		
 		name.clear();
 		Tree::Element elm;	// we will move the element in
 		elm.mode = 0;
 
 		for (; c != ' '; stream.get(c)) {
-			std::cerr << c;
 			elm.mode = (elm.mode << 3) + (c - '0');
 		}
 		// parse name
 		std::getline(stream, name, '\0');
-		std::cerr << " " << name << std::endl;
 		
 		// parse hash
 		stream.read(elm.key.bytes(), Tree::key_type::hash_len);
 		
 		// add new element
-		std::cerr << "added tree item" << std::endl;
 		inst.elements().insert(Tree::map_type::value_type(name, std::move(elm)));
 	}// while stream is available
 	

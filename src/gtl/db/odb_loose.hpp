@@ -58,7 +58,6 @@ private:
 		std::streamsize nb = boost::iostreams::read(src, buf, BufLen);
 		size_t header_len = typename db_traits_type::policy_type().parse_header(buf, nb, m_type, m_size);
 		buf += header_len;
-		std::cerr << "update_values: headerlen = " << header_len << ", bytes read=" << nb << std::endl;
 		return nb;
 	}
 	
@@ -130,7 +129,6 @@ public:
 			bytes_handled += bytes_read;
 		}
 		
-		std::cerr << "hfilter.read: " << n << ", bytes_handled=" << bytes_handled << ", needs_update = " << needs_update() <<  std::endl;
 		return bytes_handled;
     }
 
@@ -139,12 +137,6 @@ public:
     {
         std::streamsize result = boost::iostreams::write(snk, s, n);
     }*/
-	
-    template<typename Sink>
-    void close(Sink& sink, BOOST_IOS::openmode which)
-    {
-		reset();
-    }
 	
 	//! @} stream interface
 	
@@ -216,7 +208,6 @@ public:
 			// cause an update of the underlying stream, without taking any valueable bytes
 			// off the stream. As we have to take at least 1 byte to trigger the chain, we put it 
 			// pack into the last buffered filter, which happens to be ours.
-			std::cerr << "stream.set_path: " << path << std::endl;
 			assert(!this->eof());
 			
 			char_type buf[1];

@@ -373,13 +373,10 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 		cerr << "object " << it.key() << " " << count << " at " << it->path() << " " << it->type() << " " << it->size() << endl;
 		
 		// test new stream
-		/*
 		input_stream_type* stream = it->new_stream();
 		assert(stream != 0);
 		stream->read(buf, buflen);
-		BOOST_CHECK(true);
 		delete stream;
-		BOOST_CHECK(true);
 		
 		// test custom memory location
 		char sbuf[sizeof(input_stream_type)];
@@ -387,7 +384,6 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 		it->stream(stream);
 		stream->read(buf, buflen);
 		it->destroy_stream(stream);
-		*/
 		
 		// test deserialization
 		MultiObject mobj;
