@@ -239,10 +239,10 @@ public:
 	//! not, of course, if the element it points to is deleted.
 	//! \tparam InputObject odb_input_object compatible type
 	template <class InputObject>
-	forward_iterator insert(InputObject& object);
+	accessor insert(InputObject& object);
 
 	//! Same as above, but will produce the required serialized version of object automatically
-	forward_iterator insert_object(const typename traits_type::input_reference_type object);
+	accessor insert_object(const typename traits_type::input_reference_type object);
 	
 	//! insert the copy's of the contents of the given input iterators into this object database
 	//! The inserted items can be queried using the keys from the input iterators
@@ -250,12 +250,12 @@ public:
 	void insert(Iterator begin, const Iterator end);
 	
 	//! Same as above, but will produce the required serialized version of object automatically
-	forward_iterator insert(typename traits_type::input_reference_type object);
+	accessor insert(typename traits_type::input_reference_type object);
 	
 };
 
 template <class ObjectTraits>
-typename odb_mem<ObjectTraits>::forward_iterator odb_mem<ObjectTraits>::insert_object(const typename ObjectTraits::input_reference_type inobj)
+typename odb_mem<ObjectTraits>::accessor odb_mem<ObjectTraits>::insert_object(const typename ObjectTraits::input_reference_type inobj)
 {
 	auto policy = typename traits_type::policy_type();
 	output_object_type oobj(policy.type(inobj), policy.compute_size(inobj));
@@ -270,12 +270,12 @@ typename odb_mem<ObjectTraits>::forward_iterator odb_mem<ObjectTraits>::insert_o
 	typename traits_type::hash_generator_type hashgen;
 	header_hash(hashgen, oobj);
 	hashgen.update(odata.data(), odata.size());
-	return forward_iterator(m_objs.insert(typename map_type::value_type(hashgen.hash(), std::move(oobj))).first);
+	return accessor(m_objs.insert(typename map_type::value_type(hashgen.hash(), std::move(oobj))).first);
 }
 
 template <class ObjectTraits>
 template <class InputObject>
-typename odb_mem<ObjectTraits>::forward_iterator odb_mem<ObjectTraits>::insert(InputObject& iobj)
+typename odb_mem<ObjectTraits>::accessor odb_mem<ObjectTraits>::insert(InputObject& iobj)
 {
 	static_assert(sizeof(typename traits_type::char_type) == sizeof(typename InputObject::stream_type::char_type), "char types incompatible");
 	output_object_type oobj(iobj.type(), iobj.size());
@@ -288,12 +288,12 @@ typename odb_mem<ObjectTraits>::forward_iterator odb_mem<ObjectTraits>::insert(I
 	
 	auto pkey = iobj.key_pointer();
 	if (pkey) {
-		return forward_iterator(m_objs.insert(typename map_type::value_type(*pkey, std::move(oobj))).first);
+		return accessor(m_objs.insert(typename map_type::value_type(*pkey, std::move(oobj))).first);
 	} else {
 		typename traits_type::hash_generator_type hashgen;
 		header_hash(hashgen, oobj);
 		hashgen.update(odata.data(), odata.size());
-		return forward_iterator(m_objs.insert(typename map_type::value_type(hashgen.hash(), std::move(oobj))).first);
+		return accessor(m_objs.insert(typename map_type::value_type(hashgen.hash(), std::move(oobj))).first);
 	}// handle key exists
 }
 

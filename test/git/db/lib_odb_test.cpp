@@ -401,4 +401,22 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 	BOOST_REQUIRE(count == num_objects);
 	BOOST_REQUIRE(!lodb.has_object(LooseODB::key_type::null));
 	BOOST_REQUIRE_THROW(lodb.object(LooseODB::key_type::null), gtl::odb_error);
+	
+	// OBJECT INSERTION
+	///////////////////
+	// insert without key
+	io::stream<io::basic_array_source<char_type> > istream(phello, lenphello);
+	LooseODB::key_type phello_key;
+	{
+		LooseODB::input_object_type iobj(Object::Type::Blob, lenphello, istream);
+		phello_key = lodb.insert(iobj).key();
+	}
+	
+	// insert with key
+	istream.seekg(0, std::ios::beg);
+	{
+		LooseODB::input_object_type iobj(Object::Type::Blob, lenphello, istream, &phello_key);
+	}
+	
+	
 }

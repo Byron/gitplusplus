@@ -6,9 +6,12 @@
 #include <gtl/db/odb_object.hpp>
 #include <gtl/util.hpp>
 #include <gtl/db/hash_generator_filter.hpp>
+#include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/device/file.hpp>
+#include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/filter/zlib.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
+#include <boost/type_traits/is_same.hpp>
 #include <boost/filesystem.hpp>
 #include <assert.h>
 #include <string>
@@ -36,7 +39,7 @@ public:
 	typedef typename traits_type::object_type									object_type;
 	
     struct category
-        : boost::iostreams::input,
+        : boost::iostreams::dual_use,
           boost::iostreams::filter_tag,
           boost::iostreams::multichar_tag,
           boost::iostreams::optimally_buffered_tag
@@ -66,6 +69,10 @@ private:
 		return m_type == traits_type::null_object_type;
 	}
 	
+	inline bool must_write_header() const {
+		return !needs_update();
+	}
+	
 	//! Make this instance ready for a new underlying stream
 	void reset() {
 		m_type = traits_type::null_object_type;
@@ -73,8 +80,10 @@ private:
 	
 	
 public:
-	explicit header_filter()
-	{reset();}
+	explicit header_filter(object_type type = traits_type::null_object_type, size_type size = 0)
+	    : m_type(type)
+	    , m_size(size)
+	{}
 	
 	header_filter(const this_type& rhs) {
 		// its probably a rare case that we actually have to duplicate an initialized filter
@@ -133,11 +142,27 @@ public:
 		return bytes_handled;
     }
 
-    /*template<typename Sink>
+    template<typename Sink>
     std::streamsize write(Sink& snk, const char_type* s, std::streamsize n)
     {
-        std::streamsize result = boost::iostreams::write(snk, s, n);
-    }*/
+		std::streamsize bytes_written = 0;
+		if (must_write_header()) {
+			// provide a real stream. We will copy its contents into our device
+			// As iostream would copy the buffer if we demanded it, we use a back-inserter
+			// get pointer stays at 0 of course
+			// flag ourselves to indicate the header is written
+			typedef std::basic_string<char_type> string_type;
+			string_type buf;
+			buf.reserve(64);		// a normal git header is much less actually
+			io::stream<io::back_insert_device<string_type> > ostream(buf);
+			
+			typename db_traits_type::policy_type().write_header(ostream, m_type, m_size);
+			bytes_written = io::write(snk, buf.data(), buf.size());
+			
+			m_type = traits_type::null_object_type;
+		}
+        return bytes_written + io::write(snk, s, n);
+    }
 	
 	//! @} stream interface
 	
@@ -153,9 +178,82 @@ struct uncompressed_header_tag {};
 //! \brief stream suitable for reading any kind of loose object format
 //! This is the base template which is partially specialized for the respective header tags
 //! \tparam ObjectTraits traits for some general git settings
-template <class ObjectTraits, class Traits, class HeaderTag=typename Traits::header_tag, size_t BufLen=512>
+template <class ObjectTraits, class Traits, class HeaderTag=typename Traits::header_tag, size_t BufLen=128>
 class loose_object_input_stream
 {
+};
+
+/** \brief stream designed to write object data into a file on disk.
+  * 
+  * It doesn't particularly care about the location of the file, which is defined by the creator of the instance.
+  * instead, it will hash the written bytes on demand, and provide the obtained hash in the end of the write operation
+  * when the stream is closed.
+  * 
+  * The type is specialized for the respective header configurations, as defined by the header tag.
+  * Instance of this type are implemented as single-use objects - they are initialized with all information they need, 
+  * and must be discarded after usage.
+  *
+  * If any path is given to an instance of this type for writing, it is assumed to be writable.
+  * \todo make filtering_stream use the traits_type::char_type - currently it must use char directly 
+  * as it will not allow the component method to be used otherwise
+  */
+template <class ObjectTraits, class Traits, class HeaderTag=typename Traits::header_tag>
+class loose_object_output_stream : public io::filtering_stream<io::output, char>
+{
+public:
+	typedef ObjectTraits												traits_type;
+	typedef Traits														db_traits_type;
+	
+	typedef typename traits_type::object_type							object_type;
+	typedef typename db_traits_type::path_type							path_type;
+	typedef typename traits_type::size_type								size_type;
+	typedef typename traits_type::key_type								key_type;
+	typedef typename traits_type::char_type								char_type;
+	typedef typename db_traits_type::hash_filter_type					hash_filter_type;
+	typedef header_filter<traits_type, db_traits_type, 128>				header_filter_type;
+	
+public:
+	
+	//! Initialize the instance. Additional information is provided to allow writing a header which contains the 
+	//! object type as well as its data size
+	//! \param gen_hash if True, every byte written through this stream will be used to generate a hash, which can be queried 
+	//! using the hash_gen() method
+	//! 
+	loose_object_output_stream(const path_type& destination, const object_type& type, const size_type& size, bool gen_hash)
+	{
+		const bool compress_header = boost::is_same<compress_header_tag, HeaderTag>::value;
+		if (compress_header) {
+			this->push(header_filter_type(type, size));
+		}
+		if (gen_hash) {
+			this->push(hash_filter_type());
+		}
+		this->push(typename db_traits_type::compression_filter_type());
+		this->push(io::basic_file_sink<char_type>(destination.string()));
+		
+		// handle uncompressed header
+		if (!compress_header) {
+			// write the header directly, not using our compression setup. We will put the header bytes
+			// into the hash generator manually too if necessary.
+			assert(false);	// todo
+			if (gen_hash) {
+				
+			}
+		}
+	}
+	
+	
+public:
+	//! @{ Interface
+	
+	//! \return hash filter used to update our hash (if the respective flag was set during instance creation)
+	//! Use it to obtain the underlying hash in a variety of ways (i.e. hash() or hash(out_hash))
+	//! \note returns nullptr if there is no hash_filter
+	hash_filter_type* hash_filter() {
+		return this->component<hash_filter_type>(1);
+	}
+	
+	//! @} interface
 };
 
 
@@ -165,10 +263,11 @@ class loose_object_input_stream
   * It will be read into a preallocated array of bytes, and bytes not belonging to the header 
   * will be returned again during normal reads.
   * \note this type is not copy-constructible or movable. It should be movable though ... which is not (yet) the case.
+  * \todo fix explicit char type - ObjectTraits::char_type should be used, but the component<>() method changes then its return value
   */
 template <class ObjectTraits, class Traits, size_t BufLen>
 class loose_object_input_stream<ObjectTraits, Traits, compress_header_tag, BufLen> : 
-        public io::filtering_stream<io::input, char> // was ObjectTraits::CharTraits
+        public io::filtering_stream<io::input, char> // was ObjectTraits::char_type, but then it cannot resolve some types
 {
 public:
 	typedef Traits																db_traits_type;
@@ -180,7 +279,6 @@ public:
 	typedef typename traits_type::size_type										size_type;
 	typedef typename traits_type::object_type									object_type;
 	typedef typename db_traits_type::path_type									path_type;
-	typedef typename db_traits_type::decompression_filter_type					decompression_filter_type;
 	static const size_t															buflen = BufLen;
 
 
@@ -202,7 +300,7 @@ public:
 			// rebuild ourselves, chain elements cannot be reused
 			this->reset();		// empty ourselves
 			this->push(header_filter_type());
-			this->push(decompression_filter_type());
+			this->push(typename db_traits_type::decompression_filter_type());
 			this->push(io::basic_file_source<char_type>(path.string()));
 			this->set_auto_close(true);
 			
@@ -231,6 +329,7 @@ public:
 	
 };
 
+
 /** Partial specialization dealing with partially compressed files.
   * The header is read uncompressed, the stream is compressed.
   * \todo implement uncompressed header stream
@@ -248,7 +347,7 @@ class loose_object_input_stream<ObjectTraits, Traits, uncompressed_header_tag, B
 //! to be provided by the derived type.
 struct odb_loose_policy
 {
-	/** Parse the header from the given stream. The format is known only by the 
+	/** Parse the header out of the given buffer. The format is known only by the 
 	  * implementation, which throws an exception if the header could not be parsed
 	  * \return number of bytes that actually belonged to the header.
 	  * \param buf character buffer filled with header_read_buf_len bytes pre-read from the 
@@ -258,6 +357,15 @@ struct odb_loose_policy
 	  */
 	template <class CharType, class ObjectType, class SizeType>
 	size_t parse_header(CharType* buf, size_t buflen, ObjectType& type, SizeType& size);
+	
+	/** Write a header parsable by parse_header into the given output stream compatible object
+	  * The information which may be contained are the object's type and its final size.
+	  * \param stream to write to
+	  * \param type of object
+	  * \param size of final object data
+	  */
+	template <class StreamType, class ObjectType, class SizeType>
+	void write_header(StreamType& stream, const ObjectType type, const SizeType size);
 };
 
 
@@ -604,6 +712,7 @@ public:
 	typedef odb_loose_output_object<traits_type, db_traits_type>	output_object_type;
 	typedef odb_ref_input_object<traits_type>						input_object_type;
 	typedef typename output_object_type::stream_type				input_stream_type;
+	typedef loose_object_output_stream<traits_type, db_traits_type> output_stream_type;
 	
 	typedef loose_accessor<traits_type, db_traits_type>				accessor;
 	typedef loose_forward_iterator<traits_type, db_traits_type>		forward_iterator;
@@ -670,7 +779,57 @@ public:
 		auto start(begin());
 		return _count(start, end());
 	}
+	
+	//! Insert the given object into the database
+	//! \tparam InputObject input object compatible type
+	template <class InputObject>
+	accessor insert(InputObject& object);
+	accessor insert_object(typename traits_type::input_reference_type object);
 };
+
+template <class ObjectTraits, class Traits>
+template <class InputObject>
+typename odb_loose<ObjectTraits, Traits>::accessor odb_loose<ObjectTraits, Traits>::insert(InputObject& object)
+{
+	// do nothing if we have the object already
+	if (object.key_pointer()) {
+		try {
+			return this->object(*object.key_pointer());
+		} catch (odb_error&) {
+			
+		}
+	}// handle existing items
+	
+	// git itself hashes the data first, then checks for existence in the db, and possible does nothing.
+	// We will assume that adding an existing object is a corner case, hence we don't check for it and just
+	// do the work right away.
+	
+	// make sure this path points into our database, tempfiles might be on another partition which would make  
+	// moves expensive
+	
+	path_type tmp_path;
+	temppath(tmp_path, "tmploose_obj");
+	tmp_path = m_root / *(--tmp_path.end());
+	output_stream_type ostream(tmp_path, object.type(), object.size(), object.key_pointer() != nullptr);
+	
+	io::copy(object.stream(), ostream);
+	
+	path_type final_path;
+	if (object.key_pointer()) {
+		this->path_from_key(*object.key_pointer(), final_path);
+	} else {
+		this->path_from_key(ostream.hash_filter()->hash(), final_path);
+	}
+	
+	// assure directory exists - throws on error, we only expect one directory level to be created at most
+	// Then rename on top of each other, boost removes existing file, which is required on windows at least
+	fs::create_directory(final_path.parent_path());
+	fs::rename(tmp_path, final_path);
+	
+	return accessor(final_path);
+}
+
+
 
 
 GTL_NAMESPACE_END

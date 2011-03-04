@@ -9,8 +9,6 @@
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
 
-namespace io = boost::iostreams;
-
 //! @{ \name Typedefs for convenience
 typedef std::basic_ostream<typename git_object_policy_traits::char_type> git_basic_ostream;
 typedef std::basic_istream<typename git_object_policy_traits::char_type> git_basic_istream;

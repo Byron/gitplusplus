@@ -3,6 +3,7 @@
 
 #include <boost/filesystem.hpp>
 #include <git/config.h>
+#include <gtl/util.hpp>
 #include <cassert>
 #include <iostream>
 #include <cstdio>
@@ -25,16 +26,9 @@ protected:
 	
 	//! \return a path pointing to a non-existing temporary file/directory in some temporary space
 	fs::path temp_file(const std::string& prefix) const {
-#ifndef WIN32
-		char* res = tempnam(nullptr, prefix.c_str());
-		if (std::strlen(res) == 0) {
-			throw fs::filesystem_error("mktemp failed", boost::system::error_code());
-		}
-		return fs::path(res);
-#else
-		error "to be done: mktemp on windows, GetTmpFile or something";
-#endif
-		
+		fs::path p;
+		gtl::temppath(p, prefix.empty() ? 0 : prefix.c_str());
+		return p;
 	}
 	
 	//! Recursively copy a directory into another directory
@@ -77,7 +71,7 @@ public:
 	BasicFixtureCopyer(const char* fixture_relapath)
 	{
 		fs::path source_root = fixture_path(fixture_relapath);
-		fs::path dest_root = temp_file(source_root.filename().c_str());
+		fs::path dest_root = temp_file(source_root.filename());
 		assert(fs::is_directory(source_root));
 		fs::create_directory(dest_root);
 		m_root_path = dest_root;

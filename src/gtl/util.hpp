@@ -2,6 +2,7 @@
 #define GTL_UTIL_HPP
 
 #include <gtl/config.h>
+#include <boost/filesystem/path.hpp>
 #include <cctype>
 #include <sstream>
 #include <cstring>
@@ -9,6 +10,27 @@
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
+
+//! produce a path to a tempfile which is most likely to be unique
+//! \param path filesystem path to be altered
+//! \throw filesystem error if no temppath could be produced
+//! \note template is only used to allow it to be defined inline
+//! \todo provide alternative signature which returns the path. This could be more efficient
+//! if PathType has a move constructor
+template <class PathType>
+void temppath(PathType& path, const char* prefix = 0) 
+{
+#ifndef WIN32
+		char* res = tempnam(nullptr, prefix);
+		if (std::strlen(res) == 0) {
+			throw boost::filesystem::filesystem_error("mktemp failed", boost::system::error_code());
+		}
+		path = PathType(res);
+#else
+		error "to be done: mktemp on windows, GetTmpFile or something";
+#endif
+}
+
 
 /** \brief exception base class which provides a string-stream for detailed errors
   * \note as it has a stream as its member, it might fail itself in low-memory situations.

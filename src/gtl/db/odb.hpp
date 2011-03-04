@@ -107,13 +107,13 @@ public:
 	//! \param object input object containing all information
 	//! \return iterator pointing to the newly inserted item in the database. It can be used to obtain the generated object key
 	//!	as well.
-	forward_iterator insert(const input_object_type& object);
+	accessor insert(const input_object_type& object);
 	
 	//! Same as above, but will produce the required serialized version of object automatically
 	//! \note have to rename it to allow normal operator overloading, in case derived classes
 	//! use templates in the insert method - one cannot specialize method templates at all
 	//! it seems
-	forward_iterator insert_object(typename traits_type::input_reference_type object);
+	accessor insert_object(typename traits_type::input_reference_type object);
 	
 	//! \return number of objects within the database.
 	//! \note this might involve iterating all objects, which is costly, hence we don't name it size()
