@@ -29,11 +29,8 @@ struct git_loose_odb_policy : public gtl::odb_loose_policy
 	void write_header(StreamType& stream, const ObjectType type, const SizeType size)
 	{
 		typename git_object_policy_traits::char_type buf[32];
-		uchar nb = loose_object_header(buf, type, size);
-		// maybe a stream wrapper could be more efficient, who knows
-		for (uchar i = 0; i < nb; ++i) {
-			stream << buf[i];
-		}
+		std::streamsize nb = loose_object_header(buf, type, size);
+		stream.write(buf, nb);
 	}
 };
 

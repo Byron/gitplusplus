@@ -26,7 +26,7 @@ private:
 	bool m_needs_reset;
 	generator_type m_generator;
 	
-	void handle_reset() {
+	inline void handle_reset() {
 		if (m_needs_reset) {
 			m_generator.reset();
 			m_needs_reset = false;

@@ -405,18 +405,38 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 	// OBJECT INSERTION
 	///////////////////
 	// insert without key
+	
 	io::stream<io::basic_array_source<char_type> > istream(phello, lenphello);
 	LooseODB::key_type phello_key;
 	{
 		LooseODB::input_object_type iobj(Object::Type::Blob, lenphello, istream);
 		phello_key = lodb.insert(iobj).key();
+		BOOST_REQUIRE(lodb.has_object(phello_key));
+		auto* stream = lodb.object(phello_key)->new_stream();
+		std::string buf;
+		*stream >> buf;
+		BOOST_REQUIRE(buf == phello);
+		delete stream;
 	}
 	
 	// insert with key
 	istream.seekg(0, std::ios::beg);
 	{
 		LooseODB::input_object_type iobj(Object::Type::Blob, lenphello, istream, &phello_key);
+		BOOST_REQUIRE(lodb.insert(iobj).key() == phello_key);
 	}
 	
-	
+	// insert object
+	{
+		Commit c;
+		c.author().name = c.committer().name = "sebastian";
+		c.message() = "hi";
+		
+		auto key = lodb.insert_object(c).key();
+		
+		MultiObject mobj;
+		lodb.object(key)->deserialize(mobj);
+		BOOST_REQUIRE(mobj.type == c.type());
+		BOOST_REQUIRE(mobj.commit == c);
+	}
 }

@@ -157,6 +157,8 @@ public:
 			io::stream<io::back_insert_device<string_type> > ostream(buf);
 			
 			typename db_traits_type::policy_type().write_header(ostream, m_type, m_size);
+			ostream.flush();
+			assert(buf.size());
 			bytes_written = io::write(snk, buf.data(), buf.size());
 			
 			m_type = traits_type::null_object_type;
@@ -705,7 +707,8 @@ class odb_loose : public odb_base<ObjectTraits>
 public:
 	typedef ObjectTraits											traits_type;
 	typedef Traits													db_traits_type;
-	typedef typename ObjectTraits::key_type							key_type;
+	typedef typename traits_type::key_type							key_type;
+	typedef typename traits_type::char_type							char_type;
 	typedef odb_hash_error<key_type>								hash_error_type;
 	typedef typename db_traits_type::path_type						path_type;
 	
@@ -742,6 +745,22 @@ protected:
 		}
 		buf[key_type::hash_len*2] = '\0';
 		out_path /= &buf[db_traits_type::num_prefix_characters*2];
+	}
+	
+	//! Utilty to unify object insertion
+	inline path_type temppath() const {
+		path_type tmp_path;
+		gtl::temppath(tmp_path, "tmploose_obj");
+		tmp_path = m_root / *(--tmp_path.end());
+		return tmp_path;
+	}
+	
+	//! moves a temporary file into the final place, assuring the destination directory exists
+	inline void move_tmp_to_final(const path_type& tmp_file, const path_type& destination_file) const {
+		// assure directory exists - throws on error, we only expect one directory level to be created at most
+		// Then rename on top of each other, boost removes existing file, which is required on windows at least
+		fs::create_directory(destination_file.parent_path());
+		fs::rename(tmp_file, destination_file);
 	}
 	
 public:
@@ -788,6 +807,31 @@ public:
 };
 
 template <class ObjectTraits, class Traits>
+typename odb_loose<ObjectTraits, Traits>::accessor odb_loose<ObjectTraits, Traits>::insert_object(typename ObjectTraits::input_reference_type object)
+{
+	auto policy = typename traits_type::policy_type();
+	std::basic_stringstream<char_type> tmp_stream;
+	path_type tmp_path = this->temppath();
+	
+	output_stream_type ostream(tmp_path, policy.type(object), policy.compute_size(object, &tmp_stream), true);
+	
+	if (tmp_stream.tellp()) {
+		io::copy(tmp_stream, ostream);
+	} else {
+		policy.serialize(object, ostream);
+	}
+	ostream.flush();
+	
+	path_type final_path;
+	this->path_from_key(ostream.hash_filter()->hash(), final_path);
+	
+	ostream.reset();	// close all files before rename
+	move_tmp_to_final(tmp_path, final_path);
+	
+	return accessor(final_path);	
+}
+
+template <class ObjectTraits, class Traits>
 template <class InputObject>
 typename odb_loose<ObjectTraits, Traits>::accessor odb_loose<ObjectTraits, Traits>::insert(InputObject& object)
 {
@@ -807,12 +851,11 @@ typename odb_loose<ObjectTraits, Traits>::accessor odb_loose<ObjectTraits, Trait
 	// make sure this path points into our database, tempfiles might be on another partition which would make  
 	// moves expensive
 	
-	path_type tmp_path;
-	temppath(tmp_path, "tmploose_obj");
-	tmp_path = m_root / *(--tmp_path.end());
-	output_stream_type ostream(tmp_path, object.type(), object.size(), object.key_pointer() != nullptr);
+	path_type tmp_path = this->temppath();
+	output_stream_type ostream(tmp_path, object.type(), object.size(), object.key_pointer() == nullptr);
 	
 	io::copy(object.stream(), ostream);
+	ostream.flush();
 	
 	path_type final_path;
 	if (object.key_pointer()) {
@@ -820,12 +863,9 @@ typename odb_loose<ObjectTraits, Traits>::accessor odb_loose<ObjectTraits, Trait
 	} else {
 		this->path_from_key(ostream.hash_filter()->hash(), final_path);
 	}
+	ostream.reset();	// causes closing the files - want to rename it soon
 	
-	// assure directory exists - throws on error, we only expect one directory level to be created at most
-	// Then rename on top of each other, boost removes existing file, which is required on windows at least
-	fs::create_directory(final_path.parent_path());
-	fs::rename(tmp_path, final_path);
-	
+	move_tmp_to_final(tmp_path, final_path);
 	return accessor(final_path);
 }
 
