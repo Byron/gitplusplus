@@ -49,6 +49,7 @@ class SHA1Generator : public gtl::hash_generator<SHA1, char, uint32>
 		
 	public:
 		SHA1Generator();
+		SHA1Generator(const SHA1Generator&);
 		~SHA1Generator() {}
 
 		//! Prepare generator for new sha

@@ -14,10 +14,10 @@ include(FindDoxygen DOXYGEN_SKIP_DOT)
 
 set(Boost_USE_STATIC_LIBS        ON)
 
-find_package(Boost 1.36.0 COMPONENTS date_time filesystem system unit_test_framework) 
+find_package(Boost 1.45.0 COMPONENTS date_time filesystem system unit_test_framework) 
 
 if(NOT Boost_FOUND)
-	message(SEND_FAILURE "Require boost libraryies")
+	message(SEND_FAILURE "Require boost libraries")
 endif(NOT Boost_FOUND)
 
 # setup compiler
@@ -25,7 +25,7 @@ if(UNIX)
 	# show all warnings
 	# use c++0x features
 	# make throw() semantically equivalent to noexcept (std::exception uses throw() for instance)
-	set(CMAKE_CXX_FLAGS "-Wall -std=c++0x -fnothrow-opt")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}\ -Wall -std=c++0x -fnothrow-opt")
 endif(UNIX)
 
 

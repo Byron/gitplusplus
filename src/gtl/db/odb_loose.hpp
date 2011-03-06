@@ -6,6 +6,7 @@
 #include <gtl/db/odb_object.hpp>
 #include <gtl/util.hpp>
 #include <gtl/db/hash_generator_filter.hpp>
+#include <boost/iostreams/filter/zlib.hpp>
 #include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/device/file.hpp>
 #include <boost/iostreams/copy.hpp>
@@ -172,7 +173,7 @@ public:
 
 
 //! Tag specifying the header is supposed to be compressed, as well as the rest of the data stream
-struct compress_header_tag {};
+struct compressed_header_tag {};
 //! Tag specifying the header is supposed to stay uncompressed, while the data stream is compressed
 struct uncompressed_header_tag {};
 
@@ -223,7 +224,7 @@ public:
 	//! 
 	loose_object_output_stream(const path_type& destination, const object_type& type, const size_type& size, bool gen_hash)
 	{
-		const bool compress_header = boost::is_same<compress_header_tag, HeaderTag>::value;
+		const bool compress_header = boost::is_same<compressed_header_tag, HeaderTag>::value;
 		if (compress_header) {
 			this->push(header_filter_type(type, size));
 		}
@@ -268,7 +269,7 @@ public:
   * \todo fix explicit char type - ObjectTraits::char_type should be used, but the component<>() method changes then its return value
   */
 template <class ObjectTraits, class Traits, size_t BufLen>
-class loose_object_input_stream<ObjectTraits, Traits, compress_header_tag, BufLen> : 
+class loose_object_input_stream<ObjectTraits, Traits, compressed_header_tag, BufLen> : 
         public io::filtering_stream<io::input, char> // was ObjectTraits::char_type, but then it cannot resolve some types
 {
 public:
@@ -276,7 +277,7 @@ public:
 	typedef ObjectTraits														traits_type;
 	typedef typename traits_type::char_type										char_type;
 	typedef header_filter<traits_type, db_traits_type, BufLen>					header_filter_type;
-	typedef loose_object_input_stream<ObjectTraits, Traits, compress_header_tag> this_type;
+	typedef loose_object_input_stream<ObjectTraits, Traits, compressed_header_tag> this_type;
 	typedef io::filtering_stream<io::input, char_type>							parent_type;
 	typedef typename traits_type::size_type										size_type;
 	typedef typename traits_type::object_type									object_type;
@@ -401,7 +402,7 @@ struct odb_loose_traits
 	static const uint32_t num_prefix_characters = 1;
 	
 	//! Tag specifying how the header should be handled
-	typedef compress_header_tag header_tag;
+	typedef compressed_header_tag header_tag;
 	
 	//! Represents a policy type which provides implementations for key-functionality of the object database
 	typedef odb_loose_policy policy_type;
@@ -828,7 +829,7 @@ typename odb_loose<ObjectTraits, Traits>::accessor odb_loose<ObjectTraits, Trait
 	ostream.reset();	// close all files before rename
 	move_tmp_to_final(tmp_path, final_path);
 	
-	return accessor(final_path);	
+	return accessor(final_path);
 }
 
 template <class ObjectTraits, class Traits>

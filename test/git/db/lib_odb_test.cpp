@@ -189,6 +189,11 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	BOOST_CHECK_THROW(sgen.finalize(), gtl::bad_state);
 	BOOST_CHECK_THROW(sgen.update("hi", 2), gtl::bad_state);
 	
+	// copy construction
+	SHA1Generator sgencpy(sgen);
+	BOOST_REQUIRE(sgencpy.hash() == s);
+	BOOST_CHECK_THROW(sgencpy.update("hi", 2), gtl::bad_state);
+	
 	
 	buf << s;
 	BOOST_CHECK(buf.str() == hello_hex_sha);

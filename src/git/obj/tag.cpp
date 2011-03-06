@@ -82,7 +82,7 @@ git_basic_istream& operator >> (git_basic_istream& stream, git::Tag& tag)
 	try {
 		// read newline between tagger and message
 		stream.get(c);
-	} catch(std::ios_base::failure) {
+	} catch(std::ios_base::failure&) {
 		// ignore failures possibly based on exceptions thrown by the stream
 		// This really depends on its configuration
 	}

@@ -50,7 +50,7 @@ git_basic_istream& operator >> (git_basic_istream& stream, Tree& inst)
 			if (!stream.good()) {
 				break;
 			}
-		} catch (std::ios_base::failure) {
+		} catch (std::ios_base::failure&) {
 			// if we are at the end, abort this
 			// It depends on the configuration whether this throws
 			break;

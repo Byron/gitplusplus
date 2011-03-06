@@ -3,7 +3,7 @@
 # add the source files as last arguments
 function(add_model_test_executable name testname)
 	add_executable(${name} ${ARGN})
-	target_link_libraries(${name} boost_unit_test_framework.a boost_filesystem.a boost_system.a boost_iostreams.a z.a)
+	target_link_libraries(${name} boost_unit_test_framework-mt.a boost_filesystem-mt.a boost_system-mt.a boost_iostreams-mt.a z.a)
 	set_target_properties(${name} 
 		PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test)
 	get_target_property(execpath ${name} RUNTIME_OUTPUT_DIRECTORY)
