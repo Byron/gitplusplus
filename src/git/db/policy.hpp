@@ -27,9 +27,9 @@ struct git_object_policy : public gtl::odb_object_policy<TraitsType>
 		switch(object.type()) 
 		{
 			case Object::Type::Blob: { return static_cast<const Blob&>(object).data().size(); break; }
-			case Object::Type::Tag: { return static_cast<const Tag&>(object).size(); }
-			case Object::Type::Commit: { return static_cast<const Commit&>(object).size(); }
-			case Object::Type::Tree: { return static_cast<const Tree&>(object).size(); }
+			case Object::Type::Tag: { return static_cast<const Tag&>(object).size(stream); }
+			case Object::Type::Commit: { return static_cast<const Commit&>(object).size(stream); }
+			case Object::Type::Tree: { return static_cast<const Tree&>(object).size(stream); }
 			default:
 			{
 				ObjectError err;

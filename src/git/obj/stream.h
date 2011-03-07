@@ -6,12 +6,14 @@
 
 #include <git/obj/object.hpp>
 #include <git/db/util.hpp>
+#include <gtl/util.hpp>
+
 
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
 
 //! \brief Thrown for errors during deserialization
-class DeserializationError : public ObjectError
+class DeserializationError :	public ObjectError
 {};
 
 //! \brief Thrown for errors during serialization

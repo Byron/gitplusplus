@@ -3,6 +3,8 @@
 
 GIT_NAMESPACE_BEGIN
 
+namespace io = boost::iostreams;
+
 uchar loose_object_header(	typename git_object_policy_traits::char_type* hdr, 
 							typename git_object_policy_traits::object_type type, 
 							typename git_object_policy_traits::size_type size)

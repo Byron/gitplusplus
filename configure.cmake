@@ -14,10 +14,10 @@ include(FindDoxygen DOXYGEN_SKIP_DOT)
 
 set(Boost_USE_STATIC_LIBS        ON)
 
-find_package(Boost 1.36.0 COMPONENTS date_time filesystem system unit_test_framework) 
+find_package(Boost 1.45.0 COMPONENTS date_time filesystem system unit_test_framework) 
 
 if(NOT Boost_FOUND)
-	message(SEND_FAILURE "Require boost libraryies")
+	message(SEND_FAILURE "Require boost libraries")
 endif(NOT Boost_FOUND)
 
 # setup compiler
@@ -25,7 +25,7 @@ if(UNIX)
 	# show all warnings
 	# use c++0x features
 	# make throw() semantically equivalent to noexcept (std::exception uses throw() for instance)
-	set(CMAKE_CXX_FLAGS "-Wall -std=c++0x -fnothrow-opt")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}\ -Wall -std=c++0x -fnothrow-opt")
 endif(UNIX)
 
 
@@ -52,7 +52,9 @@ add_library(gitpp STATIC
 			src/git/obj/commit.cpp
 			src/git/obj/tag.cpp
 			src/git/obj/blob.cpp
-			src/git/db/odb.cpp
+			src/git/obj/multiobj.cpp
+			src/git/db/odb_mem.cpp
+			src/git/db/odb_loose.cpp
 			src/git/db/util.cpp
 			src/git/db/sha1_gen.cpp)
 
@@ -69,4 +71,6 @@ add_lib_test_executable(lib_odb_test lib_odb
 					test/git/db/lib_odb_test.cpp)
 add_lib_test_executable(lib_sha1_performance_test lib_sha1_perf
 					test/git/db/sha1_performance_test.cpp)
+add_lib_test_executable(lib_looseodb_performance_test lib_looseodb_perf
+					test/git/db/looseodb_performance_test.cpp)
 

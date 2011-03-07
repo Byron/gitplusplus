@@ -6,6 +6,10 @@
 #define GIT_HEADER_BEGIN
 #define GIT_HEADER_END
 
+// have to implement this ourselves, would only need the unique_file function
+// which we can do ourselves
+// #define BOOST_FILESYSTEM_VERSION 3
+
 /** \namespace git
   * \brief Contains all git related types
   */

@@ -38,6 +38,18 @@ SHA1Generator::SHA1Generator()
 	reset();
 }
 
+SHA1Generator::SHA1Generator(const SHA1Generator& rhs)
+    : m_block((WorkspaceBlock*)m_workspace)
+{
+	memcpy(m_state, rhs.m_state, sizeof(uint32)*5);
+	memcpy(m_count, rhs.m_count, sizeof(uint32)*2);
+	m_finalized = rhs.m_finalized;
+	memcpy(m_buffer, rhs.m_buffer, 64);
+	memcpy(m_digest, rhs.m_digest, 20);
+	m_update_called = rhs.m_update_called;
+	memcpy(m_workspace, rhs.m_workspace, sizeof(uint32)*16);
+}
+
 void SHA1Generator::reset() noexcept
 {
 	m_finalized = 0;

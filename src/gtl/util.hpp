@@ -2,12 +2,35 @@
 #define GTL_UTIL_HPP
 
 #include <gtl/config.h>
+#include <boost/filesystem/path.hpp>
 #include <cctype>
 #include <sstream>
+#include <cstring>
 #include <memory>
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
+
+//! produce a path to a tempfile which is most likely to be unique
+//! \param path filesystem path to be altered
+//! \throw filesystem error if no temppath could be produced
+//! \note template is only used to allow it to be defined inline
+//! \todo provide alternative signature which returns the path. This could be more efficient
+//! if PathType has a move constructor
+template <class PathType>
+void temppath(PathType& path, const char* prefix = 0) 
+{
+#ifndef WIN32
+		char* res = tempnam(nullptr, prefix);
+		if (std::strlen(res) == 0) {
+			throw boost::filesystem::filesystem_error("mktemp failed", boost::system::error_code());
+		}
+		path = PathType(res);
+#else
+		error "to be done: mktemp on windows, GetTmpFile or something";
+#endif
+}
+
 
 /** \brief exception base class which provides a string-stream for detailed errors
   * \note as it has a stream as its member, it might fail itself in low-memory situations.
@@ -49,6 +72,38 @@ class streaming_exception
 			}
 			return _buf.c_str();
 		}
+};
+
+/** \brief an exception base keeping a static message detailing the cause of the exception being thrown.
+  * \note as the c character string is copied, and if the allocation fails, a static information message about the
+  * incident will be shown instead.
+  */
+class message_exception
+{
+private:
+	char* m_msg;
+	
+protected:
+	message_exception(const char* msg = nullptr) {
+		m_msg = nullptr;
+		if (msg) {
+			const size_t msglen(std::strlen(msg));
+			m_msg = new char[msglen+1];
+			if (m_msg != nullptr) {
+				std::memcpy(m_msg, msg, msglen+1);	// copy terminating 0
+			} 
+		}
+	}
+	
+	~message_exception() {
+		if (m_msg){
+			delete [] m_msg;
+		}
+	}
+	
+	virtual const char* what() const throw() {
+		return m_msg == nullptr ? "failed to allocated memory to keep exception message" : m_msg;
+	}
 };
 
 
@@ -112,8 +167,8 @@ CharType fromhex(const CharType* c2)
 	hc[1] = std::toupper(c2[1]);
 	
 	CharType out;
-	out = map[(uchar)c2[0]] << 4;
-	out |= map[(uchar)c2[1]];
+	out = map[(uchar)hc[0]] << 4;
+	out |= map[(uchar)hc[1]];
 	
 	return out;
 }

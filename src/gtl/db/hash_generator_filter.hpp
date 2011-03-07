@@ -2,7 +2,7 @@
 #define GENERATOR_FILTER_HPP
 
 #include <gtl/config.h>
-#include <boost/iostreams/filter/aggregate.hpp>
+#include <boost/iostreams/filter/aggregate.hpp>	// just to pull in some other types, its not used as a base class
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
@@ -26,7 +26,7 @@ private:
 	bool m_needs_reset;
 	generator_type m_generator;
 	
-	void handle_reset() {
+	inline void handle_reset() {
 		if (m_needs_reset) {
 			m_generator.reset();
 			m_needs_reset = false;

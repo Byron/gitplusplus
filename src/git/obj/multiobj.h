@@ -11,58 +11,25 @@
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
 
-union MultiObject 
+//! \brief Utility to encapsulte one of many possible object types, which helps
+//! allocation efficiency as the MultiObject can just be created on the stack, reducing 
+//! heap usage. 
+union MultiObject
 {
-	Object::Type	type;
+	Object::Type	type;		//!< type of the currently assigned object or None
 	
+	//! @{ \name Objects
 	Tree			tree;
 	Blob			blob;
 	Commit			commit;
 	Tag				tag;
+	//! @}
 	
+	//! Initialize the instance with a None type. In this state the union doesn't contain
+	//! any object
 	MultiObject() : type(Object::Type::None) {}
 	~MultiObject();
 };
-
-
-MultiObject::~MultiObject()
-{
-	switch(type)
-	{
-	case Object::Type::None:
-		{
-			break;
-		}
-	case Object::Type::Tree:
-		{
-			tree.~Tree();
-			break;
-		}
-	case Object::Type::Blob:
-		{
-			blob.~Blob();
-			break;
-		}
-	case Object::Type::Commit:
-		{
-			commit.~Commit();
-			break;
-		}
-	case Object::Type::Tag:
-		{
-			tag.~Tag();
-			break;
-		}
-	default:
-		{
-			assert(false);
-		}
-	}// switch Type
-	
-	// Set the type, which allows to use multiobject multiple times in a row
-	// when the destructor is called manually
-	type = Object::Type::None;
-}
 
 GIT_NAMESPACE_END
 GIT_HEADER_END

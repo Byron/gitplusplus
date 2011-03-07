@@ -72,7 +72,9 @@ git_basic_ostream& operator << (git_basic_ostream& stream, Object::Type type)
 git_basic_ostream& operator << (git_basic_ostream& stream, const Actor& inst)
 {
 	if (inst.name.size() == 0){
-		throw DeserializationError();
+		DeserializationError err;
+		err.stream() << "Actor's name was not set";
+		throw err;
 	}
 	stream << inst.name << " <" << inst.email << '>';
 	return stream;
@@ -85,7 +87,9 @@ git_basic_istream& operator >> (git_basic_istream& stream, Actor& inst)
 	std::string::size_type i;
 	for (i = 0; i < buf.size() && buf[i] != '<'; ++i);
 	if (i == buf.size()) {
-		throw DeserializationError();
+		DeserializationError err;
+		err.stream() << "Didn't find email portion in line: " << buf;
+		throw err;
 	}
 	
 	inst.name = buf.substr(0, i-1);		// skip trailing space

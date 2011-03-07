@@ -2,13 +2,15 @@
 #define BOOST_TEST_MODULE git_lib
 #include <gtl/testutil.hpp>
 #include <boost/test/test_tools.hpp>
-#include <git/db/odb.h>
+#include <git/db/odb_loose.h>
+#include <git/db/odb_mem.h>
 
 #include <git/db/sha1.h>
 #include <git/db/sha1_gen.h>
 #include <git/obj/blob.h>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <utility>
+#include <git/fixture.hpp>
 
 #include <iostream>
 #include <sstream>
@@ -18,10 +20,12 @@
 
 using namespace std;
 using namespace git;
+namespace io = boost::iostreams;
 
 const char* const phello = "hello";
 const size_t lenphello = 5;
 const std::string hello_hex_sha("AAF4C61DDCC5E8A2DABEDE0F3B482CD9AEA9434D");
+const std::string hello_hex_sha_lc("aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d");
 const std::string null_hex_sha("0000000000000000000000000000000000000000");
 
 
@@ -171,6 +175,9 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	BOOST_CHECK(s[0] == 'a');
 	BOOST_CHECK(s[1] == 'b');
 	
+	// upper/lower case hex input yields same results
+	BOOST_REQUIRE(SHA1(hello_hex_sha) == SHA1(hello_hex_sha_lc));
+	
 	
 	// GENERATOR
 	////////////
@@ -181,6 +188,11 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	BOOST_CHECK(SHA1(sgen.digest())==s);	// duplicate call
 	BOOST_CHECK_THROW(sgen.finalize(), gtl::bad_state);
 	BOOST_CHECK_THROW(sgen.update("hi", 2), gtl::bad_state);
+	
+	// copy construction
+	SHA1Generator sgencpy(sgen);
+	BOOST_REQUIRE(sgencpy.hash() == s);
+	BOOST_CHECK_THROW(sgencpy.update("hi", 2), gtl::bad_state);
 	
 	
 	buf << s;
@@ -244,8 +256,8 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	
 	// This cannot be verified as the implementation adds a header
 	// BOOST_CHECK(it.key() ==  SHA1(hello_hex_sha));
-	BOOST_CHECK(it.type() == Object::Type::Blob);
-	BOOST_CHECK(it.size() == lenphello);
+	BOOST_CHECK(it->type() == Object::Type::Blob);
+	BOOST_CHECK(it->size() == lenphello);
 	
 	// stream verification
 	{
@@ -263,13 +275,15 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	
 	// Access the item using the key
 	BOOST_CHECK(modb.has_object(it.key()));
+	BOOST_REQUIRE(!modb.has_object(MemoryODB::key_type::null));
 	MemoryODB::accessor acc = modb.object(it.key());
-	BOOST_CHECK(acc.type() == it.type());
-	BOOST_CHECK(acc.size() == it.size());
+	BOOST_REQUIRE_THROW(modb.object(MemoryODB::key_type::null), gtl::odb_error);
+	BOOST_CHECK(acc->type() == it->type());
+	BOOST_CHECK(acc->size() == it->size());
 	
 	fit = modb.begin();
-	BOOST_CHECK(fit.type() == it.type());
-	BOOST_CHECK(fit.size() == it.size());
+	BOOST_CHECK(fit->type() == it->type());
+	BOOST_CHECK(fit->size() == it->size());
 	BOOST_CHECK(fit.key() == it.key());
 	
 	// test adapter
@@ -289,7 +303,7 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	(*it).deserialize(mobj);
 	
 	BOOST_CHECK(mobj.type == Object::Type::Blob);
-	BOOST_CHECK(mobj.blob.data().size() == it.size());
+	BOOST_CHECK(mobj.blob.data().size() == it->size());
 	
 	
 	// insert directly
@@ -350,3 +364,84 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 }
 
 
+BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
+{
+	typedef typename git_object_traits::char_type char_type;
+	typedef typename LooseODB::input_stream_type input_stream_type;
+	LooseODB lodb(rw_dir());
+	const uint num_objects = 10;
+	BOOST_REQUIRE(lodb.count() == num_objects);
+	
+	const size_t buflen = 512;
+	char_type buf[buflen];
+	
+	auto end = lodb.end();
+	uint count=0;
+	for (auto it=lodb.begin(); it != end; ++it, ++count) {
+		BOOST_REQUIRE(lodb.has_object(it.key()));
+		{
+			LooseODB::accessor acc = lodb.object(it.key());
+			BOOST_REQUIRE(acc->size() == it->size());
+			BOOST_REQUIRE(acc->type() == it->type());
+		}// end accessor lifetime
+		
+		// test new stream
+		input_stream_type* stream = it->new_stream();
+		assert(stream != 0);
+		stream->read(buf, buflen);
+		delete stream;
+		
+		// test custom memory location
+		char sbuf[sizeof(input_stream_type)];
+		stream = (input_stream_type*)sbuf;
+		it->stream(stream);
+		stream->read(buf, buflen);
+		it->destroy_stream(stream);
+		
+		// test deserialization
+		MultiObject mobj;
+		it->deserialize(mobj);
+		BOOST_REQUIRE(it->type() == mobj.type);
+	}
+	BOOST_REQUIRE(count == num_objects);
+	BOOST_REQUIRE(!lodb.has_object(LooseODB::key_type::null));
+	BOOST_REQUIRE_THROW(lodb.object(LooseODB::key_type::null), gtl::odb_error);
+	
+	// OBJECT INSERTION
+	///////////////////
+	// insert without key
+	
+	io::stream<io::basic_array_source<char_type> > istream(phello, lenphello);
+	LooseODB::key_type phello_key;
+	{
+		LooseODB::input_object_type iobj(Object::Type::Blob, lenphello, istream);
+		phello_key = lodb.insert(iobj).key();
+		BOOST_REQUIRE(lodb.has_object(phello_key));
+		auto* stream = lodb.object(phello_key)->new_stream();
+		std::string buf;
+		*stream >> buf;
+		BOOST_REQUIRE(buf == phello);
+		delete stream;
+	}
+	
+	// insert with key
+	istream.seekg(0, std::ios::beg);
+	{
+		LooseODB::input_object_type iobj(Object::Type::Blob, lenphello, istream, &phello_key);
+		BOOST_REQUIRE(lodb.insert(iobj).key() == phello_key);
+	}
+	
+	// insert object
+	{
+		Commit c;
+		c.author().name = c.committer().name = "sebastian";
+		c.message() = "hi";
+		
+		auto key = lodb.insert_object(c).key();
+		
+		MultiObject mobj;
+		lodb.object(key)->deserialize(mobj);
+		BOOST_REQUIRE(mobj.type == c.type());
+		BOOST_REQUIRE(mobj.commit == c);
+	}
+}
