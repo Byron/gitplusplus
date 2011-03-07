@@ -6,6 +6,8 @@
 #include <boost/timer.hpp>
 #include <boost/shared_array.hpp>
 #include <boost/iostreams/device/array.hpp>
+#include <boost/iostreams/device/null.hpp>
+#include <boost/iostreams/copy.hpp>
 
 #include <cstring>
 
@@ -20,8 +22,12 @@ BOOST_FIXTURE_TEST_CASE(read_and_write, GitLooseODBFixture)
 	 LooseODB lodb(rw_dir());
 	 
 	 // big file writing - its probably quite random as we don't initialze it
+	 LooseODB::key_type big_file_key;
+	 const size_t dlen = 50*mb;
+	 const size_t nsf = 500;	// number of small files
+	 const size_t nbf = 8192;	// number of bytes per file
+	 io::basic_null_sink<LooseODB::char_type> null;
 	 {
-		const size_t dlen = 50*mb;
 		boost::shared_array<char> data(new char[dlen]);
 		BOOST_REQUIRE(data);
 		
@@ -30,17 +36,24 @@ BOOST_FIXTURE_TEST_CASE(read_and_write, GitLooseODBFixture)
 		
 		// ONE BIG FILE
 		boost::timer t;
-		LooseODB::accessor acc = lodb.insert(iobj);
+		big_file_key = lodb.insert(iobj).key();
 		double elapsed = t.elapsed();
 		cerr << "Added " << dlen / mb << " MiB" << " to  loose object database in " << elapsed << " s (" << (dlen/mb) / elapsed << " MiB/s)" << endl;
 	 }
 	 
+	 // READ BIG FILE
+	 {
+		 boost::timer t;
+		 LooseODB::output_object_type::stream_type* stream = lodb.object(big_file_key)->new_stream();
+		 io::copy(*stream, null);
+		 delete stream;
+		 double elapsed = t.elapsed();
+		 cerr << "read file with " << dlen / mb << " MiB in " << elapsed << " s (" << dlen/mb/elapsed << " MiB/s)" << std::endl;
+	 }
 	 
 	 // MANY SMALL FILES
 	 // Here the filesystem is expected to be the limiting factor
 	 {
-		const size_t nsf = 500;	// number of small files
-		const size_t nbf = 8192;	// number of bytes per file
 		boost::shared_array<char> data(new char[nsf * nbf]);		// every file is a few kb
 		char* id = data.get();		// data iterator
 		
@@ -54,6 +67,41 @@ BOOST_FIXTURE_TEST_CASE(read_and_write, GitLooseODBFixture)
 		}
 		double elapsed = t.elapsed();
 		cerr << "Added " << nsf << " files of size " << nbf << " in " << elapsed << " s (" << (double)nsf / elapsed << " files / s), database now has " << lodb.count() << " unique objects" << endl;
+	 }
+	 
+	 // QUERY OBJECT INFORMATION ONLY
+	 {
+		 boost::timer t;
+		 const auto end = lodb.end();
+		 size_t count = 0;
+		 for (auto i = lodb.begin(); i != end; ++i, ++count) {
+			 i->type();
+			 i->size();
+		 }
+		 double elapsed = t.elapsed();
+		 cerr << "Queried information of " << count << " objects in " << elapsed << " s (" << (double)count / elapsed << " objects/s)" << endl;
+	 }
+	 
+	 // READ SMALL FILES STREAMS 
+	 {
+		 typedef LooseODB::output_object_type::stream_type ostream_type;
+		 boost::timer t;
+		 const auto end = lodb.end();
+		 size_t count = 0;
+		 size_t total = 0;
+		 char streammem[sizeof(ostream_type)];
+		 ostream_type* stream = reinterpret_cast<ostream_type*>(streammem);
+		 for (auto i = lodb.begin(); i != end; ++i, ++count) {
+			 i->type();
+			 if (i->size() > nbf)
+				 continue;
+			 total += i->size();
+			 i->stream(stream);
+			 io::copy(*stream, null);
+			 i->destroy_stream(stream);
+		 }
+		 double elapsed = t.elapsed();
+		 cerr << "Read " << count << " objects with total size of " << total / mb << " MiB in " << elapsed << " s (" << (double)count / elapsed << " objects/s)" << endl;
 	 }
 }
 

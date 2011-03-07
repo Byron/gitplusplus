@@ -1,4 +1,5 @@
-INCLUDEPATH = /usr/include \
+INCLUDEPATH = /usr/local/include/ryppl-1.45.0 \
+/usr/include \
 test \
 src
 

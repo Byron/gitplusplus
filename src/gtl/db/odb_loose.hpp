@@ -770,6 +770,8 @@ protected:
 			// retrow if it is anything else
 			if (e.code() != boost::system::errc::file_exists) {
 				throw;
+			} else {
+				fs::remove(tmp_file);
 			}
 		}
 	}
