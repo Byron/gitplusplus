@@ -146,7 +146,6 @@ public:
     template<typename Sink>
     std::streamsize write(Sink& snk, const char_type* s, std::streamsize n)
     {
-		std::streamsize bytes_written = 0;
 		if (must_write_header()) {
 			// provide a real stream. We will copy its contents into our device
 			// As iostream would copy the buffer if we demanded it, we use a back-inserter
@@ -160,11 +159,13 @@ public:
 			typename db_traits_type::policy_type().write_header(ostream, m_type, m_size);
 			ostream.flush();
 			assert(buf.size());
-			bytes_written = io::write(snk, buf.data(), buf.size());
+			// We may not count the bytes written, the caller expects to only get the number
+			// of bytes he actually wrote ... otherwise we get all kinds of issues.
+			io::write(snk, buf.data(), buf.size());
 			
 			m_type = traits_type::null_object_type;
 		}
-        return bytes_written + io::write(snk, s, n);
+		return io::write(snk, s, n);
     }
 	
 	//! @} stream interface
@@ -199,6 +200,7 @@ class loose_object_input_stream
   * If any path is given to an instance of this type for writing, it is assumed to be writable.
   * \todo make filtering_stream use the traits_type::char_type - currently it must use char directly 
   * as it will not allow the component method to be used otherwise
+  * \todo compression level should be runtime configurable
   */
 template <class ObjectTraits, class Traits, class HeaderTag=typename Traits::header_tag>
 class loose_object_output_stream : public io::filtering_stream<io::output, char>
