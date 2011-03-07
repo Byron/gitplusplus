@@ -2,6 +2,7 @@
 #define BOOST_TEST_MODULE git_lib
 #include <gtl/testutil.hpp>
 #include <boost/test/test_tools.hpp>
+#include <git/fixture.hpp>
 #include <git/db/odb_loose.h>
 #include <git/db/odb_mem.h>
 
@@ -10,7 +11,6 @@
 #include <git/obj/blob.h>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <utility>
-#include <git/fixture.hpp>
 
 #include <iostream>
 #include <sstream>
@@ -196,7 +196,7 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	
 	
 	buf << s;
-	BOOST_CHECK(buf.str() == hello_hex_sha);
+	BOOST_CHECK(buf.str() == hello_hex_sha_lc);
 	buf.seekp(0, std::ios_base::beg);
 	
 	BOOST_CHECK(SHA1(hello_hex_sha) == s);
@@ -224,7 +224,7 @@ BOOST_AUTO_TEST_CASE(lib_sha1_facility)
 	BOOST_CHECK(std::string(phello) == null.str());
 	buf.seekp(0, std::ios::beg);
 	buf << filter.component<SHA1Filter>(0)->hash();
-	BOOST_CHECK(buf.str() == hello_hex_sha);
+	BOOST_CHECK(buf.str() == hello_hex_sha_lc);
 }
 
 
@@ -363,7 +363,6 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	
 }
 
-
 BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 {
 	typedef typename git_object_traits::char_type char_type;
@@ -402,7 +401,36 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 		MultiObject mobj;
 		it->deserialize(mobj);
 		BOOST_REQUIRE(it->type() == mobj.type);
-	}
+		
+		// re-instert the object, it must have the same key
+		// Cannot just keep the accessor, as it is not assignable or default-constructible
+		LooseODB::key_type key;
+		switch(mobj.type)
+		{
+		case Object::Type::Blob: { 
+			key = lodb.insert_object(mobj.blob).key();
+			break;
+		}
+		case Object::Type::Commit: { 
+			key = lodb.insert_object(mobj.commit).key();
+			break;
+		}
+		case Object::Type::Tree: { 
+			key = lodb.insert_object(mobj.tree).key();
+			break;
+		}
+		case Object::Type::Tag: { 
+			key = lodb.insert_object(mobj.tag).key();
+			break;
+		}
+		default: BOOST_REQUIRE(false);
+		};//end type switch
+		if (key != it.key()){
+			auto acc = lodb.object(key);
+			std::cerr << "Reserialzation of object of type/size: " << it->type() << "/" << it->size()
+			          << " failed, got type/size: " << acc->type() << "/" << acc->size() << endl;
+		}
+	}// for each object in looseodb
 	BOOST_REQUIRE(count == num_objects);
 	BOOST_REQUIRE(!lodb.has_object(LooseODB::key_type::null));
 	BOOST_REQUIRE_THROW(lodb.object(LooseODB::key_type::null), gtl::odb_error);
@@ -444,4 +472,12 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 		BOOST_REQUIRE(mobj.type == c.type());
 		BOOST_REQUIRE(mobj.commit == c);
 	}
+}
+
+
+BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
+{
+	
+	
+	
 }

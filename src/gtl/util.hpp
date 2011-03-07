@@ -134,7 +134,7 @@ inline
 hex_char<CharType> tohex(CharType c) 
 {
 	static_assert(sizeof(CharType) == 1, "need 1 byte character");
-	static const char map[] = {'0', '1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+	static const char map[] = {'0', '1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
 	static const char rpart = 0x0F;
 	
 	hex_char<CharType> out;
@@ -147,6 +147,8 @@ hex_char<CharType> tohex(CharType c)
 /** Convert two characters from hexadecimal form to binary 
   * \param c2 pointerto array of at least two characters
   * \return character representing the binary value of c2
+  * \todo get rid of the map which is initialized every time 
+  * this function is called !
   */
 template <class CharType>
 inline

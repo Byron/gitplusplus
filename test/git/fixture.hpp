@@ -117,4 +117,12 @@ struct GitLooseODBFixture : public BasicFixtureCopyer
 	{}
 };
 
+//! \brief simple fixture to create space for use with packed databases
+struct GitPackedODBFixture: public BasicFixtureCopyer
+{
+	GitPackedODBFixture()
+	    : BasicFixtureCopyer("packs")
+	{}
+};
+
 #endif // TEST_GIT_FIXTURE_HPP

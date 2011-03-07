@@ -545,7 +545,7 @@ protected:
 	loose_accessor(){}
 	
 private:
-	//! only allow move construction due to our file stream
+	//! only allow move construction due to our (implicit) file stream, move constructor is implicitly defined
 	loose_accessor(const this_type& rhs) 
 	    : m_obj(rhs.m_obj)
 	{}
@@ -834,11 +834,14 @@ typename odb_loose<ObjectTraits, Traits>::accessor odb_loose<ObjectTraits, Trait
 		policy.serialize(object, ostream);
 	}
 	ostream.flush();
+	// YES ! Have to do that to actually flush everything ... WTF ??
+	// Also causes file to be closed
+	ostream.pop();
 	
 	path_type final_path;
 	this->path_from_key(ostream.hash_filter()->hash(), final_path);
+	assert(ostream.hash_filter()->hash() != traits_type::key_type::null);
 	
-	ostream.reset();	// close all files before rename
 	move_tmp_to_final(tmp_path, final_path);
 	
 	return accessor(final_path);
@@ -869,6 +872,9 @@ typename odb_loose<ObjectTraits, Traits>::accessor odb_loose<ObjectTraits, Trait
 	
 	io::copy(object.stream(), ostream);
 	ostream.flush();
+	// Make sure it is truly being flushed ! Its more like a bug that we have to do that.
+	// Also causes closing of the file
+	ostream.pop();			
 	
 	path_type final_path;
 	if (object.key_pointer()) {
@@ -876,7 +882,6 @@ typename odb_loose<ObjectTraits, Traits>::accessor odb_loose<ObjectTraits, Trait
 	} else {
 		this->path_from_key(ostream.hash_filter()->hash(), final_path);
 	}
-	ostream.reset();	// causes closing the files - want to rename it soon
 	
 	move_tmp_to_final(tmp_path, final_path);
 	return accessor(final_path);
