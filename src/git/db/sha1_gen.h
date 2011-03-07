@@ -47,6 +47,7 @@ class SHA1Generator : public gtl::hash_generator<SHA1, char, uint32>
 		uint32 l[16];
 	};
 		
+	SHA1Generator(SHA1Generator&&);// no move default constructor
 	public:
 		SHA1Generator();
 		SHA1Generator(const SHA1Generator&);

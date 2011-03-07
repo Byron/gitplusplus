@@ -71,4 +71,6 @@ add_lib_test_executable(lib_odb_test lib_odb
 					test/git/db/lib_odb_test.cpp)
 add_lib_test_executable(lib_sha1_performance_test lib_sha1_perf
 					test/git/db/sha1_performance_test.cpp)
+add_lib_test_executable(lib_looseodb_performance_test lib_looseodb_perf
+					test/git/db/looseodb_performance_test.cpp)
 

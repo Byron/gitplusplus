@@ -81,4 +81,5 @@ SOURCES += \
     src/git/db/util.cpp \
     src/git/db/odb_mem.cpp \
     src/git/db/odb_loose.cpp \
-    src/git/obj/multiobj.cpp
+    src/git/obj/multiobj.cpp \
+    test/git/db/looseodb_performance_test.cpp
