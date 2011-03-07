@@ -763,7 +763,15 @@ protected:
 		// assure directory exists - throws on error, we only expect one directory level to be created at most
 		// Then rename on top of each other, boost removes existing file, which is required on windows at least
 		fs::create_directory(destination_file.parent_path());
-		fs::rename(tmp_file, destination_file);
+		try {
+			fs::rename(tmp_file, destination_file);
+		} catch (boost::filesystem::basic_filesystem_error<path_type>& e) {
+			// ignore existing files, they have the same content as they have the same hash
+			// retrow if it is anything else
+			if (e.code() != boost::system::errc::file_exists) {
+				throw;
+			}
+		}
 	}
 	
 public:
