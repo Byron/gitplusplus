@@ -5,16 +5,12 @@
 #include <gtl/db/odb.hpp>
 #include <gtl/db/odb_object.hpp>
 #include <gtl/util.hpp>
-#include <gtl/db/hash_generator_filter.hpp>
 
-#include <boost/iostreams/filter/zlib.hpp>
-#include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/device/file.hpp>
 #include <boost/iostreams/copy.hpp>
-#include <boost/iostreams/filter/zlib.hpp>
+#include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/type_traits/is_same.hpp>
-#include <boost/filesystem.hpp>
 
 #include <assert.h>
 #include <string>
@@ -381,26 +377,8 @@ struct odb_loose_policy
   * external dependencies which must be met for the program to run.
   */
 template <class ObjectTraits>
-struct odb_loose_traits
+struct odb_loose_traits : public odb_file_traits<ObjectTraits>
 {
-	typedef ObjectTraits									traits_type;
-
-	//! type suitable to be used for compression within the 
-	//! boost iostreams filtering framework.
-	//! \todo there should be a way to define the char_type, but its a bit occluded
-	typedef io::zlib_compressor								compression_filter_type;
-	
-	//! type compatible to the boost filtering framework to decompress what 
-	//! was previously compressed.
-	//! \todo there should be a way to define the char_type, but its a bit occluded
-	typedef io::zlib_decompressor							decompression_filter_type;
-	
-	//! type generating a filter based on the hash_filter template, using the predefined hash generator
-	typedef generator_filter<typename traits_type::key_type, typename traits_type::hash_generator_type> hash_filter_type;
-	
-	//! type to be used as path. The interface must comply to the boost filesystem path
-	typedef boost::filesystem::path							path_type;
-	
 	//! amount of hash-characters used as directory into which to put the loose object files.
 	//! One hash character will translate into two hexadecimal characters
 	static const uint32_t									num_prefix_characters = 1;
@@ -707,7 +685,8 @@ public:
   * by default, but this behaviour may be changed easily using traits.
   */
 template <class ObjectTraits, class Traits>
-class odb_loose : public odb_base<ObjectTraits>
+class odb_loose :	public odb_base<ObjectTraits>, 
+					public odb_file_mixin<typename Traits::path_type>
 {
 public:
 	typedef ObjectTraits											traits_type;
@@ -726,13 +705,10 @@ public:
 	typedef loose_forward_iterator<traits_type, db_traits_type>		forward_iterator;
 
 protected:
-	path_type		m_root;							//!< root path containing all loose object files
-	
-protected:
 	//! Generate a path for the given key - it doesn't necessarily exist
 	void path_from_key(const key_type& key, path_type& out_path) const 
 	{
-		out_path = m_root;
+		out_path = this->m_root;
 		typename traits_type::char_type buf[key_type::hash_len*2+1];
 		
 		for (uint i = 0; i < db_traits_type::num_prefix_characters; ++i) {
@@ -756,7 +732,7 @@ protected:
 	inline path_type temppath() const {
 		path_type tmp_path;
 		gtl::temppath(tmp_path, "tmploose_obj");
-		tmp_path = m_root / *(--tmp_path.end());
+		tmp_path = this->m_root / *(--tmp_path.end());
 		return tmp_path;
 	}
 	
@@ -780,9 +756,8 @@ protected:
 	
 public:
 	odb_loose(const path_type& root)
-		: m_root(root)
-	{
-	}
+		: odb_file_mixin<path_type>(root)
+	{}
 	
 public:
 	bool has_object(const key_type& k) const {
@@ -802,7 +777,7 @@ public:
 	}
 	
 	forward_iterator begin() const {
-		return forward_iterator(m_root);
+		return forward_iterator(this->m_root);
 	}
 	
 	forward_iterator end() const {

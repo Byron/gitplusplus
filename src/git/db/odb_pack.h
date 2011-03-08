@@ -8,12 +8,19 @@
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
 
+struct git_pack_odb_traits : public gtl::odb_pack_traits<git_object_traits>
+{
+	
+};
+
 /** \brief Specializes the odb_pack template to read and generate git-like packs
   */
-class PackODB
+class PackODB : public gtl::odb_pack<git_object_traits, git_pack_odb_traits>
 {
 public:
-    PackODB();
+    PackODB(const path_type& root)
+	    : odb_pack<git_object_traits, git_pack_odb_traits>(root)
+	{}
 };
 
 

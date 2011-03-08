@@ -2,6 +2,11 @@
 #define GTL_ODB_STREAM_HPP
 
 #include <gtl/config.h>
+#include <gtl/db/hash_generator_filter.hpp>
+
+#include <boost/filesystem.hpp>
+#include <boost/iostreams/filter/zlib.hpp>
+
 #include <stdint.h>
 #include <exception>
 #include <iostream>
@@ -9,8 +14,6 @@
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
-
-namespace io = boost::iostreams;
 
 /** \brief base error for all database objects related actions
   * \ingroup ODBException
@@ -110,6 +113,32 @@ struct odb_object_traits : public odb_object_policy_traits
 	typedef int key_type;
 	//! Policy struct providing additional functionality
 	typedef odb_object_policy<odb_object_policy_traits> policy_type;
+};
+
+
+/** Basic traits suitable for a all databases which use files to store objects in one way or another
+  * \note by default, it uses the zlib compression library which usually involves
+  * external dependencies which must be met for the program to run.
+  */
+template <class ObjectTraits>
+struct odb_file_traits
+{
+	//! type suitable to be used for compression within the 
+	//! boost iostreams filtering framework.
+	//! \todo there should be a way to define the char_type, but its a bit occluded
+	typedef boost::iostreams::zlib_compressor							compression_filter_type;
+	
+	//! type compatible to the boost filtering framework to decompress what 
+	//! was previously compressed.
+	//! \todo there should be a way to define the char_type, but its a bit occluded
+	typedef boost::iostreams::zlib_decompressor							decompression_filter_type;
+	
+	//! type generating a filter based on the hash_filter template, using the predefined hash generator
+	typedef generator_filter<typename ObjectTraits::key_type, typename ObjectTraits::hash_generator_type> hash_filter_type;
+	
+	//! type to be used as path. The interface must comply to the boost filesystem path
+	typedef boost::filesystem::path							path_type;
+
 };
 
 

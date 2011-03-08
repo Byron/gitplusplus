@@ -477,7 +477,7 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 
 BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 {
-	
+	PackODB podb(rw_dir());
 	
 	
 }

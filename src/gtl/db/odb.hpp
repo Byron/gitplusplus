@@ -121,6 +121,32 @@ public:
 };
 
 
+/** \brief Mixin adding functionality required for interaction with files
+  * This mixin does not have any requirements, it just defines a simple interface to handle root paths
+  */
+template <class PathType>
+class odb_file_mixin
+{
+public:
+	typedef PathType path_type;
+
+protected:
+	path_type m_root;
+	
+public:
+	//! initialize a database which expects to find its files in the given root directory
+	//! \note the root is not required to exist, the base
+	odb_file_mixin(const path_type& root)
+	    : m_root(root)
+	{}
+	
+public:
+	inline const path_type& root_path() const {
+		return m_root;
+	}
+	
+};
+
 //! usually size of one memory page in bytes 
 template <class ObjectTraits>
 const std::streamsize odb_base<ObjectTraits>::gCopyChunkSize(boost::iostreams::default_device_buffer_size);

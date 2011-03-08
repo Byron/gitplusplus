@@ -3,7 +3,6 @@
 #include <gtl/config.h>
 #include <gtl/db/odb.hpp>
 
-#include <boost/filesystem.hpp>
 #include <boost/iostreams/device/file.hpp>
 
 GTL_HEADER_BEGIN
@@ -15,22 +14,35 @@ namespace fs = boost::filesystem;
 /** \brief Defines the interface of all pack files which is used by the pack object database.
   * \note the template parameters are used only to have meaningful types in the method signatures, 
   * the implementor is not obgliged to use templates at all.
+  * \tparam ObjectTraits traits defining object properties
+  * \tparam Traits traits identifying pack database specific types
   */
-template <class ObjectTraits>
+template <class ObjectTraits, class Traits>
 class odb_pack_file
 {
 public:
-	typedef ObjectTraits traits_type;
+	typedef ObjectTraits						traits_type;
+	typedef Traits								db_traits_type;
+	
+	typedef typename db_traits_type::path_type	path_type;
 	
 public:
 	//! Instantiate this instance with the path to a pack file
-	odb_pack_file(const fs::path& path);
+	odb_pack_file(const path_type& path);
+	
+public:
+	
+	
 };
 
 /** \brief Defines types used specifically in a packed object database.
   */
-class odb_pack_policy
+template <class ObjectTraits>
+struct odb_pack_traits : public odb_file_traits<ObjectTraits>
 {
+	//! Type used to handle the reading of packs
+	typedef odb_pack_file<ObjectTraits, odb_pack_traits>					pack_reader_type;
+	
 	
 };
 
@@ -50,13 +62,26 @@ class odb_pack_policy
   * \tparam Traits traits specific to the database itself, which includes the actual pack format
   */ 
 template <class ObjectTraits, class Traits>
-class odb_pack : public odb_base<ObjectTraits>
+class odb_pack :	public odb_base<ObjectTraits>,
+					public odb_file_mixin<typename Traits::path_type>
 {
 public:
 	typedef ObjectTraits				traits_type;
 	typedef Traits						db_traits_type;
 	
+	typedef typename traits_type::key_type							key_type;
+	typedef typename traits_type::char_type							char_type;
+	typedef odb_hash_error<key_type>								hash_error_type;
+	
+	typedef typename db_traits_type::path_type						path_type;
+	
 public:
+	odb_pack(const path_type& root)
+	    : odb_file_mixin<path_type>(root)
+	{}
+	
+public:
+	
 	
 };
 
