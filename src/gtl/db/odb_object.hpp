@@ -129,11 +129,13 @@ struct odb_file_traits
 	//! type suitable to be used for compression within the 
 	//! boost iostreams filtering framework.
 	//! \todo there should be a way to define the char_type, but its a bit occluded
+	//! \note this type may not be changed as it is the default git compressor
 	typedef boost::iostreams::zlib_compressor							compression_filter_type;
 	
 	//! type compatible to the boost filtering framework to decompress what 
 	//! was previously compressed.
 	//! \todo there should be a way to define the char_type, but its a bit occluded
+	//! \note this type may not be changed as it is the default git decompressor
 	typedef boost::iostreams::zlib_decompressor							decompression_filter_type;
 	
 	//! type generating a filter based on the hash_filter template, using the predefined hash generator

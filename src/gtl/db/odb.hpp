@@ -149,6 +149,7 @@ public:
 	
 };
 
+
 //! usually size of one memory page in bytes 
 template <class TraitsType>
 const std::streamsize odb_base<TraitsType>::gCopyChunkSize(boost::iostreams::default_device_buffer_size);

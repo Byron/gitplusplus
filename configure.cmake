@@ -56,6 +56,7 @@ add_library(gitpp STATIC
 			src/git/db/odb_mem.cpp
 			src/git/db/odb_loose.cpp
 			src/git/db/odb_pack.cpp
+			src/git/db/pack_file.cpp
 			src/git/db/util.cpp
 			src/git/db/sha1_gen.cpp)
 

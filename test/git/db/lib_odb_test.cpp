@@ -20,7 +20,6 @@
 
 using namespace std;
 using namespace git;
-namespace io = boost::iostreams;
 
 const char* const phello = "hello";
 const size_t lenphello = 5;
@@ -477,7 +476,13 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 
 BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 {
+	const size_t pack_count = 3;
 	PackODB podb(rw_dir());
+	BOOST_REQUIRE(podb.num_packs() == pack_count);
 	
+	// update calls don't change amount of items, if there was no local change
+	podb.update_cache();
+	BOOST_REQUIRE(podb.num_packs() == pack_count);
 	
+	// PackODB::accessor begin = podb.begin();
 }
