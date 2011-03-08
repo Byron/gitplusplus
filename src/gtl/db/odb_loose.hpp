@@ -6,6 +6,7 @@
 #include <gtl/db/odb_object.hpp>
 #include <gtl/util.hpp>
 #include <gtl/db/hash_generator_filter.hpp>
+
 #include <boost/iostreams/filter/zlib.hpp>
 #include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/device/file.hpp>
@@ -14,6 +15,7 @@
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/type_traits/is_same.hpp>
 #include <boost/filesystem.hpp>
+
 #include <assert.h>
 #include <string>
 #include <cstring>
@@ -381,33 +383,33 @@ struct odb_loose_policy
 template <class ObjectTraits>
 struct odb_loose_traits
 {
-	typedef ObjectTraits traits_type;
-	
+	typedef ObjectTraits									traits_type;
+
 	//! type suitable to be used for compression within the 
 	//! boost iostreams filtering framework.
 	//! \todo there should be a way to define the char_type, but its a bit occluded
-	typedef io::zlib_compressor compression_filter_type;
+	typedef io::zlib_compressor								compression_filter_type;
 	
 	//! type compatible to the boost filtering framework to decompress what 
 	//! was previously compressed.
 	//! \todo there should be a way to define the char_type, but its a bit occluded
-	typedef io::zlib_decompressor decompression_filter_type;
+	typedef io::zlib_decompressor							decompression_filter_type;
 	
 	//! type generating a filter based on the hash_filter template, using the predefined hash generator
 	typedef generator_filter<typename traits_type::key_type, typename traits_type::hash_generator_type> hash_filter_type;
 	
 	//! type to be used as path. The interface must comply to the boost filesystem path
-	typedef boost::filesystem::path path_type;
+	typedef boost::filesystem::path							path_type;
 	
 	//! amount of hash-characters used as directory into which to put the loose object files.
 	//! One hash character will translate into two hexadecimal characters
-	static const uint32_t num_prefix_characters = 1;
+	static const uint32_t									num_prefix_characters = 1;
 	
 	//! Tag specifying how the header should be handled
-	typedef compressed_header_tag header_tag;
+	typedef compressed_header_tag							header_tag;
 	
 	//! Represents a policy type which provides implementations for key-functionality of the object database
-	typedef odb_loose_policy policy_type;
+	typedef odb_loose_policy								policy_type;
 };
 
 /** \brief object providing access to a specific database object. Depending on the actual object format, this 

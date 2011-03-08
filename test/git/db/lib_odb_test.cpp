@@ -5,7 +5,7 @@
 #include <git/fixture.hpp>
 #include <git/db/odb_loose.h>
 #include <git/db/odb_mem.h>
-
+#include <git/db/odb_pack.h>
 #include <git/db/sha1.h>
 #include <git/db/sha1_gen.h>
 #include <git/obj/blob.h>

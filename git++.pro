@@ -59,7 +59,9 @@ HEADERS += \
     src/gtl/db/odb_loose.hpp \
     src/git/db/odb_mem.h \
     src/git/db/odb_loose.h \
-    test/git/fixture.hpp
+    test/git/fixture.hpp \
+    src/gtl/db/odb_pack.hpp \
+    src/git/db/odb_pack.h
 
 SOURCES += \
     test/git/model/db/odb_test.cpp \
@@ -83,4 +85,5 @@ SOURCES += \
     src/git/db/odb_mem.cpp \
     src/git/db/odb_loose.cpp \
     src/git/obj/multiobj.cpp \
-    test/git/db/looseodb_performance_test.cpp
+    test/git/db/looseodb_performance_test.cpp \
+    src/git/db/odb_pack.cpp

@@ -33,6 +33,7 @@
 
 
 // Its not worth using version 3 just because we would need one function, unique_file
+// Note: Now, after the switch to boost 1.45, it would actually possible to do so
 // #define BOOST_FILESYSTEM_VERSION 3
 
 #define GTL_HEADER_BEGIN
