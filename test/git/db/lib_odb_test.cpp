@@ -232,7 +232,7 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 {
 	MemoryODB modb;
 	
-	std::basic_stringstream<typename MemoryODB::traits_type::char_type> stream;
+	std::basic_stringstream<typename MemoryODB::obj_traits_type::char_type> stream;
 	stream.write(phello, lenphello);
 	auto s = stream.tellp();
 	BOOST_CHECK(s == lenphello);

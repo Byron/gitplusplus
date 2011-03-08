@@ -9,16 +9,21 @@
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
 
+struct git_memory_odb_traits
+{
+	typedef git_object_traits			obj_traits_type;
+};
+
 /** \ingroup ODB
   * \brief Database storing git objects in memory only
   * 
   * Use this specialization to quickly cache objects in memory to later dump
   * them to disk at once.
   */
-class MemoryODB : public gtl::odb_mem<git_object_traits>
+class MemoryODB : public gtl::odb_mem<git_memory_odb_traits>
 {
 	public:
-		virtual void header_hash(	typename traits_type::hash_generator_type& gen, 
+		virtual void header_hash(	typename obj_traits_type::hash_generator_type& gen, 
 									const output_object_type& obj) const 
 		{
 			typename git_object_policy_traits::char_type hdr[32];

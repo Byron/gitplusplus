@@ -54,15 +54,17 @@ class odb_hash_error :	public odb_error,
   *
   * This base serves as ideological basis for derived types which add an actual implementation of their 
   * specialized model.
+  * \tparam TraitsType object database traits which specify object traits as well as database specifics
   */
-template <class ObjectTraits>
+template <class TraitsType>
 class odb_base
 {
 public:
-	typedef ObjectTraits										traits_type;
-	typedef typename traits_type::key_type						key_type;
-	typedef const odb_accessor<traits_type>						accessor;
-	typedef odb_forward_iterator<traits_type>					forward_iterator;
+	typedef TraitsType											db_traits_type;
+	typedef typename db_traits_type::obj_traits_type				obj_traits_type;
+	typedef typename obj_traits_type::key_type						key_type;
+	typedef const odb_accessor<db_traits_type>					accessor;
+	typedef odb_forward_iterator<db_traits_type>				forward_iterator;
 	
 	//! type compatible to odb_input_object
 	typedef int													input_object_type;
@@ -113,7 +115,7 @@ public:
 	//! \note have to rename it to allow normal operator overloading, in case derived classes
 	//! use templates in the insert method - one cannot specialize method templates at all
 	//! it seems
-	accessor insert_object(typename traits_type::input_reference_type object);
+	accessor insert_object(typename obj_traits_type::input_reference_type object);
 	
 	//! \return number of objects within the database.
 	//! \note this might involve iterating all objects, which is costly, hence we don't name it size()
@@ -148,8 +150,8 @@ public:
 };
 
 //! usually size of one memory page in bytes 
-template <class ObjectTraits>
-const std::streamsize odb_base<ObjectTraits>::gCopyChunkSize(boost::iostreams::default_device_buffer_size);
+template <class TraitsType>
+const std::streamsize odb_base<TraitsType>::gCopyChunkSize(boost::iostreams::default_device_buffer_size);
 
 GTL_NAMESPACE_END
 GTL_HEADER_END

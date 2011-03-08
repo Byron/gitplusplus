@@ -120,9 +120,12 @@ struct odb_object_traits : public odb_object_policy_traits
   * \note by default, it uses the zlib compression library which usually involves
   * external dependencies which must be met for the program to run.
   */
-template <class ObjectTraits>
+template <class KeyType, class HashGeneratorType>
 struct odb_file_traits
 {
+	typedef KeyType key_type;
+	typedef HashGeneratorType hash_generator_type;
+	
 	//! type suitable to be used for compression within the 
 	//! boost iostreams filtering framework.
 	//! \todo there should be a way to define the char_type, but its a bit occluded
@@ -134,10 +137,10 @@ struct odb_file_traits
 	typedef boost::iostreams::zlib_decompressor							decompression_filter_type;
 	
 	//! type generating a filter based on the hash_filter template, using the predefined hash generator
-	typedef generator_filter<typename ObjectTraits::key_type, typename ObjectTraits::hash_generator_type> hash_filter_type;
+	typedef generator_filter<key_type, hash_generator_type>				hash_filter_type;
 	
 	//! type to be used as path. The interface must comply to the boost filesystem path
-	typedef boost::filesystem::path							path_type;
+	typedef boost::filesystem::path										path_type;
 
 };
 
@@ -152,16 +155,16 @@ struct odb_file_traits
 template <class ObjectTraits>
 struct odb_basic_object
 {
-	typedef ObjectTraits traits_type;
+	typedef ObjectTraits obj_traits_type;
 	
 	//! \return type of the object which helps to figure out how to interpret its data
-	typename traits_type::object_type type() const;
+	typename obj_traits_type::object_type type() const;
 	
 	//! \return the size of the uncompressed object stream in a format that relates to its storage 
 	//! requirements, by default in bytes.
 	//! \note as the object may be stored compressed within its stream, the amount of data in the stream
 	//! may differ.
-	typename traits_type::size_type size() const {
+	typename obj_traits_type::size_type size() const {
 		return 0;
 	}
 };
@@ -182,12 +185,12 @@ struct odb_basic_object
 template <class ObjectTraits, class StreamType>
 struct odb_input_object : public odb_basic_object<ObjectTraits>
 {
-	typedef ObjectTraits traits_type;
+	typedef ObjectTraits obj_traits_type;
 	typedef typename ObjectTraits::key_type key_type;
 	typedef StreamType stream_type;
 	
 	//! Initialize the instance
-	//! \fn odb_input_object(typename traits_type::object_type, typename traits_type::size_type, stream_type& stream, const key_type* key_pointer = 0)
+	//! \fn odb_input_object(typename obj_traits_type::object_type, typename obj_traits_type::size_type, stream_type& stream, const key_type* key_pointer = 0)
 	//! \param object_type type of the object to store
 	//! \param size_type the size of the serialized and uncompressed object, may be a null value
 	//! if the instance is initialized later
@@ -197,10 +200,10 @@ struct odb_input_object : public odb_basic_object<ObjectTraits>
 	//! hashing of streams. If it is not provided, a key will be generated during the insertion.
 	
 	//! Set this instance to use the given size
-	void set_size(typename traits_type::size_type size);
+	void set_size(typename obj_traits_type::size_type size);
 	
 	//! Set this instance to the given object type
-	void set_type(typename traits_type::object_type type);
+	void set_type(typename obj_traits_type::object_type type);
 	
 	//! \return reference to the contained stream
 	stream_type& stream();
@@ -220,10 +223,10 @@ template <class ObjectTraits, class StreamBaseType = std::basic_istream<typename
 class odb_ref_input_object : public odb_input_object<ObjectTraits, StreamBaseType>
 {
 public:
-	typedef ObjectTraits								traits_type;
-	typedef typename traits_type::object_type			object_type;
-	typedef typename traits_type::size_type				size_type;
-	typedef typename traits_type::key_type				key_type;
+	typedef ObjectTraits								obj_traits_type;
+	typedef typename obj_traits_type::object_type		object_type;
+	typedef typename obj_traits_type::size_type			size_type;
+	typedef typename obj_traits_type::key_type			key_type;
 	typedef StreamBaseType								stream_type;
 	
 protected:
@@ -281,7 +284,7 @@ public:
 template <class ObjectTraits, class StreamType>
 struct odb_output_object : public odb_basic_object<ObjectTraits>
 {
-	typedef ObjectTraits traits_type;
+	typedef ObjectTraits obj_traits_type;
 	typedef StreamType stream_type;
 	
 	//! Defines a stream which can be read and written to. This is important in case you want to serialize
@@ -321,7 +324,7 @@ struct odb_output_object : public odb_basic_object<ObjectTraits>
 	//! construct an object from the deserialized stream and store it in the output reference
 	//! \note uses exceptions to indicate failure (i.e. out of memory, corrupt stream)
 	//! \throw odb_deserialization_error
-	void deserialize(typename traits_type::output_reference_type out) const;
+	void deserialize(typename obj_traits_type::output_reference_type out) const;
 };
 
 
@@ -331,15 +334,15 @@ struct odb_output_object : public odb_basic_object<ObjectTraits>
   * \note we only derive for the purpose of inheriting member documentation
   */
 template <class OutputObject>
-class  odb_output_object_adapter : public odb_input_object<	typename OutputObject::traits_type,
+class  odb_output_object_adapter : public odb_input_object<	typename OutputObject::obj_traits_type,
 															typename OutputObject::stream_type>
 {
 public:
 	typedef OutputObject output_object_type;
 	typedef typename std::add_lvalue_reference<const output_object_type>::type const_output_object_ref_type;
 	typedef typename output_object_type::stream_type stream_type;
-	typedef typename output_object_type::traits_type traits_type;
-	typedef typename output_object_type::traits_type::key_type key_type;
+	typedef typename output_object_type::obj_traits_type obj_traits_type;
+	typedef typename output_object_type::obj_traits_type::key_type key_type;
 	
 private:
 	const_output_object_ref_type m_obj;
@@ -365,11 +368,11 @@ public:
 		return &m_key;
 	}
 	
-	typename traits_type::object_type type() const {
+	typename obj_traits_type::object_type type() const {
 		return m_obj.type();
 	}
 	
-	typename traits_type::size_type size() const {
+	typename obj_traits_type::size_type size() const {
 		return m_obj.size();
 	}
 	

@@ -17,14 +17,14 @@ namespace fs = boost::filesystem;
   * \tparam ObjectTraits traits defining object properties
   * \tparam Traits traits identifying pack database specific types
   */
-template <class ObjectTraits, class Traits>
+template <class TraitsType>
 class odb_pack_file
 {
 public:
-	typedef ObjectTraits						traits_type;
-	typedef Traits								db_traits_type;
+	typedef TraitsType									db_traits_type;
+	typedef typename db_traits_type::obj_traits_type	obj_traits_type;
 	
-	typedef typename db_traits_type::path_type	path_type;
+	typedef typename db_traits_type::path_type			path_type;
 	
 public:
 	//! Instantiate this instance with the path to a pack file
@@ -38,10 +38,13 @@ public:
 /** \brief Defines types used specifically in a packed object database.
   */
 template <class ObjectTraits>
-struct odb_pack_traits : public odb_file_traits<ObjectTraits>
+struct odb_pack_traits : public odb_file_traits<typename ObjectTraits::key_type,
+												typename ObjectTraits::hash_generator_type>
 {
+	typedef ObjectTraits									obj_traits_type;
+	
 	//! Type used to handle the reading of packs
-	typedef odb_pack_file<ObjectTraits, odb_pack_traits>					pack_reader_type;
+	typedef odb_pack_file<odb_pack_traits>					pack_reader_type;
 	
 	
 };
@@ -61,19 +64,19 @@ struct odb_pack_traits : public odb_file_traits<ObjectTraits>
   * \tparam ObjectTraits traits to define the objects to be stored within the database
   * \tparam Traits traits specific to the database itself, which includes the actual pack format
   */ 
-template <class ObjectTraits, class Traits>
-class odb_pack :	public odb_base<ObjectTraits>,
-					public odb_file_mixin<typename Traits::path_type>
+template <class TraitsType>
+class odb_pack :	public odb_base<TraitsType>,
+					public odb_file_mixin<typename TraitsType::path_type>
 {
 public:
-	typedef ObjectTraits				traits_type;
-	typedef Traits						db_traits_type;
+	typedef TraitsType									db_traits_type;
+	typedef typename db_traits_type::obj_traits_type	obj_traits_type;
 	
-	typedef typename traits_type::key_type							key_type;
-	typedef typename traits_type::char_type							char_type;
-	typedef odb_hash_error<key_type>								hash_error_type;
+	typedef typename obj_traits_type::key_type			key_type;
+	typedef typename obj_traits_type::char_type			char_type;
+	typedef odb_hash_error<key_type>					hash_error_type;
 	
-	typedef typename db_traits_type::path_type						path_type;
+	typedef typename db_traits_type::path_type			path_type;
 	
 public:
 	odb_pack(const path_type& root)

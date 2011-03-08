@@ -37,24 +37,24 @@ class odb_mem_serialization_error : public odb_serialization_error,
 
 /** \ingroup ODBObject
   */
-template <	class ObjectTraits, 
+template <	class ObjectTraits,
 			class StreamType = io::stream<io::basic_array_source<typename ObjectTraits::char_type> > >
 class odb_mem_output_object : public odb_output_object<ObjectTraits, StreamType>
 {
 public:
+	typedef ObjectTraits										obj_traits_type;
 	typedef StreamType											stream_type;
-	typedef ObjectTraits										traits_type;
 	typedef std::vector<typename stream_type::char_type>		data_type;
 	
 private:
-	typename traits_type::object_type						m_type;		//! object type
-	typename traits_type::size_type							m_size;		//! uncompressed size
-	data_type												m_data;		//! actually stored data
+	typename obj_traits_type::object_type						m_type;		//! object type
+	typename obj_traits_type::size_type							m_size;		//! uncompressed size
+	data_type													m_data;		//! actually stored data
 	
 	odb_mem_output_object(const odb_mem_output_object&);				//! enforce move constructor
 	
 public:
-	odb_mem_output_object(typename traits_type::object_type type, typename traits_type::size_type size) noexcept
+	odb_mem_output_object(typename obj_traits_type::object_type type, typename obj_traits_type::size_type size) noexcept
 		: m_type(type)
 		, m_size(size)
 		
@@ -66,11 +66,11 @@ public:
 	odb_mem_output_object(odb_mem_output_object&& rhs) = default;
 			
 	
-	typename traits_type::object_type type() const noexcept {
+	typename obj_traits_type::object_type type() const noexcept {
 		return m_type;
 	}
 	
-	typename traits_type::size_type size() const noexcept {
+	typename obj_traits_type::size_type size() const noexcept {
 		return m_size;
 	}
 	
@@ -92,8 +92,8 @@ public:
 		return m_data;
 	}
 	
-	void deserialize(typename traits_type::output_reference_type out) const {
-		typename traits_type::policy_type().deserialize(out, *this);
+	void deserialize(typename obj_traits_type::output_reference_type out) const {
+		typename obj_traits_type::policy_type().deserialize(out, *this);
 	}
 };
 
@@ -102,16 +102,17 @@ public:
   * It's value can be queried read-only, and it cannot be used in iterations.
   * \ingroup ODBIter
   */
-template <class ObjectTraits>
-class mem_accessor : public odb_accessor<ObjectTraits>
+template <class TraitsType>
+class mem_accessor : public odb_accessor<TraitsType>
 {
 public:
-	typedef ObjectTraits traits_type;
-	typedef typename traits_type::key_type key_type;
-	typedef typename traits_type::size_type size_type;
-	typedef std::map<key_type, odb_mem_output_object<traits_type> > map_type;
-	typedef mem_accessor<traits_type> this_type;
-	typedef typename map_type::value_type value_type;
+	typedef TraitsType														db_traits_type;
+	typedef typename db_traits_type::obj_traits_type						obj_traits_type;
+	typedef typename obj_traits_type::key_type								key_type;
+	typedef typename obj_traits_type::size_type								size_type;
+	typedef std::map<key_type, odb_mem_output_object<obj_traits_type> >		map_type;
+	typedef mem_accessor<db_traits_type>									this_type;
+	typedef typename map_type::value_type									value_type;
 
 protected:
 	typename map_type::const_iterator m_iter;
@@ -153,16 +154,16 @@ public:
 /** \ingroup ODBIter
   * \todo derive from boost::iterator_facade, which would allow to remove plenty of boilerplate
   */
-template <class ObjectTraits>
-class mem_forward_iterator : public mem_accessor<ObjectTraits>
+template <class TraitsType>
+class mem_forward_iterator : public mem_accessor<TraitsType>
 {
 public:
-	typedef mem_accessor<ObjectTraits> parent_type;
+	typedef mem_accessor<TraitsType> parent_type;
 
 	
 	template <class Iterator>
 	mem_forward_iterator(const Iterator& it)
-		: mem_accessor<ObjectTraits>(it) {}
+		: mem_accessor<TraitsType>(it) {}
 	
 	mem_forward_iterator& operator++() {
 		++(this->m_iter); return *this;
@@ -178,19 +179,20 @@ public:
   * Hence it is nothing more than map with different functionality  and special iterators, which 
   * may additionally generate its own keys as it knows its kind of input.
   */
-template <class ObjectTraits>
-class odb_mem : public odb_base<ObjectTraits>
+template <class TraitsType>
+class odb_mem : public odb_base<TraitsType>
 {
 public:
-	typedef ObjectTraits										traits_type;
-	typedef odb_base<traits_type>								parent_type;
-	typedef typename traits_type::key_type						key_type;
-	typedef typename mem_accessor<traits_type>::map_type		map_type;
-	typedef mem_accessor<traits_type>							accessor;
-	typedef mem_forward_iterator<traits_type>					forward_iterator;
-	typedef odb_hash_error<key_type>							hash_error_type;
-	typedef odb_mem_output_object<traits_type>					output_object_type;
-	typedef odb_ref_input_object<traits_type>					input_object_type;
+	typedef TraitsType												db_traits_type;
+	typedef typename db_traits_type::obj_traits_type				obj_traits_type;
+	typedef odb_base<db_traits_type>								parent_type;
+	typedef typename obj_traits_type::key_type						key_type;
+	typedef typename mem_accessor<db_traits_type>::map_type			map_type;
+	typedef mem_accessor<db_traits_type>							accessor;
+	typedef mem_forward_iterator<db_traits_type>					forward_iterator;
+	typedef odb_hash_error<key_type>								hash_error_type;
+	typedef odb_mem_output_object<obj_traits_type>					output_object_type;
+	typedef odb_ref_input_object<obj_traits_type>					input_object_type;
 	
 protected:
 	map_type m_objs;
@@ -205,7 +207,7 @@ public:
 	//! \param obj output object to be stored in the database, which keeps the type and the size of the object
 	//! \todo maybe put this into a database specific policy instead. As long as we only call one method though, 
 	//! it might not be worth an own policy.
-	virtual void header_hash(typename traits_type::hash_generator_type& gen, const output_object_type& obj) const {}
+	virtual void header_hash(typename obj_traits_type::hash_generator_type& gen, const output_object_type& obj) const {}
 	
 	//! @}
 	
@@ -242,7 +244,7 @@ public:
 	accessor insert(InputObject& object);
 
 	//! Same as above, but will produce the required serialized version of object automatically
-	accessor insert_object(const typename traits_type::input_reference_type object);
+	accessor insert_object(const typename obj_traits_type::input_reference_type object);
 	
 	//! insert the copy's of the contents of the given input iterators into this object database
 	//! The inserted items can be queried using the keys from the input iterators
@@ -250,14 +252,14 @@ public:
 	void insert(Iterator begin, const Iterator end);
 	
 	//! Same as above, but will produce the required serialized version of object automatically
-	accessor insert(typename traits_type::input_reference_type object);
+	accessor insert(typename obj_traits_type::input_reference_type object);
 	
 };
 
-template <class ObjectTraits>
-typename odb_mem<ObjectTraits>::accessor odb_mem<ObjectTraits>::insert_object(const typename ObjectTraits::input_reference_type inobj)
+template <class TraitsType>
+typename odb_mem<TraitsType>::accessor odb_mem<TraitsType>::insert_object(const typename TraitsType::obj_traits_type::input_reference_type inobj)
 {
-	auto policy = typename traits_type::policy_type();
+	auto policy = typename obj_traits_type::policy_type();
 	output_object_type oobj(policy.type(inobj), policy.compute_size(inobj));
 	auto& odata = oobj.data();
 	odata.reserve(oobj.size());
@@ -267,17 +269,17 @@ typename odb_mem<ObjectTraits>::accessor odb_mem<ObjectTraits>::insert_object(co
 	dest << std::flush;
 	
 	assert(odata.size() == oobj.size());
-	typename traits_type::hash_generator_type hashgen;
+	typename obj_traits_type::hash_generator_type hashgen;
 	header_hash(hashgen, oobj);
 	hashgen.update(odata.data(), odata.size());
 	return accessor(m_objs.insert(typename map_type::value_type(hashgen.hash(), std::move(oobj))).first);
 }
 
-template <class ObjectTraits>
+template <class TraitsType>
 template <class InputObject>
-typename odb_mem<ObjectTraits>::accessor odb_mem<ObjectTraits>::insert(InputObject& iobj)
+typename odb_mem<TraitsType>::accessor odb_mem<TraitsType>::insert(InputObject& iobj)
 {
-	static_assert(sizeof(typename traits_type::char_type) == sizeof(typename InputObject::stream_type::char_type), "char types incompatible");
+	static_assert(sizeof(typename obj_traits_type::char_type) == sizeof(typename InputObject::stream_type::char_type), "char types incompatible");
 	output_object_type oobj(iobj.type(), iobj.size());
 	
 	auto& odata = oobj.data();
@@ -290,7 +292,7 @@ typename odb_mem<ObjectTraits>::accessor odb_mem<ObjectTraits>::insert(InputObje
 	if (pkey) {
 		return accessor(m_objs.insert(typename map_type::value_type(*pkey, std::move(oobj))).first);
 	} else {
-		typename traits_type::hash_generator_type hashgen;
+		typename obj_traits_type::hash_generator_type hashgen;
 		header_hash(hashgen, oobj);
 		hashgen.update(odata.data(), odata.size());
 		return accessor(m_objs.insert(typename map_type::value_type(hashgen.hash(), std::move(oobj))).first);

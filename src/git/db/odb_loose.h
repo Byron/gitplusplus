@@ -40,19 +40,22 @@ struct git_loose_odb_policy : public gtl::odb_loose_policy
 struct git_loose_odb_traits : public gtl::odb_loose_traits<git_object_traits>
 {
 	//! override default policy for our implementation
-	typedef git_loose_odb_policy policy_type;
+	typedef git_loose_odb_policy			policy_type;
 };
 
 /** \ingroup ODB
   * \brief git-like implementation of the loose object database
   */
-class LooseODB : public gtl::odb_loose<git_object_traits, git_loose_odb_traits>
+class LooseODB : public gtl::odb_loose<git_loose_odb_traits>
 {
 public:
 	typedef git_loose_odb_traits::path_type path_type;
 	
 public:
-    LooseODB(const path_type& root);
+    LooseODB(const path_type& root)
+		: odb_loose(root)
+	{}
+	      
 };
 
 

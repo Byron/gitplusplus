@@ -26,16 +26,16 @@ namespace fs = boost::filesystem;
 /** \brief filter which automatically parses the header of a stream and makes the type and size 
   * information available after the first read operation.
   */
-template <class ObjectTraits, class Traits, size_t BufLen>
+template <class TraitsType, size_t BufLen>
 class header_filter
 {
 public:
-	typedef ObjectTraits														traits_type;
-	typedef Traits																db_traits_type;
-	typedef header_filter<traits_type, db_traits_type, BufLen>					this_type;
-	typedef typename traits_type::char_type										char_type;
-	typedef typename traits_type::size_type										size_type;
-	typedef typename traits_type::object_type									object_type;
+	typedef TraitsType																db_traits_type;
+	typedef typename db_traits_type::obj_traits_type								obj_traits_type;
+	typedef header_filter<db_traits_type, BufLen>									this_type;
+	typedef typename obj_traits_type::char_type										char_type;
+	typedef typename obj_traits_type::size_type										size_type;
+	typedef typename obj_traits_type::object_type									object_type;
 	
     struct category
         : boost::iostreams::dual_use,
@@ -65,7 +65,7 @@ private:
 	}
 	
 	inline bool needs_update() const {
-		return m_type == traits_type::null_object_type;
+		return m_type == obj_traits_type::null_object_type;
 	}
 	
 	inline bool must_write_header() const {
@@ -74,12 +74,12 @@ private:
 	
 	//! Make this instance ready for a new underlying stream
 	void reset() {
-		m_type = traits_type::null_object_type;
+		m_type = obj_traits_type::null_object_type;
 	}
 	
 	
 public:
-	explicit header_filter(object_type type = traits_type::null_object_type, size_type size = 0)
+	explicit header_filter(object_type type = obj_traits_type::null_object_type, size_type size = 0)
 	    : m_type(type)
 	    , m_size(size)
 	{}
@@ -161,7 +161,7 @@ public:
 			// of bytes he actually wrote ... otherwise we get all kinds of issues.
 			io::write(snk, buf.data(), buf.size());
 			
-			m_type = traits_type::null_object_type;
+			m_type = obj_traits_type::null_object_type;
 		}
 		return io::write(snk, s, n);
     }
@@ -180,7 +180,7 @@ struct uncompressed_header_tag {};
 //! \brief stream suitable for reading any kind of loose object format
 //! This is the base template which is partially specialized for the respective header tags
 //! \tparam ObjectTraits traits for some general git settings
-template <class ObjectTraits, class Traits, class HeaderTag=typename Traits::header_tag, size_t BufLen=128>
+template <class TraitsType, class HeaderTag=typename TraitsType::header_tag, size_t BufLen=128>
 class loose_object_input_stream
 {
 };
@@ -196,24 +196,23 @@ class loose_object_input_stream
   * and must be discarded after usage.
   *
   * If any path is given to an instance of this type for writing, it is assumed to be writable.
-  * \todo make filtering_stream use the traits_type::char_type - currently it must use char directly 
+  * \todo make filtering_stream use the obj_traits_type::char_type - currently it must use char directly 
   * as it will not allow the component method to be used otherwise
   * \todo compression level should be runtime configurable
   */
-template <class ObjectTraits, class Traits, class HeaderTag=typename Traits::header_tag>
+template <class TraitsType, class HeaderTag=typename TraitsType::header_tag>
 class loose_object_output_stream : public io::filtering_stream<io::output, char>
 {
 public:
-	typedef ObjectTraits												traits_type;
-	typedef Traits														db_traits_type;
-	
-	typedef typename traits_type::object_type							object_type;
+	typedef TraitsType													db_traits_type;
+	typedef typename db_traits_type::obj_traits_type					obj_traits_type;
+	typedef typename obj_traits_type::object_type						object_type;
 	typedef typename db_traits_type::path_type							path_type;
-	typedef typename traits_type::size_type								size_type;
-	typedef typename traits_type::key_type								key_type;
-	typedef typename traits_type::char_type								char_type;
+	typedef typename obj_traits_type::size_type							size_type;
+	typedef typename obj_traits_type::key_type							key_type;
+	typedef typename obj_traits_type::char_type							char_type;
 	typedef typename db_traits_type::hash_filter_type					hash_filter_type;
-	typedef header_filter<traits_type, db_traits_type, 128>				header_filter_type;
+	typedef header_filter<db_traits_type, 128>			header_filter_type;
 	
 public:
 	
@@ -268,21 +267,21 @@ public:
   * \note this type is not copy-constructible or movable. It should be movable though ... which is not (yet) the case.
   * \todo fix explicit char type - ObjectTraits::char_type should be used, but the component<>() method changes then its return value
   */
-template <class ObjectTraits, class Traits, size_t BufLen>
-class loose_object_input_stream<ObjectTraits, Traits, compressed_header_tag, BufLen> : 
+template <class TraitsType, size_t BufLen>
+class loose_object_input_stream<TraitsType, compressed_header_tag, BufLen> : 
         public io::filtering_stream<io::input, char> // was ObjectTraits::char_type, but then it cannot resolve some types
 {
 public:
-	typedef Traits																db_traits_type;
-	typedef ObjectTraits														traits_type;
-	typedef typename traits_type::char_type										char_type;
-	typedef header_filter<traits_type, db_traits_type, BufLen>					header_filter_type;
-	typedef loose_object_input_stream<ObjectTraits, Traits, compressed_header_tag> this_type;
-	typedef io::filtering_stream<io::input, char_type>							parent_type;
-	typedef typename traits_type::size_type										size_type;
-	typedef typename traits_type::object_type									object_type;
-	typedef typename db_traits_type::path_type									path_type;
-	static const size_t															buflen = BufLen;
+	typedef TraitsType																db_traits_type;
+	typedef typename db_traits_type::obj_traits_type								obj_traits_type;
+	typedef typename obj_traits_type::char_type										char_type;
+	typedef header_filter<db_traits_type, BufLen>									header_filter_type;
+	typedef loose_object_input_stream<db_traits_type, compressed_header_tag>		this_type;
+	typedef io::filtering_stream<io::input, char_type>								parent_type;
+	typedef typename obj_traits_type::size_type										size_type;
+	typedef typename obj_traits_type::object_type									object_type;
+	typedef typename db_traits_type::path_type										path_type;
+	static const size_t																buflen = BufLen;
 
 
 public:
@@ -316,7 +315,7 @@ public:
 			this->read(&buf[0], 1);
 			this->unget();	// operates on our internal buffer
 			
-			assert(this->type() != traits_type::null_object_type);
+			assert(this->type() != obj_traits_type::null_object_type);
 		}
 	}
 	
@@ -337,11 +336,10 @@ public:
   * The header is read uncompressed, the stream is compressed.
   * \todo implement uncompressed header stream
   */
-template <class ObjectTraits, class Traits, size_t BufLen>
-class loose_object_input_stream<ObjectTraits, Traits, uncompressed_header_tag, BufLen>
+template <class TraitsType, size_t BufLen>
+class loose_object_input_stream<TraitsType, uncompressed_header_tag, BufLen>
 {
-	typedef Traits			db_traits_type;
-	typedef ObjectTraits	traits_type;
+	typedef TraitsType		db_traits_type;
 
 };
 
@@ -377,8 +375,12 @@ struct odb_loose_policy
   * external dependencies which must be met for the program to run.
   */
 template <class ObjectTraits>
-struct odb_loose_traits : public odb_file_traits<ObjectTraits>
+struct odb_loose_traits : public odb_file_traits<	typename ObjectTraits::key_type, 
+													typename ObjectTraits::hash_generator_type>
 {
+	//! Traits defininig the object itself and how to deal with it
+	typedef ObjectTraits									obj_traits_type;
+	
 	//! amount of hash-characters used as directory into which to put the loose object files.
 	//! One hash character will translate into two hexadecimal characters
 	static const uint32_t									num_prefix_characters = 1;
@@ -396,17 +398,17 @@ struct odb_loose_traits : public odb_file_traits<ObjectTraits>
   * and kept open for further reading. This implies you should dispose this object as soon as possible to 
   * release the associated system resources.
   */
-template <class ObjectTraits, class Traits>
+template <class TraitsType>
 class odb_loose_output_object
 {
 public:
-	typedef ObjectTraits						traits_type;
-	typedef Traits								db_traits_type;
-	typedef loose_object_input_stream<traits_type, db_traits_type, typename db_traits_type::header_tag> stream_type;
-	typedef typename db_traits_type::path_type	path_type;
-	typedef typename traits_type::size_type		size_type;
-	typedef typename traits_type::object_type	object_type;
-	typedef odb_loose_output_object				this_type;
+	typedef TraitsType										db_traits_type;
+	typedef typename db_traits_type::obj_traits_type		obj_traits_type;
+	typedef loose_object_input_stream<db_traits_type, typename db_traits_type::header_tag> stream_type;
+	typedef typename db_traits_type::path_type				path_type;
+	typedef typename obj_traits_type::size_type				size_type;
+	typedef typename obj_traits_type::object_type			object_type;
+	typedef odb_loose_output_object							this_type;
 	
 private:
 	//! Initialize our stream for reading, basically read-in the header information
@@ -481,8 +483,8 @@ public:
 		stream->~loose_object_input_stream();
 	}
 	
-	void deserialize(typename traits_type::output_reference_type out) const {
-		typename traits_type::policy_type().deserialize(out, *this);
+	void deserialize(typename obj_traits_type::output_reference_type out) const {
+		typename obj_traits_type::policy_type().deserialize(out, *this);
 	}
 	
 	//! @{ Interface
@@ -504,18 +506,18 @@ public:
 
 /** \brief accessor pointing to one item in the database.
   */
-template <class ObjectTraits, class Traits>
-class loose_accessor :	public odb_accessor<ObjectTraits>
+template <class TraitsType>
+class loose_accessor :	public odb_accessor<TraitsType>
 {
 public:
-	typedef ObjectTraits										traits_type;
-	typedef Traits												db_traits_type;
-	typedef odb_loose_output_object<ObjectTraits, Traits>		output_object_type;
-	typedef typename traits_type::key_type						key_type;
-	typedef typename traits_type::size_type						size_type;
-	typedef typename traits_type::object_type					object_type;
-	typedef typename db_traits_type::path_type					path_type;
-	typedef loose_accessor<traits_type, db_traits_type>			this_type;
+	typedef TraitsType												db_traits_type;
+	typedef typename db_traits_type::obj_traits_type				obj_traits_type;
+	typedef odb_loose_output_object<db_traits_type>					output_object_type;
+	typedef typename obj_traits_type::key_type						key_type;
+	typedef typename obj_traits_type::size_type						size_type;
+	typedef typename obj_traits_type::object_type					object_type;
+	typedef typename db_traits_type::path_type						path_type;
+	typedef loose_accessor<db_traits_type>							this_type;
 	
 protected:
 	mutable output_object_type	m_obj;
@@ -597,18 +599,18 @@ public:
   * its information once, it will use system resources. On the next step, these are being released automatically
   * as the object then points to a different path.
   */
-template <class ObjectTraits, class Traits>
-class loose_forward_iterator : public loose_accessor<ObjectTraits, Traits>
+template <class TraitsType>
+class loose_forward_iterator : public loose_accessor<TraitsType>
 {
 public:
-	typedef ObjectTraits						traits_type;
-	typedef Traits								db_traits_type;
-	typedef odb_loose_output_object<ObjectTraits, Traits> output_object_type;
-	typedef typename traits_type::key_type		key_type;
-	typedef typename traits_type::size_type		size_type;
-	typedef typename traits_type::object_type	object_type;
-	typedef typename db_traits_type::path_type	path_type;
-	typedef loose_forward_iterator				this_type;
+	typedef TraitsType									db_traits_type;
+	typedef typename db_traits_type::obj_traits_type	obj_traits_type;
+	typedef odb_loose_output_object<obj_traits_type> output_object_type;
+	typedef typename obj_traits_type::key_type			key_type;
+	typedef typename obj_traits_type::size_type			size_type;
+	typedef typename obj_traits_type::object_type		object_type;
+	typedef typename db_traits_type::path_type			path_type;
+	typedef loose_forward_iterator						this_type;
 	
 protected:
 	boost::filesystem::recursive_directory_iterator m_iter;
@@ -639,7 +641,7 @@ protected:
 private:
 	//! copy constructor - currently we only allow move semantics due to our file stream
 	loose_forward_iterator(const this_type& rhs)
-	    : loose_accessor<ObjectTraits, Traits>(rhs)
+	    : loose_accessor<TraitsType>(rhs)
 	    , m_iter(rhs.m_iter)
 	{}
 	
@@ -684,32 +686,32 @@ public:
   * size as well as the data stream. The compression applies to the header information as well as the stream itself
   * by default, but this behaviour may be changed easily using traits.
   */
-template <class ObjectTraits, class Traits>
-class odb_loose :	public odb_base<ObjectTraits>, 
-					public odb_file_mixin<typename Traits::path_type>
+template <class TraitsType>
+class odb_loose :	public odb_base<TraitsType>, 
+					public odb_file_mixin<typename TraitsType::path_type>
 {
 public:
-	typedef ObjectTraits											traits_type;
-	typedef Traits													db_traits_type;
-	typedef typename traits_type::key_type							key_type;
-	typedef typename traits_type::char_type							char_type;
-	typedef odb_hash_error<key_type>								hash_error_type;
-	typedef typename db_traits_type::path_type						path_type;
+	typedef TraitsType													db_traits_type;
+	typedef typename db_traits_type::obj_traits_type					obj_traits_type;
+	typedef typename obj_traits_type::key_type							key_type;
+	typedef typename obj_traits_type::char_type							char_type;
+	typedef odb_hash_error<key_type>									hash_error_type;
+	typedef typename db_traits_type::path_type							path_type;
 	
-	typedef odb_loose_output_object<traits_type, db_traits_type>	output_object_type;
-	typedef odb_ref_input_object<traits_type>						input_object_type;
-	typedef typename output_object_type::stream_type				input_stream_type;
-	typedef loose_object_output_stream<traits_type, db_traits_type> output_stream_type;
+	typedef odb_loose_output_object<db_traits_type>						output_object_type;
+	typedef odb_ref_input_object<obj_traits_type>						input_object_type;
+	typedef typename output_object_type::stream_type					input_stream_type;
+	typedef loose_object_output_stream<db_traits_type>					output_stream_type;
 	
-	typedef loose_accessor<traits_type, db_traits_type>				accessor;
-	typedef loose_forward_iterator<traits_type, db_traits_type>		forward_iterator;
+	typedef loose_accessor<db_traits_type>								accessor;
+	typedef loose_forward_iterator<db_traits_type>						forward_iterator;
 
 protected:
 	//! Generate a path for the given key - it doesn't necessarily exist
 	void path_from_key(const key_type& key, path_type& out_path) const 
 	{
 		out_path = this->m_root;
-		typename traits_type::char_type buf[key_type::hash_len*2+1];
+		typename obj_traits_type::char_type buf[key_type::hash_len*2+1];
 		
 		for (uint i = 0; i < db_traits_type::num_prefix_characters; ++i) {
 			auto hc(gtl::tohex(key.bytes()[i]));
@@ -793,13 +795,13 @@ public:
 	//! \tparam InputObject input object compatible type
 	template <class InputObject>
 	accessor insert(InputObject& object);
-	accessor insert_object(typename traits_type::input_reference_type object);
+	accessor insert_object(typename obj_traits_type::input_reference_type object);
 };
 
-template <class ObjectTraits, class Traits>
-typename odb_loose<ObjectTraits, Traits>::accessor odb_loose<ObjectTraits, Traits>::insert_object(typename ObjectTraits::input_reference_type object)
+template <class TraitsType>
+typename odb_loose<TraitsType>::accessor odb_loose<TraitsType>::insert_object(typename TraitsType::obj_traits_type::input_reference_type object)
 {
-	auto policy = typename traits_type::policy_type();
+	auto policy = typename obj_traits_type::policy_type();
 	std::basic_stringstream<char_type> tmp_stream;
 	path_type tmp_path = this->temppath();
 	
@@ -817,16 +819,16 @@ typename odb_loose<ObjectTraits, Traits>::accessor odb_loose<ObjectTraits, Trait
 	
 	path_type final_path;
 	this->path_from_key(ostream.hash_filter()->hash(), final_path);
-	assert(ostream.hash_filter()->hash() != traits_type::key_type::null);
+	assert(ostream.hash_filter()->hash() != obj_traits_type::key_type::null);
 	
 	move_tmp_to_final(tmp_path, final_path);
 	
 	return accessor(final_path);
 }
 
-template <class ObjectTraits, class Traits>
+template <class TraitsType>
 template <class InputObject>
-typename odb_loose<ObjectTraits, Traits>::accessor odb_loose<ObjectTraits, Traits>::insert(InputObject& object)
+typename odb_loose<TraitsType>::accessor odb_loose<TraitsType>::insert(InputObject& object)
 {
 	// do nothing if we have the object already
 	if (object.key_pointer()) {
