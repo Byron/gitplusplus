@@ -13,11 +13,11 @@ GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
 
 //! \brief Thrown for errors during deserialization
-class DeserializationError :	public ObjectError
+struct DeserializationError :	public ObjectError
 {};
 
 //! \brief Thrown for errors during serialization
-class SerializationError :	public ObjectError
+struct SerializationError :	public ObjectError
 {};
 
 //! @{ \name Stream Operators

@@ -476,13 +476,29 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 
 BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 {
+	typedef PackODB::vector_pack_readers::const_iterator const_pack_iterator;
 	const size_t pack_count = 3;
 	PackODB podb(rw_dir());
-	BOOST_REQUIRE(podb.num_packs() == pack_count);
+	BOOST_REQUIRE(podb.packs().size() == pack_count);
 	
 	// update calls don't change amount of items, if there was no local change
 	podb.update_cache();
-	BOOST_REQUIRE(podb.num_packs() == pack_count);
+	BOOST_REQUIRE(podb.packs().size() == pack_count);
+	
+	// iterate old and new style packs
+	const_pack_iterator pend = podb.packs().end();
+	for (const_pack_iterator piter = podb.packs().begin(); piter != pend; ++piter) {
+		const PackFile* pack = (*piter).get();
+		const PackIndexFile& pack_index = pack->index();
+		BOOST_CHECK(pack_index.type() != PackIndexFile::Type::Undefined);
+		
+		std::cerr << pack_index.type() << " - " << pack_index.version() << std::endl;
+		
+		// make a few calls
+		BOOST_REQUIRE(pack_index.num_entries() != 0);
+		pack_index.index_checksum();
+		pack_index.pack_checksum();
+	}
 	
 	// PackODB::accessor begin = podb.begin();
 }

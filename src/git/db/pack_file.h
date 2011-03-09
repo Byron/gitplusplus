@@ -17,37 +17,69 @@ namespace io = boost::iostreams;
 //! @{ \name Convenience Typedefs
 typedef gtl::odb_pack_traits<git_object_traits>			gtl_pack_traits;
 typedef typename gtl_pack_traits::path_type				path_type;
+typedef typename gtl_pack_traits::key_type				key_type;
 typedef git_object_traits::char_type					char_type;
 //! @} end convenience typedefs
 
 
+
 //! @{ \name Exceptions
-class IndexVersionError :	public gtl::streaming_exception,
-							public gtl::odb_error
+
+//! \brief General error thrown if parsing of a file fails
+struct ParseError :	public gtl::streaming_exception,
+					public gtl::pack_parse_error
 {
 	const char* what() const throw() {
 		return gtl::streaming_exception::what();
 	}
 };
 
-//! @}
+
+//! \brief thrown if the version of the index file is not understood
+//! \note only thrown for new-style index files
+class IndexVersionError : public ParseError
+{
+private:
+	uint32 m_type;
+public:
+	IndexVersionError(uint32 version)
+	    : m_type(version)
+	{
+		stream() << "Cannot handle version " << version;
+	}
+	
+public:
+	//! \return version number which was found in the file, but could not be handled
+	uint32 version() const {
+		return m_type;
+	}
+};
+
+//! @} end exceptions
+
 
 
 /** \brief type encapsulating a pack index file, making it available for access
+  * \note one instance may be used to open multiple different files in order
   */ 
 class PackIndexFile : public boost::iostreams::mapped_file_source
 {
-protected:
+public:
 	//! Version identifier
 	//! \todo make it derive from uchar, unfortunately qtcreator can't parse that
-	enum Version /*: uchar */{
-		None = 0,
-		One = 1,
-		Two = 2
+	enum Type /*: uchar */{
+		Undefined = 0,
+		Legacy = 1,
+		Default = 2
 	};
 	
 protected:
-	Version m_version;		//!< version of the index file
+	Type		m_type;		//!< version of the index file
+	uint32		m_version;	//!< starting at version two, there is an additional version number
+	
+private:
+	//! \return array of 255 integers which are our hex fanout for faster lookups
+	inline const uint32*	fanout() const;
 	
 public:
 	PackIndexFile();
@@ -57,6 +89,34 @@ public:
 	//! initialize our internal pointers for fast access whenever we are to open a new file
 	//! \throw IndexVersionError if the index could not be read
 	void open(const path_type& path);
+	
+	//! Explicitly close our file and handle our internal variables
+	void close();
+	
+public:
+	//! @{ \name Interface
+	
+	//! \return the type of our loaded file or None if there is no file loaded
+	Type type() const {
+		return m_type;
+	}
+	
+	//! \return sub-version of the index file. In case of version one (see version()), it will always be 0
+	//! otherwise it usually is two, but this may be incremented in future.
+	uint32 version() const {
+		return m_version;
+	}
+	
+	//! \return number of entries, i.e. amount of hashes, in the index
+	uint32 num_entries() const;
+	
+	//! \return checksum of the pack file as hash
+	key_type pack_checksum() const;
+	
+	//! \return checksum of the index file as hash
+	key_type index_checksum() const;
+	
+	//! @} end interface
 	
 };
 
@@ -92,11 +152,22 @@ public:
 	
 public:
 	
+	//! @{ \name PackFile Interface
 	static PackFile* new_pack(const path_type& file);
 	
 	const path_type& pack_path() const {
 		return m_pack_path;
 	}
+	
+	//! @} end packfile interface
+	
+	//! @{ \name Interface
+	//! \return our associated index file
+	const PackIndexFile& index() const {
+		return m_index;
+	}
+	
+	//! @} end interface
 	
 };
 

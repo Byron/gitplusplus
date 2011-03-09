@@ -16,6 +16,15 @@ GTL_NAMESPACE_BEGIN
 namespace io = boost::iostreams;
 namespace fs = boost::filesystem;
 
+
+//! @{ \name Exceptions
+
+//! \brief General error thrown if parsing of a pack file fails
+struct pack_parse_error :	public odb_error
+{};
+
+//! @}
+
 /** \brief Defines the interface of all pack files which is used by the pack object database.
   * \note the template parameters are used only to have meaningful types in the method signatures, 
   * the implementor is not obgliged to use templates at all.
@@ -189,10 +198,10 @@ public:
 	//! set of files has changed after the database was first instantiated.
 	void update_cache();
 	
-	//! \return amount of packs in the database
-	size_t num_packs() const {
+	//! \return vector of unique pointers of packs
+	const vector_pack_readers& packs() const {
 		assure_update();
-		return m_packs.size();
+		return m_packs;
 	}
 	
 	//! @} end caching interface

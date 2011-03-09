@@ -17,7 +17,7 @@ GTL_NAMESPACE_BEGIN
 /** \brief basic exception for all object database related issues
   * \ingroup ODBException
   */
-class odb_error : public std::exception
+struct odb_error : public std::exception
 {
 	virtual const char* what() const throw() {
 		return "general object database error";
@@ -28,7 +28,7 @@ class odb_error : public std::exception
   * \tparam HashType hash compatible type
   */
 template <class HashType>
-class odb_hash_error :	public odb_error,
+struct odb_hash_error :	public odb_error,
 						public streaming_exception
 						
 						

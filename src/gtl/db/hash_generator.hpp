@@ -11,7 +11,7 @@ GTL_NAMESPACE_BEGIN
 /** \brief basic error for all hash related issues.
   * \ingroup ODBException
   */
-class hash_generator_error: public std::exception
+struct hash_generator_error: public std::exception
 {
 	virtual const char* what() const throw() {
 		return "general generator error";
@@ -23,7 +23,7 @@ class hash_generator_error: public std::exception
   * are called several times.
   * \ingroup ODBException
   */
-class bad_state : public hash_generator_error
+struct bad_state : public hash_generator_error
 {
 	virtual const char* what() const throw() {
 		return "invalid call order would have caused an invalid state";
