@@ -2,9 +2,12 @@
 #define GIT_DB_PACK_FILE_H
 
 #include <git/config.h>
+#include <git/db/pack_stream.h>
+
 #include <boost/iostreams/device/mapped_file.hpp>
 #include <boost/iostreams/device/file.hpp>
 #include <boost/asio.hpp>		// for ntohl
+#include <boost/iterator/iterator_facade.hpp>
 
 #include <gtl/util.hpp>
 #include <gtl/db/odb_pack.hpp>
@@ -19,10 +22,12 @@ namespace io = boost::iostreams;
 typedef gtl::odb_pack_traits<git_object_traits>			gtl_pack_traits;
 typedef typename gtl_pack_traits::path_type				path_type;
 typedef typename gtl_pack_traits::key_type				key_type;
+typedef typename git_object_traits::size_type			size_type;
 typedef git_object_traits::char_type					char_type;
 //! @} end convenience typedefs
 
-
+// Forward declarations
+class PackFile;
 
 //! @{ \name Exceptions
 
@@ -196,6 +201,64 @@ public:
 };
 
 
+//! \brief object providing access to a specific entry in a pack
+class PackOutputObject
+{
+public:
+	typedef DeltaPackStream				stream_type;
+protected:
+	const PackFile& m_pack;			//!< pack that contains this object
+	uint32			m_entry;				//!< pack entry we refer to
+
+public:
+	//! \note we explicitly don't check bounds
+	PackOutputObject(const PackFile& pack, uint32 entry)
+	    : m_pack(pack)
+	    , m_entry(entry)
+	{}
+	
+public:
+	//! @{ \name Output Object Interface
+	stream_type* new_stream() const;
+	void stream(stream_type* stream) const;
+	key_type key() const;
+	size_type size() const;
+	//! @} output object interface
+	
+	//! @{ Interface
+	uint32 entry() const {
+		return m_entry;
+	}
+	
+	//! set our instance to the given entry - we don't check bounds
+	uint32& entry() {
+		return m_entry;
+	}
+
+	//! @} end interface
+};
+
+
+/** \brief Iterator over all items within a pack
+  */
+class PackForwardIterator : public boost::iterator_facade<	PackForwardIterator,
+															PackOutputObject,
+															std::forward_iterator_tag>
+{
+protected:
+	PackOutputObject			m_obj;
+	
+protected:
+	void advance(difference_type n);
+	
+public:
+	PackForwardIterator(const PackFile& pack, uint32 entry)
+	    : m_obj(pack, entry)
+	{}
+	
+};
+
+
 /** \brief implementation of the gtl::odb_pack_file interface with support for git packs version 1 and 2
   * 
   * For the supported formats, see http://book.git-scm.com/7_the_packfile.html
@@ -208,6 +271,9 @@ public:
   */
 class PackFile
 {
+public:
+	typedef PackForwardIterator				accessor;
+	typedef PackForwardIterator				forward_iterator;
 	
 private:
 	PackFile(const PackFile&);
@@ -232,6 +298,14 @@ public:
 	
 	const path_type& pack_path() const {
 		return m_pack_path;
+	}
+	
+	forward_iterator begin() const {
+		return PackForwardIterator(*this, 0);
+	}
+	
+	forward_iterator end() const {
+		return PackForwardIterator(*this, this->index().num_entries());
 	}
 	
 	//! @} end packfile interface

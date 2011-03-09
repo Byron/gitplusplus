@@ -510,5 +510,11 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 		pack_index.pack_checksum();
 	}
 	
-	// PackODB::accessor begin = podb.begin();
+
+	// ITERATION AND VALUE QUERY	
+	const PackODB::forward_iterator end = podb.end();
+	for (PackODB::forward_iterator begin = podb.begin(); begin != end; ++begin) {
+		
+	}
+	
 }

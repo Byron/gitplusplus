@@ -37,10 +37,17 @@ template <class TraitsType>
 class odb_pack_file
 {
 public:
+	//! An accessor pointing to exactly one object
+	typedef uint										accessor;
+	//! An iterator to more forward through the objects in the database
+	typedef uint										forward_iterator;
+	
+protected:
+	//! @{ Internal Use
 	typedef TraitsType									db_traits_type;
 	typedef typename db_traits_type::obj_traits_type	obj_traits_type;
-	
 	typedef typename db_traits_type::path_type			path_type;
+	//! @} end internal use typedefs
 	
 public:
 		//! Instantiate this instance with the path to a pack file
@@ -59,6 +66,12 @@ public:
 	//! to this information in case of a cache update
 	const path_type& pack_path() const;
 	
+	//! \return iterator to the beginning of all output objects in this pack
+	//! \note only valid as long as the parent pack is valid
+	forward_iterator begin() const;
+	
+	//! \return iterator to the end of a given pack
+	forward_iterator end() const;
 };
 
 
@@ -104,7 +117,6 @@ public:
 	key_type key() const { 
 		return key_type();
 	}
-	
 };
 
 
@@ -127,6 +139,7 @@ struct odb_pack_traits : public odb_file_traits<typename ObjectTraits::key_type,
 	typedef ObjectTraits									obj_traits_type;
 	
 	//! Type used to handle the reading of packs
+	//! \note see the dummy type for a complete interface, which includes typedefs
 	typedef odb_pack_file<odb_pack_traits>					pack_reader_type;
 	
 	
@@ -192,7 +205,7 @@ public:
 	{}
 	
 public:
-	//! @{ \name Caching Interface
+	//! @{ \name Pack Interface
 	
 	//! Update the internal cache of pack file instances. Call this method if the underlying 
 	//! set of files has changed after the database was first instantiated.
@@ -204,7 +217,7 @@ public:
 		return m_packs;
 	}
 	
-	//! @} end caching interface
+	//! @} end pack interface
 	
 	//! @{ odb interface
 	

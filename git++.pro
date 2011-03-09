@@ -62,7 +62,8 @@ HEADERS += \
     test/git/fixture.hpp \
     src/gtl/db/odb_pack.hpp \
     src/git/db/odb_pack.h \
-    src/git/db/pack_file.h
+    src/git/db/pack_file.h \
+    src/git/db/pack_stream.h
 
 SOURCES += \
     test/git/model/db/odb_test.cpp \
@@ -88,4 +89,5 @@ SOURCES += \
     src/git/obj/multiobj.cpp \
     test/git/db/looseodb_performance_test.cpp \
     src/git/db/odb_pack.cpp \
-    src/git/db/pack_file.cpp
+    src/git/db/pack_file.cpp \
+    src/git/db/pack_stream.cpp
