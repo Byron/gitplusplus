@@ -9,6 +9,7 @@ PackIndexFile::PackIndexFile()
 {
 	reset();
 	static_assert(key_type::hash_len == 20, "The original pack index requires sha1 hashes");
+	static_assert(sizeof(key_type) == key_type::hash_len, "Keytypes must only contain the raw hash data");
 }
 
 void PackIndexFile::reset()
@@ -77,6 +78,50 @@ void PackIndexFile::sha(uint32 entry, key_type &out_hash) const
 	} else {
 		out_hash = data() + 256*4 + entry*sizeof(OffsetInfo) + 4;
 	}
+}
+
+uint32 PackIndexFile::sha_to_entry(const key_type &sha) const
+{
+	const char* keys;
+	uint32 ofs = 0;
+	uint32 ksize = key_type::hash_len;
+	const uint32* fo = reinterpret_cast<const uint32*>(data());
+	
+	// use some helpers to mask the v1/v2 compatability stuff. Performance overhead
+	// should hopefully be neglectable, for super-performance one might even want to
+	// start fresh and create a new format without legacy support
+	if (m_type == Type::Default) {
+		keys = data() + v2ofs_sha();
+		fo += 2;
+	} else {
+		ofs = 4;
+		ksize = sizeof(OffsetInfo);
+		keys = data() + 256*4;
+	}
+	
+	uint32 lo = 0;
+	uint32 hi, mi;
+	const uchar fb = sha.bytes()[0];	// first byte
+	
+	if (fb != 0) {
+		lo = ntohl(fo[fb-1]);
+	}
+	hi = ntohl(fo[fb]);
+	
+	// todo: attempt early abort by approaching the bounds. In the best case, we case
+	// we could find a better mid position
+	
+	while (lo < hi) {
+		mi = (lo + hi) / 2;
+		auto cmp = memcmp(sha.bytes(), keys + ksize*mi + ofs, key_type::hash_len);
+		if (cmp < 0)
+			hi = mi;
+		else if (cmp==0)
+			return mi;
+		else
+			lo = mi + 1;
+	}
+	return hash_unknown;
 }
 
 key_type PackIndexFile::pack_checksum() const

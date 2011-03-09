@@ -74,6 +74,9 @@ public:
 		Default = 2
 	};
 	
+	//! 32 bit tag indicating that the given hash is not known to this index
+	static const uint32 hash_unknown = ~0;
+	
 protected:
 	//! Helper for legacy packs
 	struct OffsetInfo {
@@ -178,6 +181,15 @@ public:
 			return ntohl(reinterpret_cast<const OffsetInfo*>(data() + 256*4)[entry].offset);
 		}
 	}
+	
+	//! \return id of the entry which contains information related to the given sha or 
+	//! ~0 if it was not found. It can easily be compared to the hash_unknown static constant
+	//! \param sha to look up
+	//! \note this means our implementation can only handle 2^32-2 entries (instead of 2^32-1)
+	//! which is probably okay considering the performance it buys as the method signature
+	//! is considerably simpler that way. If there was a back with 2^32-1 entries, the last entry
+	//! couldn't be accessed
+	uint32 sha_to_entry(const key_type& sha) const;
 	
 	//! @} end interface
 	
