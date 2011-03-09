@@ -5,6 +5,7 @@
 #include <boost/iostreams/device/mapped_file.hpp>
 #include <boost/iostreams/device/file.hpp>
 
+#include <gtl/util.hpp>
 #include <gtl/db/odb_pack.hpp>
 #include <git/db/policy.hpp>
 
@@ -20,13 +21,42 @@ typedef git_object_traits::char_type					char_type;
 //! @} end convenience typedefs
 
 
+//! @{ \name Exceptions
+class IndexVersionError :	public gtl::streaming_exception,
+							public gtl::odb_error
+{
+	const char* what() const throw() {
+		return gtl::streaming_exception::what();
+	}
+};
+
+//! @}
+
+
 /** \brief type encapsulating a pack index file, making it available for access
   */ 
-class PackIndex : public boost::iostreams::mapped_file_source
+class PackIndexFile : public boost::iostreams::mapped_file_source
 {
+protected:
+	//! Version identifier
+	//! \todo make it derive from uchar, unfortunately qtcreator can't parse that
+	enum Version /*: uchar */{
+		None = 0,
+		One = 1,
+		Two = 2
+	};
+	
+protected:
+	Version m_version;		//!< version of the index file
+	
 public:
-	PackIndex()
-	{};
+	PackIndexFile();
+	
+public:
+	
+	//! initialize our internal pointers for fast access whenever we are to open a new file
+	//! \throw IndexVersionError if the index could not be read
+	void open(const path_type& path);
 	
 };
 
@@ -50,7 +80,7 @@ private:
 	
 protected:
 	const path_type							m_pack_path;		//! original path to the pack
-	PackIndex								m_index;			//! Our index file
+	PackIndexFile							m_index;			//! Our index file
 	//boost::iostreams::mapped_file_source	m_pack;				//! portion of the packed file itself
 	
 protected:
