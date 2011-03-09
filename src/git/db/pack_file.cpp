@@ -1,23 +1,28 @@
 #include <git/db/pack_file.h>
 #include <git/config.h>			// for doxygen
 
-#include <boost/asio.hpp>		// for ntohl
-
 #include <cstring>
 
 GIT_NAMESPACE_BEGIN
 
 PackIndexFile::PackIndexFile()
-    : m_type(PackIndexFile::Type::Undefined)
-    , m_version(0)
 {
+	reset();
+	static_assert(key_type::hash_len == 20, "The original pack index requires sha1 hashes");
+}
+
+void PackIndexFile::reset()
+{
+	m_type = Type::Undefined;
+	m_version = 0;
+	m_num_entries = 0;
 }
 
 void PackIndexFile::open(const path_type &path)
 {
 	boost::iostreams::mapped_file_source::open(path);
+	reset();
 	assert(data()!=nullptr);
-	m_type = Type::Undefined;
 	
 	if (size() < 4) {
 		ParseError err;
@@ -49,24 +54,29 @@ void PackIndexFile::open(const path_type &path)
 			IndexVersionError err(m_version);
 			throw err;
 		}
-	} else {
-		m_version = 0;
 	}
+	
+	m_num_entries = _num_entries();
 }
 
-const uint32* PackIndexFile::fanout() const 
+uint32 PackIndexFile::crc(uint32 entry) const
 {
-	const uint32* fan = reinterpret_cast<const uint32*>(data());
+	assert(entry < num_entries());
 	if (m_type == Type::Default) {
-		return fan + 2;	// skip 4 header bytes
+		return ntohl(reinterpret_cast<const uint32*>(data() + v2ofs_crc(num_entries()))[entry]);
 	} else {
-		return fan;
+		return 0;
 	}
 }
 
-uint32 PackIndexFile::num_entries() const
+void PackIndexFile::sha(uint32 entry, key_type &out_hash) const 
 {
-	return fanout()[255];
+	assert(entry < num_entries());
+	if (m_type == Type::Default) {
+		out_hash = data() + v2ofs_sha() + entry*key_type::hash_len;
+	} else {
+		out_hash = data() + 256*4 + entry*sizeof(OffsetInfo) + 4;
+	}
 }
 
 key_type PackIndexFile::pack_checksum() const

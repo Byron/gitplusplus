@@ -492,10 +492,18 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 		const PackIndexFile& pack_index = pack->index();
 		BOOST_CHECK(pack_index.type() != PackIndexFile::Type::Undefined);
 		
-		std::cerr << pack_index.type() << " - " << pack_index.version() << std::endl;
+		std::cerr << pack_index.type() << " - " << pack_index.version() << " - " << pack_index.num_entries() << std::endl;
 		
 		// make a few calls
 		BOOST_REQUIRE(pack_index.num_entries() != 0);
+		
+		PackODB::key_type hash;
+		for (uint32 eid = 0; eid < pack_index.num_entries(); ++eid) {
+			pack_index.crc(eid);
+			pack_index.sha(eid, hash);
+			pack_index.offset(eid);
+		}
+		
 		pack_index.index_checksum();
 		pack_index.pack_checksum();
 	}

@@ -4,6 +4,7 @@
 #include <git/config.h>
 #include <boost/iostreams/device/mapped_file.hpp>
 #include <boost/iostreams/device/file.hpp>
+#include <boost/asio.hpp>		// for ntohl
 
 #include <gtl/util.hpp>
 #include <gtl/db/odb_pack.hpp>
@@ -74,12 +75,48 @@ public:
 	};
 	
 protected:
+	//! Helper for legacy packs
+	struct OffsetInfo {
+		uint32		offset;
+		key_type	sha1;
+	};
+	
 	Type		m_type;		//!< version of the index file
 	uint32		m_version;	//!< starting at version two, there is an additional version number
+	uint32		m_num_entries;	//!< number of entries in the index
 	
 private:
 	//! \return array of 255 integers which are our hex fanout for faster lookups
-	inline const uint32*	fanout() const;
+	inline const uint32*	fanout() const {
+		const uint32* fan = reinterpret_cast<const uint32*>(data());
+		if (m_type == Type::Default) {
+			return fan + 2;	// skip 4 header bytes
+		} else {
+			return fan;
+		}
+	}
+	
+	uint32 _num_entries() const {
+		return ntohl(fanout()[255]);
+	}
+	
+	void reset();
+		
+	inline size_t v2ofs_header() const {
+		return 2*4;
+	}
+	inline size_t v2ofs_sha() const {
+		return v2ofs_header() + 256*4;
+	}
+	inline size_t v2ofs_crc(uint32 ne) const {
+		return v2ofs_sha() + ne*key_type::hash_len;
+	}
+	inline size_t v2ofs_ofs32(uint32 ne) const {
+		return v2ofs_crc(ne) + ne*4;
+	}
+	inline size_t v2ofs_ofs64(uint32 ne) const {
+		return v2ofs_ofs32(ne) + ne*4;
+	}
 	
 public:
 	PackIndexFile();
@@ -108,13 +145,39 @@ public:
 	}
 	
 	//! \return number of entries, i.e. amount of hashes, in the index
-	uint32 num_entries() const;
+	inline uint32 num_entries() const {
+		return m_num_entries;
+	}
 	
 	//! \return checksum of the pack file as hash
 	key_type pack_checksum() const;
 	
 	//! \return checksum of the index file as hash
 	key_type index_checksum() const;
+	
+	//! \return crc32 of the given entry or 0 for legacy versions
+	uint32 crc(uint32 entry) const;
+	
+	//! obtain the hash of the given entry
+	//! \param out_hash parameter to receive the hash.
+	void sha(uint32 entry, key_type& out_hash) const;
+	
+	//! \return offset into the pack file at which the given entry's stream begins 
+	inline uint64 offset(uint32 entry) const {
+		assert(entry < num_entries());
+		if (m_type == Type::Default) {
+			uint32 ofs32 = ntohl(reinterpret_cast<const uint32*>(data() + v2ofs_ofs32(num_entries()))[entry]);
+			// if high-bit is set, offset is interpreted as index into the 64 bit offset section of the index
+			if (ofs32 & 0x80000000) {
+				const char* pofs64 = data() + v2ofs_ofs64(num_entries()) + (ofs32 & ~0x80000000) * sizeof(uint64);
+				return (((uint64)ntohl(*((uint32_t*)(pofs64 + 0)))) << 32) |
+								 ntohl(*((uint32_t*)(pofs64 + 4)));
+			}
+			return ofs32;
+		} else {
+			return ntohl(reinterpret_cast<const OffsetInfo*>(data() + 256*4)[entry].offset);
+		}
+	}
 	
 	//! @} end interface
 	
