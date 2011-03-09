@@ -268,6 +268,8 @@ public:
   * mapped_file device. This should be well possible using the read(...) interface, question is whether this
   * will be any faster than streaming as the data has to be copied in that case as well. Probably the only
   * way to make the implementation any faster is to manually implement the sliding window and the decompression.
+  * \todo might want to use a shared pointer for packs, and use a shared_ptr_iterator from boost to keep packs alive
+  * when giving them away
   */
 class PackFile
 {

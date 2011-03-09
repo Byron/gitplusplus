@@ -5,6 +5,7 @@
 #include <gtl/db/odb_object.hpp>
 
 #include <boost/filesystem/operations.hpp>
+#include <boost/iterator/iterator_facade.hpp>
 
 #include <memory>
 #include <vector>
@@ -41,6 +42,8 @@ public:
 	typedef uint										accessor;
 	//! An iterator to more forward through the objects in the database
 	typedef uint										forward_iterator;
+	//! The type of object being returned by our accessors and iterators
+	typedef uint										output_object_type;
 	
 protected:
 	//! @{ Internal Use
@@ -75,58 +78,35 @@ public:
 };
 
 
-//! \brief an accessor providing access to a single entry in a single pack file
-template <class TraitsType>
-class pack_accessor : public odb_accessor<TraitsType>
-{
-public:
-	typedef TraitsType												db_traits_type;
-	typedef typename db_traits_type::obj_traits_type				obj_traits_type;
-	typedef typename obj_traits_type::key_type						key_type;
-	typedef typename obj_traits_type::size_type						size_type;
-	typedef typename obj_traits_type::object_type					object_type;
-	typedef pack_accessor<db_traits_type>							this_type;
-	
-public:
-	pack_accessor()
-	{}
-	
-	pack_accessor(this_type&&) = default;
-	
-	//! Equality comparison of compatible iterators
-	inline bool operator==(const this_type& rhs) const {
-		return true;
-	}
-	
-	//! Inequality comparison
-	inline bool operator!=(const this_type& rhs) const {
-		return !(*this == rhs);
-	}
-	
-	//! allows access to the actual input object
-	inline const this_type& operator*() const {
-		return *this;
-	}
-	
-	//! allow -> semantics
-	inline const this_type* operator->() const {
-		return this;
-	}
-	
-public:
-	key_type key() const { 
-		return key_type();
-	}
-};
-
 
 /** \brief iterator allowing to step through all objects within the packed object database
   */
-template <class TraitsType>
-class pack_forward_iterator : public pack_accessor<TraitsType>
+template <class PackDBType>
+class pack_forward_iterator : public boost::iterator_facade<	pack_forward_iterator<PackDBType>,
+			typename PackDBType::db_traits_type::pack_reader_type::forward_iterator::value_type,
+																boost::forward_traversal_tag>
 {
 public:
-	pack_forward_iterator() {}
+	typedef PackDBType														odb_pack_type;
+protected:
+	typedef typename odb_pack_type::vector_pack_readers						vector_pack_readers;
+	typedef typename odb_pack_type::db_traits_type							db_traits_type;
+	typedef typename db_traits_type::pack_reader_type						pack_reader_type;
+	typedef typename pack_reader_type::forward_iterator						pack_reader_forward_iterator;
+	/*typedef typename db_traits_type::obj_traits_type						obj_traits_type;
+	typedef typename db_traits_type::pack_reader_type::output_object_type	output_object_type;*/
+
+protected:
+	typename vector_pack_readers::const_iterator m_ipack;
+	const typename vector_pack_readers::const_iterator m_ipack_end;
+	
+	pack_reader_forward_iterator m_ipack_entry;
+	const pack_reader_forward_iterator m_ipack_entry_end;
+public:
+	pack_forward_iterator(const vector_pack_readers& packs) 
+	    : m_ipack(packs.begin())
+	    , m_ipack_end(packs.end())
+	{}
 	
 };
 
@@ -170,6 +150,7 @@ class odb_pack :	public odb_base<TraitsType>,
 public:
 	typedef TraitsType									db_traits_type;
 	typedef typename db_traits_type::obj_traits_type	obj_traits_type;
+	typedef odb_pack<db_traits_type>					this_type;
 	
 	typedef typename obj_traits_type::key_type			key_type;
 	typedef typename obj_traits_type::char_type			char_type;
@@ -178,8 +159,8 @@ public:
 	typedef typename db_traits_type::path_type			path_type;
 	typedef typename db_traits_type::pack_reader_type	pack_reader_type;
 	
-	typedef pack_accessor<db_traits_type>				accessor;
-	typedef pack_forward_iterator<db_traits_type>		forward_iterator;
+	typedef pack_forward_iterator<this_type>			accessor;
+	typedef accessor									forward_iterator;
 	
 	typedef std::vector<std::unique_ptr<pack_reader_type> > vector_pack_readers;
 	
@@ -232,13 +213,11 @@ public:
 	}
 	
 	forward_iterator begin() const {
-		assure_update();
-		return forward_iterator();
+		return forward_iterator(this->packs());
 	}
 	
 	forward_iterator end() const {
-		assure_update();
-		return forward_iterator();
+		return forward_iterator(this->packs());
 	}
 	
 	//! \todo fast implementation
