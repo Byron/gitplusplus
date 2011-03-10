@@ -84,13 +84,12 @@ BOOST_FIXTURE_TEST_CASE(read_and_write, GitLooseODBFixture)
 	 
 	 // READ SMALL FILES STREAMS 
 	 {
-		 typedef LooseODB::output_object_type::stream_type ostream_type;
+		 typedef LooseODB::output_object_type::stream_type istream_type;
 		 boost::timer t;
 		 const auto end = lodb.end();
 		 size_t count = 0;
 		 size_t total = 0;
-		 char streammem[sizeof(ostream_type)];
-		 ostream_type* stream = reinterpret_cast<ostream_type*>(streammem);
+		 gtl::stack_heap<istream_type> stream;
 		 for (auto i = lodb.begin(); i != end; ++i, ++count) {
 			 i->type();
 			 if (i->size() > nbf)
@@ -98,7 +97,7 @@ BOOST_FIXTURE_TEST_CASE(read_and_write, GitLooseODBFixture)
 			 total += i->size();
 			 i->stream(stream);
 			 io::copy(*stream, null);
-			 i->destroy_stream(stream);
+			 stream.destroy();
 		 }
 		 double elapsed = t.elapsed();
 		 cerr << "Read " << count << " objects with total size of " << total / mb << " MiB in " << elapsed << " s (" << (double)count / elapsed << " objects/s)" << endl;

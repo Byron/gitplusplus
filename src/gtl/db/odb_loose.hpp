@@ -478,10 +478,6 @@ public:
 		return stream;
 	}
 	
-	void destroy_stream(stream_type* stream) const {
-		stream->~loose_object_input_stream();
-	}
-	
 	void deserialize(typename obj_traits_type::output_reference_type out) const {
 		typename obj_traits_type::policy_type().deserialize(out, *this);
 	}

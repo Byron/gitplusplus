@@ -83,10 +83,6 @@ public:
 		return new stream_type(m_data.data(), m_data.size());
 	}
 	
-	void destroy_stream(stream_type* stream) const {
-		stream->~stream();
-	}
-	
 	//! \return our actual data for manipulation
 	data_type& data() noexcept {
 		return m_data;

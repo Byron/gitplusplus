@@ -260,16 +260,17 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 	
 	// stream verification
 	{
-		MemoryODB::output_object_type::stream_type ostream;
-		(*it).destroy_stream(&ostream);	// pretend the object was never constructed
-		(*it).stream(&ostream);
+		gtl::stack_heap<typename MemoryODB::output_object_type::stream_type> ostream;
+		(*it).stream(ostream);
 		
 		char buf[lenphello];
-		ostream.read(buf, lenphello);
+		ostream->read(buf, lenphello);
 		
-		BOOST_REQUIRE((size_t)ostream.gcount() == lenphello);
-		BOOST_REQUIRE(ostream.gcount() == ostream.tellg());
+		BOOST_REQUIRE((size_t)ostream->gcount() == lenphello);
+		BOOST_REQUIRE(ostream->gcount() == ostream->tellg());
 		BOOST_CHECK(std::memcmp(buf, phello, lenphello)==0);
+		
+		ostream.destroy();
 	}
 	
 	// Access the item using the key
@@ -366,6 +367,7 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 {
 	typedef typename git_object_traits::char_type char_type;
 	typedef typename LooseODB::input_stream_type input_stream_type;
+	typedef gtl::stack_heap<input_stream_type> stack_input_stream_type;
 	LooseODB lodb(rw_dir());
 	const uint num_objects = 10;
 	BOOST_REQUIRE(lodb.count() == num_objects);
@@ -384,17 +386,20 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 		}// end accessor lifetime
 		
 		// test new stream
-		input_stream_type* stream = it->new_stream();
-		assert(stream != 0);
-		stream->read(buf, buflen);
-		delete stream;
+		{
+			input_stream_type* stream = it->new_stream();
+			assert(stream != 0);
+			stream->read(buf, buflen);
+			delete stream;
+		}
 		
 		// test custom memory location
-		char sbuf[sizeof(input_stream_type)];
-		stream = (input_stream_type*)sbuf;
-		it->stream(stream);
-		stream->read(buf, buflen);
-		it->destroy_stream(stream);
+		{
+			stack_input_stream_type sstream;
+			it->stream(sstream);
+			sstream->read(buf, buflen);
+			sstream.destroy();
+		}
 		
 		// test deserialization
 		MultiObject mobj;

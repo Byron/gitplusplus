@@ -299,27 +299,15 @@ struct odb_output_object : public odb_basic_object<ObjectTraits>
 	//! be an uninitialized memory location. The caller is responsible for disposing the memory after use
 	//! and assuring the destructor gets called. The new stream will be created using placement new at the 
 	//! given location.
-	//!
-	//! \note There are two approaches to this: Either you create the memory on the heap without calling the constructor, 
-	//! such as in operator new(sizeof(stream_type)), or you create the memory on the stack, but destroy the stream
-	//! before you pass it in, such as in stream_type s; s.~s(); This will automatically call the destructor once
-	//! your stack-allocated variable goes out of scope. In case of a loop, you will have to handle the destruction yourself
-	//! though. In case you would like to have a heap-allocated temporary, it is advised to read about the
-	//! intricacies of new and delete.
+	//! \note it is easiest to use a stack_heap<stream_type> instance to deal with the memory, as well as with 
+	//! the destructor.
 	void stream(stream_type* out_stream) const;
-	
 	
 	//! create a data stream on the heap and return it as a pointer. The caller is responsible
 	//! for disposing the stream using delete or similar means (like std::unique_ptr)
 	//! \return heap-allocated stream
-	//! \note use this method if you cannot allocate memory for the first version of this method, for example
-	//! because you cannot generically call a destructor as your code does not know the actual typename.
+	//! \note use this method if streams need to life longer than the current stack frame
 	stream_type* new_stream() const;
-	
-	//! Destroy an instance of a stream which was manually allocated and obtained using the stream() method
-	//! \note the usage of this method is required to properly deconstruct a stream which was previously constructed 
-	//! into a preallocated memory area
-	void destroy_stream(stream_type* stream) const;
 	
 	//! construct an object from the deserialized stream and store it in the output reference
 	//! \note uses exceptions to indicate failure (i.e. out of memory, corrupt stream)

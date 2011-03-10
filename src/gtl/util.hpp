@@ -108,7 +108,9 @@ protected:
 
 
 
-/** \brief manually managed heap which allows to new (heap) type() objects into a stack allocated memory area.
+/** \brief manually managed heap which allows placement new (i.e. new (heap) type()) to be used to create 
+  * an object on a stack-allocated area, at the time when it is needed, and not when the constructor gets called 
+  * automatically.
   * Call the destroy() method to deallocate the object gracefully.
   * The management of new and delete is entirely in the hands of the caller.
   * Use it to create memory for objects which have to be constructed later, but should still be part of the own type,
@@ -134,10 +136,6 @@ protected:
 	}
 	
 public:
-	operator void*() {
-		return reinterpret_cast<void*>(_inst_buf);
-	}
-	
 	operator type*() {
 		return get();
 	}
@@ -166,11 +164,11 @@ public:
 		return get();
 	}
 	
-	const type& operator* () const{
+	const type& operator* () const {
 		return *get();
 	}
 	
-	void destroy(){
+	void destroy() {
 		get()->type::~type();
 	}
 };

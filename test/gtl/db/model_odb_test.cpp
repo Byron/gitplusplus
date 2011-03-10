@@ -20,54 +20,54 @@ using namespace gtl;
 //template class odb_mem_input_object<odb_object_traits>;
 //template class odb_mem_output_object<odb_object_traits>;
 
-struct DestructionTester
+struct DT /*DestrutionTester*/
 {
 	bool destroyed;
 	int count;
 	
-	DestructionTester()
+	DT()
 	    : destroyed(false)
 	    , count(5)
 	{}
-	~DestructionTester()
+	~DT()
 	{
 		destroyed = true;
 	}
 	
-	void constmethod() const {
-		int x = 1;
+	int constmethod() const {
+		return 1;
 	}
 	
 	void incr() {
 		++count;
 	}
 	
-	bool operator==(const DestructionTester& rhs) const {
+	bool operator==(const DT& rhs) const {
 		return count == rhs.count;
 	}
 };
 
-void test_fun(DestructionTester* p) {
-	DestructionTester* x = p;
+DT* test_fun(DT* p) {
+	return p;
 }
 
-void test_fun_2(DestructionTester& r) {
-	DestructionTester& x = r;
+DT& test_fun_2(DT& r) {
+	return r;
 }
 
-void ctest_fun(const DestructionTester* p) {
-	const DestructionTester* x = p;
+const DT* ctest_fun(const DT* p) {
+	 return p;
 }
 
-void ctest_fun_2(const DestructionTester& r) {
-	const DestructionTester& x = r;
+const DT& ctest_fun_2(const DT& r) {
+	 return r;
 }
 
 BOOST_AUTO_TEST_CASE(util)
 {
-	typedef stack_heap<DestructionTester> stack_heap_type;
+	typedef stack_heap<DT> stack_heap_type;
 	stack_heap_type sh;
-	new (sh) DestructionTester;
+	new (sh) DT;
 	BOOST_REQUIRE(sh->destroyed == false);
 	BOOST_REQUIRE(sh->count == 5);
 	sh.destroy();
@@ -84,6 +84,5 @@ BOOST_AUTO_TEST_CASE(util)
 	csh->constmethod();
 	
 	BOOST_REQUIRE(*csh == *sh);
-	
 	BOOST_REQUIRE(sh->destroyed == true);
 }

@@ -28,6 +28,11 @@ union MultiObject
 	//! Initialize the instance with a None type. In this state the union doesn't contain
 	//! any object
 	MultiObject() : type(Object::Type::None) {}
+	//! destroy an input object, which might be easier to read compared to a direct destructor call
+	inline void destroy() {
+		this->~MultiObject();
+	}
+
 	~MultiObject();
 };
 
