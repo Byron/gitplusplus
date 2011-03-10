@@ -418,12 +418,14 @@ private:
 			m_pstream.reset(new stream_type);
 		}
 		m_pstream->set_path(m_path);
-		m_initialized = true;
+	}
+	
+	bool is_initialized() const {
+		return m_pstream.get() != nullptr;
 	}
 	
 protected:
 	path_type								m_path;
-	mutable bool							m_initialized;
 	mutable std::unique_ptr<stream_type>	m_pstream;		//!< use of unique ptr as it is movable
 	
 public:
@@ -431,33 +433,21 @@ public:
 	odb_loose_output_object(odb_loose_output_object&&) = default;
 	
 	odb_loose_output_object()
-		: m_initialized(false)
 	{}
-	
-	/*odb_loose_output_object(const this_type& rhs)
-	    : m_path(rhs.m_path)
-	    , m_initialized(rhs.m_initialized)
-	{
-		if (m_initialized){
-			// todo: set our stream to the same state as the other stream. Usually streams 
-			// are not copyable, which makes it more difficult.
-		}
-	}*/
 	
 	odb_loose_output_object(const path_type& obj_path)
 		: m_path(obj_path)
-	    , m_initialized(false)
 	{};
 	
 	object_type type() const {
-		if (!m_initialized){
+		if (!is_initialized()){
 			init();
 		}
 		return m_pstream->type();
 	}
 	
 	size_type size() const {
-		if (!m_initialized){
+		if (!is_initialized()){
 			init();
 		}
 		return m_pstream->size();
@@ -471,7 +461,6 @@ public:
 	stream_type* new_stream() const {
 		// release our own one, otherwise create a new one
 		if (m_pstream.get() != nullptr) {
-			m_initialized = false;
 			return m_pstream.release();
 		}
 		stream_type* stream = new stream_type;
@@ -496,7 +485,7 @@ public:
 	
 	//! modifyable version of our internal path
 	path_type& path() {
-		m_initialized = false;	// could change the path, and usually does !
+		m_pstream = nullptr;
 		return m_path;
 	}
 	
@@ -520,7 +509,7 @@ public:
 	typedef loose_accessor<db_traits_type>							this_type;
 	
 protected:
-	mutable output_object_type	m_obj;
+	output_object_type	m_obj;
 	
 protected:
 	//! Default constructor, only for derived types
