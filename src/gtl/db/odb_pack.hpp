@@ -40,9 +40,10 @@ class odb_pack_file
 public:
 	//! The type of object being returned by our accessors and iterators
 	typedef uint										output_object_type;
-	//! An accessor pointing to exactly one object
+	//! An accessor pointing to exactly one object. It conforms to the interface of the 
+	//! object database accessor
 	typedef uint										accessor;
-	//! An iterator to move randomly to items identified by entry_size_type
+	//! An iterator to move forward and backward. It provides the accessor interface as well.
 	typedef std::iterator<std::bidirectional_iterator_tag, output_object_type> bidirectional_iterator;
 	//! Type able to point to and identify all possible pack entries. It must be a type 
 	//! which, if initialized with 0, identifies the first entry in a pack.
@@ -104,6 +105,7 @@ protected:
 	typedef typename obj_traits_type::key_type								key_type;
 	typedef typename db_traits_type::pack_reader_type						pack_reader_type;
 	typedef typename pack_reader_type::bidirectional_iterator				bidirectional_iterator;
+	typedef typename bidirectional_iterator::reference						reference;
 	typedef typename pack_reader_type::entry_size_type						entry_size_type;
 	
 	//typedef typename db_traits_type::pack_reader_type::output_object_type	output_object_type;
@@ -147,6 +149,11 @@ protected:
 		}
 	}
 	
+	const reference dereference() const {
+		assert_position();
+		return *m_ientry;
+	}
+	
 public:
 	pack_forward_iterator(const vector_pack_readers& packs, bool is_end=false) 
 	    : m_ipack(packs.begin())
@@ -162,8 +169,10 @@ public:
 	
 public:
 	//! @{ \name Accessor Interface
-	key_type key() const;
-	// assert_position();
+	key_type key() const {
+		assert_position();
+		return m_ientry.key();
+	}
 	 
 	//! @} end accessor interface
 	

@@ -22,6 +22,7 @@ namespace io = boost::iostreams;
 typedef gtl::odb_pack_traits<git_object_traits>			gtl_pack_traits;
 typedef typename gtl_pack_traits::path_type				path_type;
 typedef typename gtl_pack_traits::key_type				key_type;
+typedef typename git_object_traits::object_type			object_type;
 typedef typename git_object_traits::size_type			size_type;
 typedef git_object_traits::char_type					char_type;
 //! @} end convenience typedefs
@@ -226,7 +227,7 @@ public:
 	//! @{ \name Output Object Interface
 	stream_type* new_stream() const;
 	void stream(stream_type* stream) const;
-	key_type key() const;
+	object_type type() const;
 	size_type size() const;
 	//! @} output object interface
 	
@@ -240,6 +241,8 @@ public:
 	uint32& entry() {
 		return m_entry;
 	}
+	
+	key_type key() const;
 
 	//! @} end interface
 };
@@ -249,7 +252,8 @@ public:
   */
 class PackBidirectionalIterator : public boost::iterator_facade<PackBidirectionalIterator,
 															PackOutputObject,
-															boost::bidirectional_traversal_tag>
+															boost::bidirectional_traversal_tag,
+															const PackOutputObject&>
 {
 protected:
 	PackOutputObject			m_obj;
@@ -266,11 +270,23 @@ protected:
 		return m_obj == rhs.m_obj;
 	}
 	
+	inline const PackOutputObject& dereference() const {
+		return m_obj;
+	}
+	
 public:
 	//! \note this iterator becomes an end iterator if our entry is hash_unknown
 	PackBidirectionalIterator(const PackFile* pack=nullptr, uint32 entry=0)
 	    : m_obj(pack, entry)
 	{}
+	
+public:
+	
+	//! @{ \name Object Accessor Interface
+	inline key_type key() const {
+		return m_obj.key();
+	}
+	//! @} end object accessor interface
 	
 };
 

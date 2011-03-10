@@ -141,6 +141,14 @@ void PackIndexFile::close()
 	m_version = 0;
 }
 
+key_type PackOutputObject::key() const
+{
+   assert(m_ppack);
+   key_type k;
+   m_ppack->index().sha(m_entry, k);
+   return k;
+}
+
 PackFile::PackFile(const path_type& file)
     : m_pack_path(file)
 {

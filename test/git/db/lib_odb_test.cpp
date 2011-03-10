@@ -514,6 +514,10 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 		BOOST_REQUIRE(piter == piter);
 		BOOST_REQUIRE(piter_end == piter_end);
 		BOOST_REQUIRE(piter != piter_end);
+		for (;piter != piter_end; ++piter) {
+			piter.key();
+			auto obj = *piter;
+		}
 		
 		pack_index.index_checksum();
 		pack_index.pack_checksum();
@@ -530,7 +534,8 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 	BOOST_REQUIRE(end == end);
 	BOOST_REQUIRE(begin != end);
 	for (; begin != end; ++begin, ++obj_count) {
-		
+		begin.key();
+		//begin->size();
 	}
 	BOOST_REQUIRE(podb.count() == obj_count);
 	
