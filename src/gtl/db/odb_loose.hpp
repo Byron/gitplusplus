@@ -12,6 +12,7 @@
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/type_traits/is_same.hpp>
 
+#include <fstream>
 #include <assert.h>
 #include <string>
 #include <cstring>
@@ -218,6 +219,9 @@ public:
 private:
 	loose_object_output_stream(const this_type&);
 	
+protected:
+	std::ofstream			m_os;	//!< file output stream
+	
 public:
 	
 	//! Initialize the instance. Additional information is provided to allow writing a header which contains the 
@@ -235,7 +239,8 @@ public:
 			this->push(hash_filter_type());
 		}
 		this->push(typename db_traits_type::compression_filter_type());
-		this->push(io::basic_file_sink<char_type>(destination.string()));
+		m_os.open(destination.string().c_str(), std::ofstream::out|std::ofstream::binary);
+		this->push(m_os);
 		
 		// handle uncompressed header
 		if (!compress_header) {
@@ -290,11 +295,13 @@ public:
 private:
 	loose_object_input_stream(const this_type&);
 	
+protected:
+	std::ifstream	m_is;		//!< input file stream
+	
 public:
 	
 	//! default constructor
 	loose_object_input_stream(){
-		// this->exceptions(std::ios_base::eofbit|std::ios_base::badbit|std::ios_base::failbit);
 	}
 	
 public:
@@ -307,10 +314,12 @@ public:
 	void set_path(const path_type& path) {
 		if (!path.empty()) {
 			// rebuild ourselves, chain elements cannot be reused
-			this->reset();		// empty ourselves
+			this->reset();		// empty ourselves - this should close the file too
+			assert(!m_is.is_open());
 			this->push(header_filter_type());
 			this->push(typename db_traits_type::decompression_filter_type());
-			this->push(io::basic_file_source<char_type>(path.string()));
+			m_is.open(path.string().c_str(), std::ifstream::in|std::ifstream::binary);
+			this->push(m_is);
 			this->set_auto_close(true);
 			
 			// cause an update of the underlying stream, without taking any valueable bytes
