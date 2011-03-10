@@ -207,15 +207,20 @@ class PackOutputObject
 public:
 	typedef DeltaPackStream				stream_type;
 protected:
-	const PackFile& m_pack;			//!< pack that contains this object
-	uint32			m_entry;				//!< pack entry we refer to
+	const PackFile* m_ppack;			//!< pack that contains this object
+	uint32			m_entry;			//!< pack entry we refer to
 
 public:
+	
 	//! \note we explicitly don't check bounds
-	PackOutputObject(const PackFile& pack, uint32 entry)
-	    : m_pack(pack)
+	PackOutputObject(const PackFile* pack=nullptr, uint32 entry=0)
+	    : m_ppack(pack)
 	    , m_entry(entry)
 	{}
+	
+	bool operator == (const PackOutputObject& rhs) const {
+		return (m_ppack == rhs.m_ppack) & (m_entry == rhs.m_entry);
+	}
 	
 public:
 	//! @{ \name Output Object Interface
@@ -226,11 +231,12 @@ public:
 	//! @} output object interface
 	
 	//! @{ Interface
+	//! \return our entry
 	uint32 entry() const {
 		return m_entry;
 	}
 	
-	//! set our instance to the given entry - we don't check bounds
+	//! allow writable access to our entry
 	uint32& entry() {
 		return m_entry;
 	}
@@ -241,18 +247,28 @@ public:
 
 /** \brief Iterator over all items within a pack
   */
-class PackForwardIterator : public boost::iterator_facade<	PackForwardIterator,
+class PackBidirectionalIterator : public boost::iterator_facade<PackBidirectionalIterator,
 															PackOutputObject,
-															std::forward_iterator_tag>
+															boost::bidirectional_traversal_tag>
 {
 protected:
 	PackOutputObject			m_obj;
 	
 protected:
-	void advance(difference_type n);
+	friend class boost::iterator_core_access;
+	inline void increment() {
+		++m_obj.entry();
+	}
+	inline void decrement() {
+		--m_obj.entry();
+	}
+	inline bool equal(const PackBidirectionalIterator& rhs) const {
+		return m_obj == rhs.m_obj;
+	}
 	
 public:
-	PackForwardIterator(const PackFile& pack, uint32 entry)
+	//! \note this iterator becomes an end iterator if our entry is hash_unknown
+	PackBidirectionalIterator(const PackFile* pack=nullptr, uint32 entry=0)
 	    : m_obj(pack, entry)
 	{}
 	
@@ -274,8 +290,9 @@ public:
 class PackFile
 {
 public:
-	typedef PackForwardIterator				accessor;
-	typedef PackForwardIterator				forward_iterator;
+	typedef PackBidirectionalIterator		accessor;
+	typedef PackBidirectionalIterator		bidirectional_iterator;
+	typedef uint32							entry_size_type;
 	
 private:
 	PackFile(const PackFile&);
@@ -302,12 +319,16 @@ public:
 		return m_pack_path;
 	}
 	
-	forward_iterator begin() const {
-		return PackForwardIterator(*this, 0);
+	bidirectional_iterator begin() const {
+		return PackBidirectionalIterator(this, 0);
 	}
 	
-	forward_iterator end() const {
-		return PackForwardIterator(*this, this->index().num_entries());
+	bidirectional_iterator end() const {
+		return PackBidirectionalIterator(this, this->index().num_entries());
+	}
+	
+	entry_size_type num_entries() const {
+		return index().num_entries();
 	}
 	
 	//! @} end packfile interface

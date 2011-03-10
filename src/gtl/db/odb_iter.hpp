@@ -43,6 +43,9 @@ public:
 	//! Implements support for -> semantics
 	template <class OutputObject>
 	OutputObject operator->();
+	
+	//! \return key identifying the current position in the iteration
+	key_type key() const;
 };
 
 /** \ingroup ODBIter
@@ -59,9 +62,6 @@ public:
 	typedef odb_accessor<TraitsType> parent_type;
 	odb_forward_iterator& operator++();		// prefix
 	odb_forward_iterator operator++(int);	// postfix
-	
-	//! \return key identifying the current position in the iteration
-	typename parent_type::key_type key() const;
 };
 		
 GTL_NAMESPACE_END

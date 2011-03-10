@@ -487,8 +487,9 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 	
 	// iterate old and new style packs
 	const_pack_iterator pend = podb.packs().end();
+	uint64 obj_count = 0;
 	for (const_pack_iterator piter = podb.packs().begin(); piter != pend; ++piter) {
-		const PackFile* pack = (*piter).get();
+		const PackFile* pack = piter->get();
 		const PackIndexFile& pack_index = pack->index();
 		BOOST_CHECK(pack_index.type() != PackIndexFile::Type::Undefined);
 		
@@ -496,6 +497,7 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 		
 		// make a few calls
 		BOOST_REQUIRE(pack_index.num_entries() != 0);
+		obj_count += pack_index.num_entries();
 		
 		PackODB::key_type hash;
 		for (uint32 eid = 0; eid < pack_index.num_entries(); ++eid) {
@@ -506,15 +508,32 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 			BOOST_REQUIRE(pack_index.sha_to_entry(hash) == eid);
 		}
 		
+		// Test pack iterators
+		auto piter = pack->begin();
+		const auto piter_end = pack->end();
+		BOOST_REQUIRE(piter == piter);
+		BOOST_REQUIRE(piter_end == piter_end);
+		BOOST_REQUIRE(piter != piter_end);
+		
 		pack_index.index_checksum();
 		pack_index.pack_checksum();
 	}
 	
+	BOOST_REQUIRE(obj_count == podb.count());
+	
 
 	// ITERATION AND VALUE QUERY	
+	PackODB::forward_iterator begin = podb.begin();
 	const PackODB::forward_iterator end = podb.end();
-	for (PackODB::forward_iterator begin = podb.begin(); begin != end; ++begin) {
+	obj_count = 0;
+	BOOST_REQUIRE(begin == begin);
+	BOOST_REQUIRE(end == end);
+	BOOST_REQUIRE(begin != end);
+	for (; begin != end; ++begin, ++obj_count) {
 		
 	}
+	BOOST_REQUIRE(podb.count() == obj_count);
 	
+	
+	BOOST_CHECK(false); // verify iterators in empty pack databases
 }

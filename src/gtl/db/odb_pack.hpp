@@ -38,12 +38,15 @@ template <class TraitsType>
 class odb_pack_file
 {
 public:
-	//! An accessor pointing to exactly one object
-	typedef uint										accessor;
-	//! An iterator to more forward through the objects in the database
-	typedef uint										forward_iterator;
 	//! The type of object being returned by our accessors and iterators
 	typedef uint										output_object_type;
+	//! An accessor pointing to exactly one object
+	typedef uint										accessor;
+	//! An iterator to move randomly to items identified by entry_size_type
+	typedef std::iterator<std::bidirectional_iterator_tag, output_object_type> bidirectional_iterator;
+	//! Type able to point to and identify all possible pack entries. It must be a type 
+	//! which, if initialized with 0, identifies the first entry in a pack.
+	typedef uint32										entry_size_type;
 	
 protected:
 	//! @{ Internal Use
@@ -71,10 +74,14 @@ public:
 	
 	//! \return iterator to the beginning of all output objects in this pack
 	//! \note only valid as long as the parent pack is valid
-	forward_iterator begin() const;
+	bidirectional_iterator begin() const;
 	
 	//! \return iterator to the end of a given pack
-	forward_iterator end() const;
+	bidirectional_iterator end() const;
+	
+	//! \return amount of entries in this pack
+	entry_size_type num_entries() const;
+	
 };
 
 
@@ -83,30 +90,82 @@ public:
   */
 template <class PackDBType>
 class pack_forward_iterator : public boost::iterator_facade<	pack_forward_iterator<PackDBType>,
-			typename PackDBType::db_traits_type::pack_reader_type::forward_iterator::value_type,
-																boost::forward_traversal_tag>
+			typename PackDBType::db_traits_type::pack_reader_type::bidirectional_iterator::value_type,
+																boost::forward_traversal_tag,
+			typename PackDBType::db_traits_type::pack_reader_type::bidirectional_iterator::reference>
 {
 public:
 	typedef PackDBType														odb_pack_type;
 protected:
+	typedef pack_forward_iterator<odb_pack_type>							this_type;
 	typedef typename odb_pack_type::vector_pack_readers						vector_pack_readers;
 	typedef typename odb_pack_type::db_traits_type							db_traits_type;
+	typedef typename db_traits_type::obj_traits_type						obj_traits_type;
+	typedef typename obj_traits_type::key_type								key_type;
 	typedef typename db_traits_type::pack_reader_type						pack_reader_type;
-	typedef typename pack_reader_type::forward_iterator						pack_reader_forward_iterator;
-	/*typedef typename db_traits_type::obj_traits_type						obj_traits_type;
-	typedef typename db_traits_type::pack_reader_type::output_object_type	output_object_type;*/
-
-protected:
-	typename vector_pack_readers::const_iterator m_ipack;
-	const typename vector_pack_readers::const_iterator m_ipack_end;
+	typedef typename pack_reader_type::bidirectional_iterator				bidirectional_iterator;
+	typedef typename pack_reader_type::entry_size_type						entry_size_type;
 	
-	pack_reader_forward_iterator m_ipack_entry;
-	const pack_reader_forward_iterator m_ipack_entry_end;
+	//typedef typename db_traits_type::pack_reader_type::output_object_type	output_object_type;
+
+private:
+	inline void assert_position() const {
+		assert(m_ipack != m_ipack_end);
+	}
+	
+	inline void do_assign_entry_iterators() {
+		m_ientry = m_ipack->get()->begin();
+		m_ientry_last = m_ipack->get()->end();
+		--m_ientry_last;
+	}
+	
+protected:
+	typename vector_pack_readers::const_iterator		m_ipack;
+	const typename vector_pack_readers::const_iterator	m_ipack_end;
+	
+	bidirectional_iterator								m_ientry;
+	bidirectional_iterator								m_ientry_last;
+	
+protected:
+	friend class boost::iterator_core_access;
+	bool equal(const this_type& rhs) const {
+		return (m_ientry == rhs.m_ientry && 
+		        m_ipack == rhs.m_ipack);
+	}
+	
+	//! \note an end iterator becomes invalid once it is incremented once again
+	void increment() {
+		if (m_ientry == m_ientry_last) {
+			if (++m_ipack != m_ipack_end) {
+				do_assign_entry_iterators();
+			} else {
+				// reset, to make it similar to our instance as end iterator
+				m_ientry = bidirectional_iterator();
+			}
+		} else {
+			++m_ientry;
+		}
+	}
+	
 public:
-	pack_forward_iterator(const vector_pack_readers& packs) 
+	pack_forward_iterator(const vector_pack_readers& packs, bool is_end=false) 
 	    : m_ipack(packs.begin())
 	    , m_ipack_end(packs.end())
-	{}
+	{
+		if (is_end) {
+			m_ipack = m_ipack_end;
+		}
+		if (m_ipack != m_ipack_end) {
+			do_assign_entry_iterators();
+		}
+	}
+	
+public:
+	//! @{ \name Accessor Interface
+	key_type key() const;
+	// assert_position();
+	 
+	//! @} end accessor interface
 	
 };
 
@@ -131,7 +190,7 @@ struct odb_pack_traits : public odb_file_traits<typename ObjectTraits::key_type,
   * or as a delta against another object ( which may itself be deltified as well ). A base to a delta
   * object is specified either as relative offset within the current pack file, or as key identifying
   * the object in some database, which is not necessarily this one.
-  * A pack file comes with a header, which provides the index necessary to quickly find objects within the pack.
+  * A pack file comes with an index, which provides the information necessary to quickly find objects within the pack.
   * The details of how the format of the pack looks like, are encapsulated in the PackFile's interface.
   * 
   * Every pack implementation must support reading of existing packs, writing of packs is optional.
@@ -217,13 +276,15 @@ public:
 	}
 	
 	forward_iterator end() const {
-		return forward_iterator(this->packs());
+		return forward_iterator(this->packs(), true);
 	}
 	
 	//! \todo fast implementation
 	size_t count() const {
-		auto start(begin());
-		return _count(start, end());
+		size_t count = 0;
+		std::for_each(packs().begin(), packs().end(), 
+		              [&count](const typename vector_pack_readers::value_type& p){count += p.get()->num_entries();});
+		return count;
 	}
 	//! @} end odb interface
 	
