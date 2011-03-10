@@ -149,7 +149,7 @@ key_type PackOutputObject::key() const
    return k;
 }
 
-PackFile::PackFile(const path_type& file)
+PackFile::PackFile(const path_type& file, mapped_memory_manager_type& manager)
     : m_pack_path(file)
 {
 	// initialize index
@@ -165,13 +165,13 @@ bool PackFile::is_valid_path(const path_type& file)
 	return (file.extension() == extension && file.filename().substr(0, 5) == prefix);
 }
 
-PackFile* PackFile::new_pack(const path_type& file)
+PackFile* PackFile::new_pack(const path_type& file, mapped_memory_manager_type& manager)
 {
 	if (!is_valid_path(file)) {
 		return nullptr;
 	}
 	
-	return new PackFile(file);
+	return new PackFile(file, manager);
 }
 
 

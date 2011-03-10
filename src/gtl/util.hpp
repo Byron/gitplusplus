@@ -136,6 +136,7 @@ protected:
 	}
 	
 public:
+	
 	operator type*() {
 		return get();
 	}

@@ -23,8 +23,8 @@ struct git_pack_odb_traits : public gtl::odb_pack_traits<git_object_traits>
 class PackODB : public gtl::odb_pack<git_pack_odb_traits>
 {
 public:
-    PackODB(const path_type& root)
-	    : odb_pack<git_pack_odb_traits>(root)
+    PackODB(const path_type& root, mapped_memory_manager_type& manager)
+	    : odb_pack<git_pack_odb_traits>(root, manager)
 	{}
 };
 

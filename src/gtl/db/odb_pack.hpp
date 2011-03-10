@@ -3,6 +3,7 @@
 #include <gtl/config.h>
 #include <gtl/db/odb.hpp>
 #include <gtl/db/odb_object.hpp>
+#include <gtl/db/sliding_mmap_device.hpp>
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/iterator/iterator_facade.hpp>
@@ -51,22 +52,21 @@ public:
 	
 protected:
 	//! @{ Internal Use
-	typedef TraitsType									db_traits_type;
-	typedef typename db_traits_type::obj_traits_type	obj_traits_type;
-	typedef typename db_traits_type::path_type			path_type;
+	typedef TraitsType											db_traits_type;
+	typedef typename db_traits_type::obj_traits_type			obj_traits_type;
+	typedef typename db_traits_type::path_type					path_type;
+	typedef typename db_traits_type::mapped_memory_manager_type	mapped_memory_manager_type;
 	//! @} end internal use typedefs
 	
-public:
-		//! Instantiate this instance with the path to a pack file
-	odb_pack_file(const path_type& path);
 	
 public:
 	
 	//! \return a new instance of this class initialized with the given file
 	//! or nullptr if the file is not suitable to be handled by this pack type
 	//! The memory is managed by the caller, it will be deleted using a delete call
+	//! \param manager memory manager suitable for use in a managed device
 	//! \todo maybe allow overriding the deletor function of the unique_ptr
-	static odb_pack_file* new_pack(const path_type& file);
+	static odb_pack_file* new_pack(const path_type& file,  mapped_memory_manager_type& manager);
 	
 	//! \return the pack's path this instance was initialized with
 	//! \note the interface requires it to be cached as it needs fast access
@@ -191,6 +191,8 @@ struct odb_pack_traits : public odb_file_traits<typename ObjectTraits::key_type,
 	typedef odb_pack_file<odb_pack_traits>					pack_reader_type;
 	
 	
+	//! Type providing a memory map manager interface.
+	typedef mapped_memory_manager<>							mapped_memory_manager_type;
 };
 
 
@@ -226,6 +228,7 @@ public:
 	
 	typedef typename db_traits_type::path_type			path_type;
 	typedef typename db_traits_type::pack_reader_type	pack_reader_type;
+	typedef typename db_traits_type::mapped_memory_manager_type mapped_memory_manager_type;
 	
 	typedef pack_forward_iterator<this_type>			accessor;
 	typedef accessor									forward_iterator;
@@ -233,6 +236,7 @@ public:
 	typedef std::vector<std::unique_ptr<pack_reader_type> > vector_pack_readers;
 	
 protected:
+	mapped_memory_manager_type& m_manager;
 	mutable vector_pack_readers m_packs;
 	
 protected:
@@ -249,8 +253,9 @@ protected:
 	}
 	
 public:
-	odb_pack(const path_type& root)
+	odb_pack(const path_type& root, mapped_memory_manager_type& manager)
 	    : odb_file_mixin<path_type>(root)
+	    , m_manager(manager)
 	{}
 	
 public:
@@ -318,7 +323,7 @@ void odb_pack<TraitsType>::update_cache()
 			continue;
 		}
 		
-		pack_reader_type* pack = pack_reader_type::new_pack(path);
+		pack_reader_type* pack = pack_reader_type::new_pack(path, m_manager);
 		if (pack == nullptr) {
 			continue;
 		}

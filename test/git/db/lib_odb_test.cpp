@@ -488,8 +488,10 @@ BOOST_FIXTURE_TEST_CASE(windowed_memory_mapped_file, GitPackedODBFixture)
 BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 {
 	typedef PackODB::vector_pack_readers::const_iterator const_pack_iterator;
+	gtl::mapped_memory_manager<> manager;
+	
 	const size_t pack_count = 3;
-	PackODB podb(rw_dir());
+	PackODB podb(rw_dir(), manager);
 	BOOST_REQUIRE(podb.packs().size() == pack_count);
 	
 	// update calls don't change amount of items, if there was no local change

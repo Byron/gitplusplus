@@ -310,6 +310,11 @@ public:
 	typedef PackBidirectionalIterator		bidirectional_iterator;
 	typedef uint32							entry_size_type;
 	
+	typedef typename gtl_pack_traits::mapped_memory_manager_type	mapped_memory_manager_type;
+	//! Type to be used as memory mapped device to read bytes from. It must be source device
+	//! compatible to the boost io-streams framework.
+	typedef gtl::managed_mapped_file_source<mapped_memory_manager_type>	mapped_file_source_type;
+	
 private:
 	PackFile(const PackFile&);
 	PackFile(PackFile&&);
@@ -317,19 +322,19 @@ private:
 protected:
 	const path_type							m_pack_path;		//! original path to the pack
 	PackIndexFile							m_index;			//! Our index file
-	//boost::iostreams::mapped_file_source	m_pack;				//! portion of the packed file itself
+	//mapped_file_source_type				m_pack;				//! portion of the packed file itself
 	
 protected:
 	//! \return true if the given path appears to be a valid pack file
 	static bool is_valid_path(const path_type& path);
 
 public:
-	PackFile(const path_type& root);
+	PackFile(const path_type& root, mapped_memory_manager_type& manager);
 	
 public:
 	
 	//! @{ \name PackFile Interface
-	static PackFile* new_pack(const path_type& file);
+	static PackFile* new_pack(const path_type& file, mapped_memory_manager_type& manager);
 	
 	const path_type& pack_path() const {
 		return m_pack_path;
