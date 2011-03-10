@@ -2,7 +2,7 @@
 #define GTL_ODB_ITERATOR_HPP
 
 #include <gtl/config.h>
-#include <iterator>
+#include <boost/iterator/iterator_facade.hpp>
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
@@ -13,7 +13,7 @@ GTL_NAMESPACE_BEGIN
   * should not contain any additional information, it cannot be moved.
   */
 template <class TraitsType>
-class odb_accessor : public std::iterator<typename std::input_iterator_tag, TraitsType>
+class odb_accessor
 {
 protected:
 	odb_accessor(){}
@@ -25,25 +25,6 @@ public:
 	typedef typename obj_traits_type::key_type				key_type;
 	
 public:
-	bool operator==(const odb_accessor<db_traits_type>& rhs) const;
-	bool operator!=(const odb_accessor<db_traits_type>& rhs) const;
-	template <typename OtherIterator>
-	bool operator==(const OtherIterator&){ return false; }
-	template <typename OtherIterator>
-	bool operator!=(const OtherIterator&){ return true; }
-	
-	
-	
-	//! \return a new instance of an output object which allows accessing the data
-	//! \note the implementor is not required to decuple the output object from the iterator
-	//! , but it must be copy-constructible so that the user can create a separate, independent copy
-	template <class OutputObject>
-	OutputObject operator*();
-	
-	//! Implements support for -> semantics
-	template <class OutputObject>
-	OutputObject operator->();
-	
 	//! \return key identifying the current position in the iteration
 	key_type key() const;
 };
@@ -56,12 +37,11 @@ public:
   * provides the current key identifying the object.
   */
 template <class TraitsType>
-class odb_forward_iterator : public odb_accessor<TraitsType>
+struct odb_forward_iterator :	public boost::iterator_facade<	odb_forward_iterator<TraitsType>,
+																int, /*Output Object Type*/
+																boost::forward_traversal_tag>,
+								public odb_accessor<TraitsType>
 {
-public:
-	typedef odb_accessor<TraitsType> parent_type;
-	odb_forward_iterator& operator++();		// prefix
-	odb_forward_iterator operator++(int);	// postfix
 };
 		
 GTL_NAMESPACE_END

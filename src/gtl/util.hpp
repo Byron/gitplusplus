@@ -107,6 +107,75 @@ protected:
 };
 
 
+
+/** \brief manually managed heap which allows to new (heap) type() objects into a stack allocated memory area.
+  * Call the destroy() method to deallocate the object gracefully.
+  * The management of new and delete is entirely in the hands of the caller.
+  * Use it to create memory for objects which have to be constructed later, but should still be part of the own type,
+  * yet don't have a copy constructor.
+  * \note currently, no copy constructor or move constructor is supported. This could be implemented though
+  */
+template <class Type>
+class stack_heap
+{
+public:
+	typedef Type			type;
+	
+protected:
+	char _inst_buf[sizeof(Type)];
+
+protected:
+	type* get() {
+		return reinterpret_cast<type*>(_inst_buf);
+	}
+	
+	const type* get() const {
+		return reinterpret_cast<const type*>(_inst_buf);
+	}
+	
+public:
+	operator void*() {
+		return reinterpret_cast<void*>(_inst_buf);
+	}
+	
+	operator type*() {
+		return get();
+	}
+	
+	operator type&() {
+		return *get();
+	}
+	
+	type* operator-> () {
+		return get();
+	}
+	
+	type& operator* () {
+		return *get();
+	}
+	
+	operator const type*() const {
+		return get();
+	}
+	
+	operator const type&() const {
+		return *get();
+	}
+	
+	const type* operator-> () const {
+		return get();
+	}
+	
+	const type& operator* () const{
+		return *get();
+	}
+	
+	void destroy(){
+		get()->type::~type();
+	}
+};
+
+
 /** Class representing two ascii characters in the range of 0-F
   * \note currently represented directly as baked character values, in fact it could 
   * do all conversions dynamically.

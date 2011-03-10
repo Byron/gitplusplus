@@ -212,7 +212,11 @@ public:
 	typedef typename obj_traits_type::key_type							key_type;
 	typedef typename obj_traits_type::char_type							char_type;
 	typedef typename db_traits_type::hash_filter_type					hash_filter_type;
-	typedef header_filter<db_traits_type, 128>			header_filter_type;
+	typedef header_filter<db_traits_type, 128>							header_filter_type;
+	typedef loose_object_output_stream<db_traits_type, HeaderTag>		this_type;
+	
+private:
+	loose_object_output_stream(const this_type&);
 	
 public:
 	
@@ -283,7 +287,9 @@ public:
 	typedef typename db_traits_type::path_type										path_type;
 	static const size_t																buflen = BufLen;
 
-
+private:
+	loose_object_input_stream(const this_type&);
+	
 public:
 	
 	//! default constructor
@@ -297,6 +303,7 @@ public:
 	//! Set the path we should operate on. This interface allows 
 	//! set and change the path on demand, which results in an opened file.
 	//! \param path empty or non-empty path
+	//! \todo make a default file buffer part of our own class, to prevent the smartpointer used in boost file buffers
 	void set_path(const path_type& path) {
 		if (!path.empty()) {
 			// rebuild ourselves, chain elements cannot be reused
@@ -340,6 +347,9 @@ template <class TraitsType, size_t BufLen>
 class loose_object_input_stream<TraitsType, uncompressed_header_tag, BufLen>
 {
 	typedef TraitsType		db_traits_type;
+	
+private:
+	loose_object_input_stream(const loose_object_input_stream&);
 
 };
 

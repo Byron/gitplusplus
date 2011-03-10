@@ -63,7 +63,8 @@ HEADERS += \
     src/gtl/db/odb_pack.hpp \
     src/git/db/odb_pack.h \
     src/git/db/pack_file.h \
-    src/git/db/pack_stream.h
+    src/git/db/pack_stream.h \
+    src/gtl/db/sliding_mmap_device.hpp
 
 SOURCES += \
     test/git/model/db/odb_test.cpp \
