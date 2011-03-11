@@ -5,6 +5,7 @@
 #include <gtl/db/odb_mem.hpp>
 #include <gtl/db/odb_object.hpp>
 #include <gtl/util.hpp>
+#include <gtl/fixture.hpp>
 
 #include <type_traits>
 #include <vector>
@@ -85,4 +86,12 @@ BOOST_AUTO_TEST_CASE(util)
 	
 	BOOST_REQUIRE(*csh == *sh);
 	BOOST_REQUIRE(sh->destroyed == true);
+}
+
+
+BOOST_AUTO_TEST_CASE(windowed_memory_mapped_file)
+{
+	file_creator f(1000 * 1000 * 16 + 5195, "window_test");
+	
+	
 }

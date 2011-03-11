@@ -478,13 +478,6 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 	}
 }
 
-
-BOOST_FIXTURE_TEST_CASE(windowed_memory_mapped_file, GitPackedODBFixture)
-{
-	
-	
-}
-
 BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 {
 	typedef PackODB::vector_pack_readers::const_iterator const_pack_iterator;

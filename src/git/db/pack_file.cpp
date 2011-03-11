@@ -151,6 +151,7 @@ key_type PackOutputObject::key() const
 
 PackFile::PackFile(const path_type& file, mapped_memory_manager_type& manager)
     : m_pack_path(file)
+    , m_pack(manager)
 {
 	// initialize index
 	path_type index_file(file);
