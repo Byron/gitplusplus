@@ -12,6 +12,7 @@
 #include <gtl/util.hpp>
 #include <gtl/db/odb_pack.hpp>
 #include <git/db/policy.hpp>
+#include <gtl/db/sliding_mmap_device.hpp>
 
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN

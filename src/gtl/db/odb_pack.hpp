@@ -3,7 +3,7 @@
 #include <gtl/config.h>
 #include <gtl/db/odb.hpp>
 #include <gtl/db/odb_object.hpp>
-#include <gtl/db/sliding_mmap_device.hpp>
+#include <gtl/db/mapped_memory_manager.hpp>
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/iterator/iterator_facade.hpp>
