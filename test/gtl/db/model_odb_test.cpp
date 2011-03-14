@@ -9,8 +9,12 @@
 #include <gtl/db/mapped_memory_manager.hpp>
 #include <gtl/db/sliding_mmap_device.hpp>
 
+#include <boost/iostreams/device/back_inserter.hpp>
+#include <boost/iostreams/operations.hpp>
+
 #include <type_traits>
 #include <vector>
+#include <fstream>
 #include <utility>
 
 using namespace gtl;
@@ -93,11 +97,23 @@ BOOST_AUTO_TEST_CASE(util)
 
 BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 {
-	typedef mapped_memory_manager<> man_type;
-	file_creator f(1000 * 1000 * 16 + 5195, "window_test");
+	typedef mapped_memory_manager<>		man_type;
+	typedef std::vector<char>			char_vector;	
+	char_vector data;
+	file_creator f(1000 * 1000 * 8 + 5195, "window_test");
+	data.reserve(f.size());
+	
+	// copy whole file into memory to allow comparisons
+	std::ifstream ifile(f.file().string().c_str(), std::ios::in|std::ios::binary);
+	boost::iostreams::back_insert_device<char_vector> data_device(data);
+	boost::iostreams::copy(ifile, data_device);
+	
+	BOOST_REQUIRE(data.size() == f.size());
+	
+	
 	// for this test, we want at least 100 windows - the size is not aligned to any page size value
 	// which must work anyway (although its not very efficient). The manager should align the maps properly.
-	man_type manager(f.size() / 100);
+	man_type manager(f.size() / 100, f.size() / 3);
 	man_type::cursor c = manager.make_cursor(f.file());
 	// still no opened region
 	BOOST_REQUIRE(manager.num_open_files() == 0);
@@ -105,10 +121,15 @@ BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 	
 	// obtain first window
 	const size_t base_offset = 5000;
-	BOOST_REQUIRE(c.use_region(base_offset, manager.window_size() / 2).is_valid());
-	
-	
+	const size_t size = manager.window_size() / 2;
+	BOOST_REQUIRE(c.use_region(base_offset, size).is_valid());
+
 	BOOST_REQUIRE(manager.num_open_files() == 1);
 	BOOST_REQUIRE(manager.num_file_handles() == 1);
-	BOOST_CHECK(manager.mapped_memory_size() == manager.window_size());
+	BOOST_CHECK(manager.mapped_memory_size() != 0);
+	BOOST_CHECK(c.size() == size);					// should be true as we are not yet at the file's end
+	BOOST_CHECK(c.ofs_begin() == base_offset);
+	BOOST_CHECK(c.region_ptr()->ofs_begin() == 0);
+	
+	
 }

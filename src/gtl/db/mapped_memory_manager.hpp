@@ -10,7 +10,7 @@
 #include <boost/intrusive/set.hpp>
 
 #include <algorithm>
-#include <new>
+#include <limits>
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
@@ -327,7 +327,7 @@ public:
 					// adjust windows to be at optimal start, and maximium end
 					window left(0, 0);
 					window mid(offset, size);
-					window right(~0, 0);
+					window right(std::numeric_limits<decltype(offset)>::max(), 0);
 					
 					m_manager->unmap_lru_region(size);
 					// we assume the list remains sorted by offset
@@ -383,6 +383,7 @@ public:
 					// insert it at the right spot to keep order
 					m_region = new region(m_regions->path(), mid.ofs, mid.size);
 					m_region->num_clients() += 1;
+					m_manager->m_memory_size += m_region->size();
 					regions.insert(insertpos, *m_region);
 				} else {
 					m_region = &*it;
@@ -429,6 +430,12 @@ public:
 			return m_size;
 		}
 		
+		//! \return read-only mapped region which defines the underlying memory frme
+		//! \note the internal region may not be set yet
+		const region* region_ptr() const {
+			return m_region;
+		}
+		
 		//! @} end interface
 		
 	};// end class cursor
@@ -466,7 +473,7 @@ public:
 	mapped_memory_manager(size_type window_size = 0, size_type max_memory_size = 0) 
 	    : m_memory_size(0)
 	{
-		m_window_size = window_size != 0 ? m_window_size : 
+		m_window_size = window_size != 0 ? window_size : 
 								sizeof(void*) < 8 ? 32 * 1024 * 1024	// moderate sizes on 32 bit systems
 		                                          : 1024 * 1024 * 1024;	// go for it on 64 bit, we have plenty of address space
 		m_max_memory_size = max_memory_size != 0 ? max_memory_size : 
@@ -524,12 +531,17 @@ public:
 	//! \param offset_is_size if true, offset is seen as size, so that values will be rounded up
 	template <class OffsetType>
 	static OffsetType align(OffsetType ofs, bool offset_is_size) {
-		static const int al = mapped_file_source::alignment();
-		OffsetType nofs = (ofs / al) * mapped_file_source::alignment();
+		static const int al = page_size();
+		OffsetType nofs = (ofs / al) * al;
 		if (offset_is_size & (nofs != ofs)) {
 			nofs += al;
 		}
 		return nofs;
+	}
+	
+	//! \return the system's pagesize to which we align
+	static int page_size() {
+		return mapped_file_source::alignment();
 	}
 	
 };
