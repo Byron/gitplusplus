@@ -69,7 +69,7 @@ public:
 	//! \param offset offset into the file. Internally, the offset is adjusted to be divisable by the system's
 	//! page size.
 	template <typename Path>
-	void open(const Path& path, size_type length = max_length, stream_offset offset = 0) 
+	void open(const Path& path, size_type length = max_length, stream_offset offset = 0)
 	{
 		
 	}

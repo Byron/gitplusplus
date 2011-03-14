@@ -6,6 +6,8 @@
 #include <gtl/db/odb_object.hpp>
 #include <gtl/util.hpp>
 #include <gtl/fixture.hpp>
+#include <gtl/db/mapped_memory_manager.hpp>
+#include <gtl/db/sliding_mmap_device.hpp>
 
 #include <type_traits>
 #include <vector>
@@ -89,9 +91,24 @@ BOOST_AUTO_TEST_CASE(util)
 }
 
 
-BOOST_AUTO_TEST_CASE(windowed_memory_mapped_file)
+BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 {
+	typedef mapped_memory_manager<> man_type;
 	file_creator f(1000 * 1000 * 16 + 5195, "window_test");
+	// for this test, we want at least 100 windows - the size is not aligned to any page size value
+	// which must work anyway (although its not very efficient). The manager should align the maps properly.
+	man_type manager(f.size() / 100);
+	man_type::cursor c = manager.make_cursor(f.file());
+	// still no opened region
+	BOOST_REQUIRE(manager.num_open_files() == 0);
+	BOOST_REQUIRE(manager.mapped_memory_size() == 0);
+	
+	// obtain first window
+	const size_t base_offset = 5000;
+	BOOST_REQUIRE(c.use_region(base_offset, manager.window_size() / 2).is_valid());
 	
 	
+	BOOST_REQUIRE(manager.num_open_files() == 1);
+	BOOST_REQUIRE(manager.num_file_handles() == 1);
+	BOOST_CHECK(manager.mapped_memory_size() == manager.window_size());
 }
