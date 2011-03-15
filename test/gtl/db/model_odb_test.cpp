@@ -14,10 +14,17 @@
 
 #include <type_traits>
 #include <vector>
+#include <cstring>
 #include <fstream>
 #include <utility>
 
 using namespace gtl;
+
+typedef mapped_memory_manager<>		man_type;
+
+std::ostream& operator << (std::ostream& s, const typename man_type::cursor& c) {
+	return s << (c.is_valid() ? "" : "!") << "< " << c.ofs_begin() << " - " << c.size() << " - " << c.ofs_end() << " >";
+}
 
 // force full instantiation
 // Doesn't work with bogus types (anymore)
@@ -97,7 +104,6 @@ BOOST_AUTO_TEST_CASE(util)
 
 BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 {
-	typedef mapped_memory_manager<>		man_type;
 	typedef std::vector<char>			char_vector;	
 	char_vector data;
 	file_creator f(1000 * 1000 * 8 + 5195, "window_test");
@@ -109,6 +115,7 @@ BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 	boost::iostreams::copy(ifile, data_device);
 	
 	BOOST_REQUIRE(data.size() == f.size());
+	const char* pdata = &*data.begin();
 	
 	
 	// for this test, we want at least 100 windows - the size is not aligned to any page size value
@@ -120,16 +127,37 @@ BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 	BOOST_REQUIRE(manager.mapped_memory_size() == 0);
 	
 	// obtain first window
-	const size_t base_offset = 5000;
+	int base_offset = 5000;
 	const size_t size = manager.window_size() / 2;
 	BOOST_REQUIRE(c.use_region(base_offset, size).is_valid());
+	const auto* pr = c.region_ptr();
 
 	BOOST_REQUIRE(manager.num_open_files() == 1);
 	BOOST_REQUIRE(manager.num_file_handles() == 1);
 	BOOST_CHECK(manager.mapped_memory_size() != 0);
 	BOOST_CHECK(c.size() == size);					// should be true as we are not yet at the file's end
 	BOOST_CHECK(c.ofs_begin() == base_offset);
-	BOOST_CHECK(c.region_ptr()->ofs_begin() == 0);
+	BOOST_CHECK(pr->ofs_begin() == 0);
 	
+	BOOST_REQUIRE(std::memcmp(c.begin(), pdata+base_offset, size) == 0);
 	
+	// obtain second window, which spans the first part of the file - it is still the same window
+	BOOST_REQUIRE(c.use_region(0, size-10).is_valid());
+	BOOST_CHECK(c.region_ptr() == pr);
+	BOOST_REQUIRE(manager.num_file_handles() == 1);
+	BOOST_REQUIRE(c.size() == size-10);
+	BOOST_REQUIRE(c.ofs_begin() == 0);
+	BOOST_REQUIRE(std::memcmp(c.begin(), pdata, size-10) == 0);
+	
+	// Map some part at the end, our requested size cannot be kept
+	const size_t overshoot = 4000;
+	base_offset = f.size() - size + overshoot;
+	BOOST_REQUIRE(c.use_region(base_offset, size).is_valid());
+	BOOST_REQUIRE(manager.num_file_handles() == 2);
+	BOOST_CHECK(c.size() < size);
+	BOOST_CHECK(c.region_ptr() != pr);
+	pr = c.region_ptr();
+	BOOST_CHECK(pr->ofs_begin() < c.ofs_begin());	// it should have mapped some part to the front
+	BOOST_REQUIRE(c.ofs_end() < data.size());	// it extends the whole remaining window size to the left, so it cannot extend to the right anymore
+	BOOST_REQUIRE(std::memcmp(pdata+base_offset, c.begin(), c.size())==0);
 }

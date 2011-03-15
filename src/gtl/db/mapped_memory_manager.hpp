@@ -118,6 +118,8 @@ protected:
 		    , _uc(0)
 		    
 		{
+			assert(this_type::align(ofs, false) == ofs);
+			assert(this_type::align(size, true) == size);
 			_mf.open(p, size, ofs);
 		}
 		
@@ -198,12 +200,14 @@ protected:
 		file_regions(const this_type&);
 		
 	protected:
-		path_type	m_path;		//!< path our regions map
-		region_dlist m_list;	//!< mapped regions
+		path_type				m_path;		//!< path our regions map
+		mutable uint64_t		m_file_size;//!< total size of the file in bytes
+		region_dlist			m_list;		//!< mapped regions
 	
 	public:
 		file_regions(const path_type& path) 
 			: m_path(path)
+		    , m_file_size(~0u)
 		{}
 		
 		~file_regions(){
@@ -226,8 +230,17 @@ protected:
 		
 	public:
 		
+		//! \return path we are managing
 		const path_type& path() const {
 			return m_path;
+		}
+		
+		//! \return size of our managed file in bytes
+		uint64_t file_size() const {
+			if (m_file_size == ~0u) {
+				m_file_size = boost::filesystem2::file_size(m_path);
+			}
+			return m_file_size;
 		}
 		
 		region_dlist& list() {
@@ -327,9 +340,9 @@ public:
 					// adjust windows to be at optimal start, and maximium end
 					window left(0, 0);
 					window mid(offset, size);
-					window right(std::numeric_limits<decltype(offset)>::max(), 0);
+					window right(m_regions->file_size(), 0);
 					
-					m_manager->unmap_lru_region(size);
+					m_manager->collect_one_lru_region(size);
 					// we assume the list remains sorted by offset
 					region_const_iterator insertpos;
 					switch (regions.size()) 
@@ -381,7 +394,14 @@ public:
 					assert(right.ofs >= mid.ofs_end());
 				
 					// insert it at the right spot to keep order
-					m_region = new region(m_regions->path(), mid.ofs, mid.size);
+					try {
+						m_region = new region(m_regions->path(), mid.ofs, mid.size);
+					} catch (const std::exception&) {
+						// collect one more region and try again - fail permanently otherwise
+						m_manager->collect_one_lru_region(size);
+						m_region = new region(m_regions->path(), mid.ofs, mid.size);
+					}
+
 					m_region->num_clients() += 1;
 					m_manager->m_memory_size += m_region->size();
 					regions.insert(insertpos, *m_region);
@@ -431,7 +451,9 @@ public:
 		}
 		
 		//! \return read-only mapped region which defines the underlying memory frme
-		//! \note the internal region may not be set yet
+		//! \note the internal region may not be set yet, a nullptr can be returned
+		//! \note as region is protected, you can only use it directly after the call
+		//! or store a pointer using auto
 		const region* region_ptr() const {
 			return m_region;
 		}
@@ -457,10 +479,11 @@ protected:
 	//! Unmap the region which was least-recently used and has no client
 	//! \param size of the region we want to map next (assuming its not already mapped paritally or fully
 	//! \note throws if we cannot free anything
-	inline void unmap_lru_region(size_type size) {
+	inline void collect_one_lru_region(size_type size) {
 		if (m_memory_size+size < m_max_memory_size) {
 			return;
 		}
+		assert(false);// todo
 	}
 	
 public:
