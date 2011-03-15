@@ -17,6 +17,7 @@
 #include <cstring>
 #include <fstream>
 #include <utility>
+#include <random>
 
 using namespace gtl;
 
@@ -131,10 +132,11 @@ BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 	const size_t size = manager.window_size() / 2;
 	BOOST_REQUIRE(c.use_region(base_offset, size).is_valid());
 	const auto* pr = c.region_ptr();
+	BOOST_CHECK(pr->num_clients() == 1);
 
 	BOOST_REQUIRE(manager.num_open_files() == 1);
 	BOOST_REQUIRE(manager.num_file_handles() == 1);
-	BOOST_CHECK(manager.mapped_memory_size() != 0);
+	BOOST_CHECK(manager.mapped_memory_size() == pr->size());
 	BOOST_CHECK(c.size() == size);					// should be true as we are not yet at the file's end
 	BOOST_CHECK(c.ofs_begin() == base_offset);
 	BOOST_CHECK(pr->ofs_begin() == 0);
@@ -156,8 +158,25 @@ BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 	BOOST_REQUIRE(manager.num_file_handles() == 2);
 	BOOST_CHECK(c.size() < size);
 	BOOST_CHECK(c.region_ptr() != pr);
+	BOOST_CHECK(pr->num_clients() == 0);	// old region doesn't have a single cursor
 	pr = c.region_ptr();
+	BOOST_CHECK(pr->num_clients() == 1);
 	BOOST_CHECK(pr->ofs_begin() < c.ofs_begin());	// it should have mapped some part to the front
 	BOOST_REQUIRE(c.ofs_end() < data.size());	// it extends the whole remaining window size to the left, so it cannot extend to the right anymore
 	BOOST_REQUIRE(std::memcmp(pdata+base_offset, c.begin(), c.size())==0);
+	
+	// TODO:
+	// Map the very end of the file, what if the size is 0 ?
+	
+	
+	// iterate through the windows, verify data contents
+	// This will trigger map collections after a while
+	uint num_random_accesses = 10000;
+	std::uniform_int_distribution<uint64_t> distribution(0ul, c.file_size());
+	std::mt19937 engine;
+	auto generator = std::bind(distribution, engine);
+	while (num_random_accesses--) {
+		base_offset = distribution(engine);
+		BOOST_REQUIRE(c.use_region(base_offset, size).is_valid());
+	}
 }

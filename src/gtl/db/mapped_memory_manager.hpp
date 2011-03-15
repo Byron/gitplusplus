@@ -2,12 +2,15 @@
 #define GTL_DB_MAPPED_MEMORY_MANAGER_HPP
 
 #include <gtl/config.h>
+#include <gtl/util.hpp>
+
 
 #include <boost/filesystem/path.hpp>
 #include <boost/iostreams/positioning.hpp>
 #include <boost/iostreams/device/mapped_file.hpp>
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/set.hpp>
+#include <boost/iterator/filter_iterator.hpp>
 
 #include <algorithm>
 #include <limits>
@@ -16,6 +19,22 @@ GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
 
 using boost::iostreams::stream_offset;
+
+//! @{ \name Exceptions 
+
+//! \brief base for all memory manager related errors
+struct memory_manager_error : public std::exception
+{
+};
+
+struct lru_failure :	public memory_manager_error
+{
+	virtual const char* what() const throw() {
+		return "Couldn't find any unused memory region to free up resources";
+	}
+};
+
+//! @} end exceptions
 
 /** Maintains a list of ranges of mapped memory regions in one or more files and allows to easily 
   * obtain additional regions assuring there is no overlap.
@@ -163,7 +182,6 @@ protected:
 		size_type usage_count() const {
 			return _uc;
 		}
-		
 		//! \return modifyable usage count
 		size_type& usage_count() {
 			return _uc;
@@ -250,26 +268,6 @@ protected:
 		const region_dlist& list() const {
 			return m_list;
 		}
-		
-		// std::pair<region_iterator
-		
-		/*
-		//! unmap the given region to free the used resources. The region referred to by it will be deleted, 
-		//! hence it may not be accessed after this call
-		//! \note unconditionally deletes the given region, caller must verify the use count is 0
-		void unmap_region(region_const_iterator it) {
-			assert(it->usage_count() == 0);
-		}
-		
-		//! assure the given region is mapped. On return, we guarantee that the given offset is within
-		//! the range of the returned region. Its not assured that the region's size is as large as the 
-		//! requested one though.
-		//! \return iterator to the mapped region and true if the region was newly mapped, false otherwise
-		std::pair<region_const_iterator, bool> assure_region(stream_offset offset, size_type size) {
-			
-			return std::pair<const_iterator, bool>();
-			// return std::make_pair()
-		}*/
 		
 	};// end class file regions
 	
@@ -397,8 +395,14 @@ public:
 					try {
 						m_region = new region(m_regions->path(), mid.ofs, mid.size);
 					} catch (const std::exception&) {
-						// collect one more region and try again - fail permanently otherwise
-						m_manager->collect_one_lru_region(size);
+						// apparently, we are out of system resources. As many more operations
+						// are likely to fail in that condition (like reading a file from disk, etc)
+						// we free up as much as possible
+						try {
+							while (true) {
+								m_manager->collect_one_lru_region(0);
+							}
+						} catch (const lru_failure&) {}
 						m_region = new region(m_regions->path(), mid.ofs, mid.size);
 					}
 
@@ -458,6 +462,12 @@ public:
 			return m_region;
 		}
 		
+		//! \return total size of the unerlying mapped file
+		uint64_t file_size() const {
+			assert(m_regions);
+			return m_regions->file_size();
+		}
+		
 		//! @} end interface
 		
 	};// end class cursor
@@ -469,7 +479,7 @@ private:
 	mapped_memory_manager(mapped_memory_manager&&);
 
 protected:
-	file_regions_set	m_files;			//! set of file regions with all mappings
+	file_regions_set		m_files;			//! set of file regions with all mappings
 	size_type				m_window_size;		//! size of the window for allocations
 	size_type				m_max_memory_size;	//! maximum amount of memory we may allocate
 	
@@ -478,12 +488,42 @@ protected:
 protected:
 	//! Unmap the region which was least-recently used and has no client
 	//! \param size of the region we want to map next (assuming its not already mapped paritally or fully
-	//! \note throws if we cannot free anything
+	//! if 0, we try to free any available region
+	//! \throw lru_failure
+	//! \todo implement a case where all unused regions are dicarded efficiently. Currently its all brute force
 	inline void collect_one_lru_region(size_type size) {
-		if (m_memory_size+size < m_max_memory_size) {
+		if (size != 0 & (m_memory_size+size < m_max_memory_size)) {
 			return;
 		}
-		assert(false);// todo
+		// find least recently used (or least often used) region
+		static auto no_clients = [](const region& r)->bool {return r.num_clients()==0;};
+		typedef typename file_regions::region_dlist::iterator region_iterator;
+		typedef boost::filter_iterator<decltype(no_clients), region_iterator> iter_no_clients;
+		
+		const region_iterator no_region;		//!< point to no region
+		region_iterator lru_region(no_region);	//!< the actual most recently used region
+		typename file_regions::region_dlist* lru_list=nullptr;		//! ptr to the list containing the lru_region iterator
+		auto fend = m_files.end();
+		
+		for (auto fiter = m_files.begin(); fiter != fend; ++fiter) {
+			auto& rlist = fiter->list();
+			iter_no_clients rbeg(no_clients, rlist.begin(), rlist.end());
+			const iter_no_clients rend(no_clients, rlist.end(), rlist.end());
+			for (; rbeg != rend; ++rbeg) {
+				if (lru_region == no_region || (*rbeg).usage_count() < lru_region->usage_count()) {
+					lru_region = rbeg.base();
+					lru_list = &rlist;
+				}
+			}// for each region
+		}// for each file regions manager
+		
+		if (lru_region == no_region) {
+			throw lru_failure();
+		}
+		
+		region* r = &*lru_region;
+		lru_list->erase(lru_region);
+		delete r;
 	}
 	
 public:
