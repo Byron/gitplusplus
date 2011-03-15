@@ -163,11 +163,11 @@ protected:
 			return (ofs >= ofs_begin()) & (ofs < ofs_end());
 		}
 		//! number of clients using this window
-		inline size_type num_clients() const {
+		inline size_type client_count() const {
 			return _nc;
 		}
 		//! adjust the number of clients
-		inline size_type& num_clients() {
+		inline size_type& client_count() {
 			return _nc;
 		}
 		//! pointer to first byte of the mapped region
@@ -221,6 +221,7 @@ protected:
 		path_type				m_path;		//!< path our regions map
 		mutable uint64_t		m_file_size;//!< total size of the file in bytes
 		region_dlist			m_list;		//!< mapped regions
+		size_type				m_client_count;	//!< amount of cursors currently using us
 	
 	public:
 		file_regions(const path_type& path) 
@@ -269,6 +270,14 @@ protected:
 			return m_list;
 		}
 		
+		size_t client_count() const {
+			return m_client_count;
+		}
+		
+		size_t& client_count() {
+			return m_client_count;
+		}
+		
 	};// end class file regions
 	
 	//! Map the path to a file_regions instance
@@ -287,6 +296,8 @@ public:
 		stream_offset	m_ofs;		//! relative offset from the actually mapped area to our start area
 		size_type		m_size;		//! maximum size we should provide
 		
+		cursor& operator = (const cursor& rhs);
+		
 	public:
 		cursor(this_type* manager=nullptr, file_regions* regions=nullptr)
 		    : m_manager(manager)
@@ -294,7 +305,42 @@ public:
 		    , m_region(nullptr)
 		    , m_ofs(0)
 		    , m_size(0)
-		{}
+		{
+			if (m_regions) {
+				m_regions->client_count() += 1;
+			}
+		}
+		
+		cursor(const cursor& rhs)
+		    : m_manager(rhs.m_manager)
+		    , m_regions(rhs.m_regions)
+		    , m_region(rhs.m_region)
+		    , m_ofs(rhs.m_ofs)
+		    , m_size(rhs.m_size)
+		{
+			if (m_region) {
+				m_region->client_count() += 1;
+				m_region->usage_count() += 1;
+			}
+			if (m_regions) {
+				m_regions->client_count() += 1;
+			}
+		}
+		
+		~cursor() {
+			if (m_region) {
+				m_region->client_count() -= 1;
+			}
+			
+			// if our region is empty, remove it
+			if (m_regions) {
+				m_regions->client_count() -= 1;
+				if (m_regions->client_count() == 0 && m_regions->list().size() == 0) {
+					m_manager->m_files.erase(*m_regions);
+					delete m_regions;
+				}
+			}
+		}
 		
 	public:
 		//! @{ \name Interface
@@ -320,8 +366,8 @@ public:
 				if (m_region->includes_ofs(offset)) {
 					need_region = false;
 				} else {
-					assert(m_region->num_clients() != 0);
-					m_region->num_clients() -= 1;
+					assert(m_region->client_count() != 0);
+					m_region->client_count() -= 1;
 					m_region = nullptr;
 				}
 			}
@@ -418,7 +464,7 @@ public:
 				}// end create region
 	
 				assert(m_region);
-				m_region->num_clients() += 1;
+				m_region->client_count() += 1;
 			}// end need region
 			
 			assert(m_region);
@@ -499,12 +545,13 @@ protected:
 	//! if 0, we try to free any available region
 	//! \throw lru_failure
 	//! \todo implement a case where all unused regions are dicarded efficiently. Currently its all brute force
+	//! \todo implement size handling non-recursively
 	inline void collect_one_lru_region(size_type size) {
 		if ((size != 0) & (m_memory_size+size < m_max_memory_size)) {
 			return;
 		}
 		// find least recently used (or least often used) region
-		static auto no_clients = [](const region& r)->bool {return r.num_clients()==0;};
+		static auto no_clients = [](const region& r)->bool {return r.client_count()==0;};
 		typedef typename file_regions::region_dlist::iterator region_iterator;
 		typedef boost::filter_iterator<decltype(no_clients), region_iterator> iter_no_clients;
 		
@@ -534,6 +581,12 @@ protected:
 		m_memory_size -= r->size();
 		m_handles -= 1;
 		delete r;
+		
+		// still not enough memory freed ? Enter recursion. This could be troublesome for small 
+		// window sizes and large amount of memory to be freed
+		if ((size != 0) & (m_memory_size+size>= m_max_memory_size)) {
+			collect_one_lru_region(size);
+		} 
 	}
 	
 public:
@@ -547,9 +600,10 @@ public:
 	//! the amount is only limited by the system itself. If a system or soft limit is hit, the manager will free
 	//! as many handles as possible
 	mapped_memory_manager(size_type window_size = 0, size_type max_memory_size = 0, uint32 max_open_handles = ~0) 
-	    : m_memory_size(0)
+	    : m_max_handles(max_open_handles)
+	    , m_memory_size(0)
 	    , m_handles(0)
-	    , m_max_handles(max_open_handles)
+	    
 	{
 		m_window_size = window_size != 0 ? window_size : 
 								sizeof(void*) < 8 ? 32 * 1024 * 1024	// moderate sizes on 32 bit systems

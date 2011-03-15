@@ -118,6 +118,10 @@ BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 	BOOST_REQUIRE(data.size() == f.size());
 	const char* pdata = &*data.begin();
 	
+	// Safe empty cursors
+	{
+		man_type::cursor c;
+	}
 	
 	// for this test, we want at least 100 windows - the size is not aligned to any page size value
 	// which must work anyway (although its not very efficient). The manager should align the maps properly.
@@ -132,7 +136,7 @@ BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 	const size_t size = manager.window_size() / 2;
 	BOOST_REQUIRE(c.use_region(base_offset, size).is_valid());
 	const auto* pr = c.region_ptr();
-	BOOST_CHECK(pr->num_clients() == 1);
+	BOOST_CHECK(pr->client_count() == 1);
 
 	BOOST_REQUIRE(manager.num_open_files() == 1);
 	BOOST_REQUIRE(manager.num_file_handles() == 1);
@@ -158,9 +162,9 @@ BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 	BOOST_REQUIRE(manager.num_file_handles() == 2);
 	BOOST_CHECK(c.size() < size);
 	BOOST_CHECK(c.region_ptr() != pr);
-	BOOST_CHECK(pr->num_clients() == 0);	// old region doesn't have a single cursor
+	BOOST_CHECK(pr->client_count() == 0);	// old region doesn't have a single cursor
 	pr = c.region_ptr();
-	BOOST_CHECK(pr->num_clients() == 1);
+	BOOST_CHECK(pr->client_count() == 1);
 	BOOST_CHECK(pr->ofs_begin() < c.ofs_begin());	// it should have mapped some part to the front
 	BOOST_REQUIRE(c.ofs_end() < data.size());	// it extends the whole remaining window size to the left, so it cannot extend to the right anymore
 	BOOST_REQUIRE(std::memcmp(pdata+base_offset, c.begin(), c.size())==0);
@@ -179,8 +183,9 @@ BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 			base_offset = distribution(engine);
 			const auto* r = c.region_ptr();
 			if (r) {
-				BOOST_REQUIRE(r->num_clients() < 2);
+				BOOST_REQUIRE(r->client_count() < 2);
 			}
+			std::cerr << manager.max_mapped_memory_size() << " -- " << manager.mapped_memory_size() << std::endl;
 			BOOST_REQUIRE(manager.max_mapped_memory_size() >= manager.mapped_memory_size());
 			BOOST_REQUIRE(c.use_region(base_offset, size).is_valid());
 		}
