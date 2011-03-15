@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <iostream> // debug
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
@@ -387,7 +388,10 @@ public:
 					window mid(offset, size);
 					window right(m_regions->file_size(), 0);
 					
-					m_manager->collect_one_lru_region(size);
+					// we want to honor the maximum mapped memory size, and as we extend 
+					// the window to the window size (if possible) we have to claim it here too
+					m_manager->collect_one_lru_region(m_manager->window_size());
+					
 					// we assume the list remains sorted by offset
 					region_const_iterator insertpos;
 					switch (regions.size()) 
@@ -584,9 +588,10 @@ protected:
 		
 		// still not enough memory freed ? Enter recursion. This could be troublesome for small 
 		// window sizes and large amount of memory to be freed
-		if ((size != 0) & (m_memory_size+size>= m_max_memory_size)) {
+		if ((size != 0) & (m_memory_size+size > m_max_memory_size)) {
+			std::cerr << "recursion" << std::endl;
 			collect_one_lru_region(size);
-		} 
+		}
 	}
 	
 public:
@@ -595,7 +600,7 @@ public:
 	//! \param window_size if 0, a default window size will be chosen depending on the operating system's architecture
 	//! It will internally be quantified to a multiple of the page-size
 	//! \param max_memory_size maximium amount of memory we may map at once before releasing mapped regions
-	//! if 0, a viable default will be set depending on the system's architecture
+	//! if 0, a viable default will be set depending on the system's architecture.
 	//! \param max_open_handles if not ~0, limit the amount of open file handles to the given number. Otherwise
 	//! the amount is only limited by the system itself. If a system or soft limit is hit, the manager will free
 	//! as many handles as possible

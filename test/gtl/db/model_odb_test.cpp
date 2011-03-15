@@ -185,7 +185,6 @@ BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 			if (r) {
 				BOOST_REQUIRE(r->client_count() < 2);
 			}
-			std::cerr << manager.max_mapped_memory_size() << " -- " << manager.mapped_memory_size() << std::endl;
 			BOOST_REQUIRE(manager.max_mapped_memory_size() >= manager.mapped_memory_size());
 			BOOST_REQUIRE(c.use_region(base_offset, size).is_valid());
 		}
