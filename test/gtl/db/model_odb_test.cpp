@@ -125,7 +125,7 @@ BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 	
 	// for this test, we want at least 100 windows - the size is not aligned to any page size value
 	// which must work anyway (although its not very efficient). The manager should align the maps properly.
-	man_type manager(f.size() / 100, f.size() / 3);
+	man_type manager(f.size() / 100, f.size() / 3, 15);
 	man_type::cursor c = manager.make_cursor(f.file());
 	// still no opened region
 	BOOST_REQUIRE(manager.num_open_files() == 0);
@@ -169,9 +169,6 @@ BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 	BOOST_REQUIRE(c.ofs_end() < data.size());	// it extends the whole remaining window size to the left, so it cannot extend to the right anymore
 	BOOST_REQUIRE(std::memcmp(pdata+base_offset, c.begin(), c.size())==0);
 	
-	// TODO:
-	// Map the very end of the file, what if the size is 0 ?
-	
 	
 	// iterate through the windows, verify data contents
 	// This will trigger map collections after a while
@@ -187,6 +184,7 @@ BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 			}
 			BOOST_REQUIRE(manager.max_mapped_memory_size() >= manager.mapped_memory_size());
 			BOOST_REQUIRE(c.use_region(base_offset, size).is_valid());
+			BOOST_REQUIRE(std::memcmp(c.begin(), pdata+c.ofs_begin(), c.size()) == 0);
 		}
 	} catch (const lru_failure&) {
 		BOOST_REQUIRE(false);

@@ -14,7 +14,6 @@
 
 #include <algorithm>
 #include <limits>
-#include <iostream> // debug
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
@@ -108,7 +107,7 @@ protected:
 		inline void extend_right_to(const window& w, size_type max_size) {
 			assert(ofs <= w.ofs);
 			const size_type size_left = std::min(size, max_size);
-			size = size + (std::min(static_cast<stream_offset>(ofs_end()+size_left), w.ofs) - ofs_end());
+			size = size + ((std::min(static_cast<stream_offset>(ofs_end()+size_left), w.ofs) - ofs_end()));
 		}
 	};
 	
@@ -139,7 +138,7 @@ protected:
 		    
 		{
 			assert(this_type::align(ofs, false) == ofs);
-			assert(this_type::align(size, true) == size);
+			// cannot assert size as we might overshoot the physical file boundary
 			_mf.open(p, size, ofs);
 		}
 		
@@ -439,8 +438,13 @@ public:
 					mid.extend_left_to(left, m_manager->window_size());
 					mid.extend_right_to(right, m_manager->window_size());
 					mid.align();
-					assert(left.ofs_end()<=mid.ofs);
-					assert(right.ofs >= mid.ofs_end());
+					// It can happen that we align above the boundary of the file, so it gets larger
+					// than it may actually be.
+					if (mid.ofs_end() > right.ofs) {
+						mid.size = right.ofs - mid.ofs;
+					}
+					assert(left.ofs_end() <= mid.ofs);
+					assert(mid.ofs_end() <= right.ofs);
 				
 					// insert it at the right spot to keep order
 					try {
@@ -452,11 +456,14 @@ public:
 						// apparently, we are out of system resources. As many more operations
 						// are likely to fail in that condition (like reading a file from disk, etc)
 						// we free up as much as possible
+						// Make sure our insert position doesn't get collected !
+						const_cast<region&>(*insertpos).client_count() += 1;
 						try {
 							while (true) {
 								m_manager->collect_one_lru_region(0);
 							}
 						} catch (const lru_failure&) {}
+						const_cast<region&>(*insertpos).client_count() -= 1;
 						m_region = new region(m_regions->path(), mid.ofs, mid.size);
 					}
 
@@ -589,7 +596,6 @@ protected:
 		// still not enough memory freed ? Enter recursion. This could be troublesome for small 
 		// window sizes and large amount of memory to be freed
 		if ((size != 0) & (m_memory_size+size > m_max_memory_size)) {
-			std::cerr << "recursion" << std::endl;
 			collect_one_lru_region(size);
 		}
 	}
