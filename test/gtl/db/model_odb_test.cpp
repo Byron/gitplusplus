@@ -174,9 +174,18 @@ BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 	uint num_random_accesses = 10000;
 	std::uniform_int_distribution<uint64_t> distribution(0ul, c.file_size());
 	std::mt19937 engine;
-	auto generator = std::bind(distribution, engine);
-	while (num_random_accesses--) {
-		base_offset = distribution(engine);
-		BOOST_REQUIRE(c.use_region(base_offset, size).is_valid());
+	try {
+		while (num_random_accesses--) {
+			base_offset = distribution(engine);
+			const auto* r = c.region_ptr();
+			if (r) {
+				BOOST_REQUIRE(r->num_clients() < 2);
+			}
+			BOOST_REQUIRE(manager.max_mapped_memory_size() >= manager.mapped_memory_size());
+			BOOST_REQUIRE(c.use_region(base_offset, size).is_valid());
+		}
+	} catch (const lru_failure&) {
+		BOOST_REQUIRE(false);
 	}
+	std::cerr << "Open Handles: " << manager.num_file_handles() << std::endl;
 }

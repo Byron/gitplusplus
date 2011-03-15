@@ -98,14 +98,14 @@ protected:
 		//! Adjust the offset to start where the given window on our left ends
 		//! if possible, but don't make yourself larger than max_size
 		inline void extend_left_to(const window& w, size_type max_size) {
-			assert(w.ofs + w.size <= ofs);
+			assert(w.ofs_end() <= ofs);
 			const stream_offset size_left = std::min(size, max_size);
 			ofs = std::max(w.ofs_end(), ofs-size_left);
 		}
 		//! Adjust the size to make our window end where the right window begins, but don't
 		//! get larger than max_size
 		inline void extend_right_to(const window& w, size_type max_size) {
-			assert(ofs_end() <= w.ofs);
+			assert(ofs <= w.ofs);
 			const size_type size_left = std::min(size, max_size);
 			size = size + (std::min(static_cast<stream_offset>(ofs_end()+size_left), w.ofs) - ofs_end());
 		}
@@ -320,6 +320,7 @@ public:
 				if (m_region->includes_ofs(offset)) {
 					need_region = false;
 				} else {
+					assert(m_region->num_clients() != 0);
 					m_region->num_clients() -= 1;
 					m_region = nullptr;
 				}
@@ -393,6 +394,9 @@ public:
 				
 					// insert it at the right spot to keep order
 					try {
+						if (m_manager->num_file_handles() >= m_manager->max_file_handles()) {
+							throw std::exception();
+						}
 						m_region = new region(m_regions->path(), mid.ofs, mid.size);
 					} catch (const std::exception&) {
 						// apparently, we are out of system resources. As many more operations
@@ -406,14 +410,16 @@ public:
 						m_region = new region(m_regions->path(), mid.ofs, mid.size);
 					}
 
-					m_region->num_clients() += 1;
+					m_manager->m_handles += 1;
 					m_manager->m_memory_size += m_region->size();
 					regions.insert(insertpos, *m_region);
 				} else {
 					m_region = &*it;
-				}
+				}// end create region
+	
 				assert(m_region);
-			}// end create region
+				m_region->num_clients() += 1;
+			}// end need region
 			
 			assert(m_region);
 			// recomute size and relative offset
@@ -481,9 +487,11 @@ private:
 protected:
 	file_regions_set		m_files;			//! set of file regions with all mappings
 	size_type				m_window_size;		//! size of the window for allocations
-	size_type				m_max_memory_size;	//! maximum amount of memory we may allocate
+	 size_type				m_max_memory_size;	//! maximum amount of memory we may allocate
+	const uint32			m_max_handles;		//! maximum amount of handles to keep open
 	
 	size_type				m_memory_size;		//! currently allocated memory size
+	uint32					m_handles;			//! amount of currently allocated handles
 	
 protected:
 	//! Unmap the region which was least-recently used and has no client
@@ -492,7 +500,7 @@ protected:
 	//! \throw lru_failure
 	//! \todo implement a case where all unused regions are dicarded efficiently. Currently its all brute force
 	inline void collect_one_lru_region(size_type size) {
-		if (size != 0 & (m_memory_size+size < m_max_memory_size)) {
+		if ((size != 0) & (m_memory_size+size < m_max_memory_size)) {
 			return;
 		}
 		// find least recently used (or least often used) region
@@ -523,6 +531,8 @@ protected:
 		
 		region* r = &*lru_region;
 		lru_list->erase(lru_region);
+		m_memory_size -= r->size();
+		m_handles -= 1;
 		delete r;
 	}
 	
@@ -533,8 +543,13 @@ public:
 	//! It will internally be quantified to a multiple of the page-size
 	//! \param max_memory_size maximium amount of memory we may map at once before releasing mapped regions
 	//! if 0, a viable default will be set depending on the system's architecture
-	mapped_memory_manager(size_type window_size = 0, size_type max_memory_size = 0) 
+	//! \param max_open_handles if not ~0, limit the amount of open file handles to the given number. Otherwise
+	//! the amount is only limited by the system itself. If a system or soft limit is hit, the manager will free
+	//! as many handles as possible
+	mapped_memory_manager(size_type window_size = 0, size_type max_memory_size = 0, uint32 max_open_handles = ~0) 
 	    : m_memory_size(0)
+	    , m_handles(0)
+	    , m_max_handles(max_open_handles)
 	{
 		m_window_size = window_size != 0 ? window_size : 
 								sizeof(void*) < 8 ? 32 * 1024 * 1024	// moderate sizes on 32 bit systems
@@ -572,11 +587,13 @@ public:
 	}
 	
 	//! \return amount of file handles used. Each mapped region uses one file handle
-	size_type num_file_handles() const {
-		size_type count = 0;
-		std::for_each(m_files.begin(), m_files.end(), 
-		              [&count](const file_regions& r){count += r.list().size();});
-		return count;
+	uint32 num_file_handles() const {
+		return m_handles;
+	}
+	
+	//! \return maximum amount of concurrently open file handles
+	uint32 max_file_handles() const {
+		return m_max_handles;
 	}
 	
 	//! \return desired size each window should have upon allocation
@@ -587,6 +604,11 @@ public:
 	//! \return amount of bytes currently mapped in total
 	size_type mapped_memory_size() const {
 		return m_memory_size;
+	}
+	
+	//! \return maximum amount of memory we may allocate
+	size_type max_mapped_memory_size() const {
+		return m_max_memory_size;
 	}
 	
 	//! aligns the given offset with the machine's pagesize
