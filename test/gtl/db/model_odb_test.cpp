@@ -169,6 +169,9 @@ BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 	BOOST_REQUIRE(c.uofs_end() < data.size());	// it extends the whole remaining window size to the left, so it cannot extend to the right anymore
 	BOOST_REQUIRE(std::memcmp(pdata+base_offset, c.begin(), c.size())==0);
 	
+	// unusing a region makes the cursor invalid
+	BOOST_CHECK(c.unuse_region());
+	BOOST_CHECK(!c.is_valid());
 	
 	// iterate through the windows, verify data contents
 	// This will trigger map collections after a while

@@ -328,9 +328,7 @@ public:
 		}
 		
 		~cursor() {
-			if (m_region) {
-				m_region->client_count() -= 1;
-			}
+			unuse_region();
 			
 			// if our region is empty, remove it
 			if (m_regions) {
@@ -367,8 +365,7 @@ public:
 					need_region = false;
 				} else {
 					assert(m_region->client_count() != 0);
-					m_region->client_count() -= 1;
-					m_region = nullptr;
+					unuse_region();
 				}
 			}
 			
@@ -491,35 +488,54 @@ public:
 			return *this;
 		}
 		
+		//! Unuse the current region. Does nothing if we have no current region
+		//! \note the cursor unuses the region automatically upon destruction. It is recommmended
+		//! to unuse the region once you are done with reading from it in persistent cursors as it 
+		//! helps allowing the region to be unmapped in case resources are needed by other read operations.
+		//! \return true if the region was unused, false if there was no valid region in the first place
+		inline bool unuse_region(){
+			if(!is_valid()) {
+				return false;
+			}
+			m_region->client_count() -= 1;
+			m_region = nullptr;
+			return true;
+		}
+			
+		//! \return true if we have a valid and usable region
 		inline bool is_valid() const {
 			return m_region != nullptr;
 		}
 		
+		//! \return offset to first byte into the file
 		inline stream_offset ofs_begin() const {
 			assert(is_valid());
 			return m_region->ofs_begin() + m_ofs;
 		}
 		
+		//! \note unsigned version of ofs_begin()
 		inline size_type uofs_begin() const {
 			return static_cast<size_type>(ofs_begin());
 		}
 		
+		//! \return offset to one beyond the last byte into the file
 		inline stream_offset ofs_end() const {
 			assert(is_valid());
 			return ofs_begin() + m_size;
 		}
 		
+		//! \note unsigned version of ofs_end()
 		inline size_type uofs_end() const {
 			return static_cast<size_type>(ofs_end());
 		}
 		
-		//! \return first byte we point to
+		//! \return first byte we point to, mapped into our process memory
 		inline const char* begin() const {
 			assert(is_valid());
 			return m_region->begin() + m_ofs;
 		}
 		
-		//! \return one beyond last byte we point to
+		//! \return one beyond last byte we point to, mapped into our process memory
 		inline const char* end() const {
 			assert(m_region);
 			return begin() + m_size;
