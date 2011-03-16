@@ -219,7 +219,7 @@ protected:
 		
 	protected:
 		path_type				m_path;		//!< path our regions map
-		mutable uint64_t		m_file_size;//!< total size of the file in bytes
+		mutable size_type		m_file_size;//!< total size of the file in bytes
 		region_dlist			m_list;		//!< mapped regions
 		size_type				m_client_count;	//!< amount of cursors currently using us
 	
@@ -255,7 +255,7 @@ protected:
 		}
 		
 		//! \return size of our managed file in bytes
-		uint64_t file_size() const {
+		size_type file_size() const {
 			if (m_file_size == ~0u) {
 				m_file_size = boost::filesystem2::file_size(m_path);
 			}
@@ -375,6 +375,12 @@ public:
 			if (need_region) {
 				typedef typename file_regions::region_const_iterator region_const_iterator;
 				assert(m_region==nullptr);
+				
+				// abort on offsets beyond our mapped file's size - currently we are invalid
+				if (static_cast<size_type>(offset) >= file_size()) {
+					return *this;
+				}
+				
 				// find an existing region
 				auto& regions = m_regions->list();
 				auto rend = regions.end();
@@ -474,7 +480,6 @@ public:
 					m_region = &*it;
 				}// end create region
 	
-				assert(m_region);
 				m_region->client_count() += 1;
 			}// end need region
 			
@@ -495,9 +500,17 @@ public:
 			return m_region->ofs_begin() + m_ofs;
 		}
 		
+		inline size_type uofs_begin() const {
+			return static_cast<size_type>(ofs_begin());
+		}
+		
 		inline stream_offset ofs_end() const {
 			assert(is_valid());
 			return ofs_begin() + m_size;
+		}
+		
+		inline size_type uofs_end() const {
+			return static_cast<size_type>(ofs_end());
 		}
 		
 		//! \return first byte we point to
@@ -526,7 +539,7 @@ public:
 		}
 		
 		//! \return total size of the unerlying mapped file
-		uint64_t file_size() const {
+		size_type file_size() const {
 			assert(m_regions);
 			return m_regions->file_size();
 		}

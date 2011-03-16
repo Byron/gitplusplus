@@ -166,7 +166,7 @@ BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 	pr = c.region_ptr();
 	BOOST_CHECK(pr->client_count() == 1);
 	BOOST_CHECK(pr->ofs_begin() < c.ofs_begin());	// it should have mapped some part to the front
-	BOOST_REQUIRE(c.ofs_end() < data.size());	// it extends the whole remaining window size to the left, so it cannot extend to the right anymore
+	BOOST_REQUIRE(c.uofs_end() < data.size());	// it extends the whole remaining window size to the left, so it cannot extend to the right anymore
 	BOOST_REQUIRE(std::memcmp(pdata+base_offset, c.begin(), c.size())==0);
 	
 	
@@ -183,11 +183,14 @@ BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 				BOOST_REQUIRE(r->client_count() < 2);
 			}
 			BOOST_REQUIRE(manager.max_mapped_memory_size() >= manager.mapped_memory_size());
+			BOOST_REQUIRE(manager.max_file_handles() >= manager.num_file_handles());
 			BOOST_REQUIRE(c.use_region(base_offset, size).is_valid());
 			BOOST_REQUIRE(std::memcmp(c.begin(), pdata+c.ofs_begin(), c.size()) == 0);
 		}
-	} catch (const lru_failure&) {
+	} catch (const std::exception&) {
 		BOOST_REQUIRE(false);
 	}
-	std::cerr << "Open Handles: " << manager.num_file_handles() << std::endl;
+	
+	// Request memory beyond the size of the file
+	BOOST_REQUIRE(!c.use_region(f.size(), 100).is_valid());
 }
