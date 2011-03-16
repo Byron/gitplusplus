@@ -12,6 +12,7 @@
 #include <gtl/util.hpp>
 #include <gtl/db/odb_pack.hpp>
 #include <git/db/policy.hpp>
+#include <gtl/db/sliding_mmap_device.hpp>
 
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
@@ -322,7 +323,7 @@ private:
 protected:
 	const path_type							m_pack_path;		//! original path to the pack
 	PackIndexFile							m_index;			//! Our index file
-	//mapped_file_source_type				m_pack;				//! portion of the packed file itself
+	mapped_file_source_type					m_pack;				//! pack file itself
 	
 protected:
 	//! \return true if the given path appears to be a valid pack file
