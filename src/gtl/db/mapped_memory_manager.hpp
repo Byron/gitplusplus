@@ -591,9 +591,7 @@ protected:
 			return;
 		}
 		// find least recently used (or least often used) region
-		static auto no_clients = [](const region& r)->bool {return r.client_count()==0;};
 		typedef typename file_regions::region_dlist::iterator region_iterator;
-		typedef boost::filter_iterator<decltype(no_clients), region_iterator> iter_no_clients;
 		
 		const region_iterator no_region;		//!< point to no region
 		region_iterator lru_region(no_region);	//!< the actual most recently used region
@@ -602,11 +600,12 @@ protected:
 		
 		for (auto fiter = m_files.begin(); fiter != fend; ++fiter) {
 			auto& rlist = fiter->list();
-			iter_no_clients rbeg(no_clients, rlist.begin(), rlist.end());
-			const iter_no_clients rend(no_clients, rlist.end(), rlist.end());
+			region_iterator rbeg(rlist.begin());
+			const region_iterator rend(rlist.end());
 			for (; rbeg != rend; ++rbeg) {
-				if (lru_region == no_region || (*rbeg).usage_count() < lru_region->usage_count()) {
-					lru_region = rbeg.base();
+				if (rbeg->client_count() == 0 && 
+				    (lru_region == no_region || (*rbeg).usage_count() < lru_region->usage_count())) {
+					lru_region = rbeg;
 					lru_list = &rlist;
 				}
 			}// for each region
