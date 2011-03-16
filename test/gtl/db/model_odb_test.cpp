@@ -103,8 +103,10 @@ BOOST_AUTO_TEST_CASE(util)
 }
 
 
-BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
+BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 {
+	// MEMORY MANAGER TEST
+	//////////////////////
 	typedef std::vector<char>			char_vector;	
 	char_vector data;
 	file_creator f(1000 * 1000 * 8 + 5195, "window_test");
@@ -196,4 +198,45 @@ BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 	
 	// Request memory beyond the size of the file
 	BOOST_REQUIRE(!c.use_region(f.size(), 100).is_valid());
+	
+	// SLIDING DEVICE TEST
+	//////////////////////
+	typedef managed_mapped_file_source<man_type> managed_file_source;
+	managed_file_source source(manager);
+	BOOST_CHECK(!source.is_open());
+	// can query things without open file
+	BOOST_CHECK(source.file_size() == 0);
+	BOOST_CHECK(source.bytes_left() == 0);
+	BOOST_CHECK(source.size() == 0);
+	
+	size_t offset = 5000;
+	source.open(f.file(), managed_file_source::max_length, offset);
+	BOOST_CHECK(source.bytes_left() == f.size() - offset);
+	BOOST_CHECK(source.size() == source.bytes_left());
+	BOOST_CHECK(source.file_size() == f.size());
+	BOOST_REQUIRE(source.is_open());
+	
+	// SEEK
+	// try all offset combinations
+	BOOST_REQUIRE_THROW(source.seek(-1, std::ios::beg), std::ios_base::failure);
+	BOOST_REQUIRE_THROW(source.seek(source.bytes_left(), std::ios::beg), std::ios_base::failure);
+	BOOST_REQUIRE_THROW(source.seek(-1, std::ios::cur), std::ios_base::failure);
+	BOOST_REQUIRE_THROW(source.seek(source.size(), std::ios::cur), std::ios_base::failure);
+	BOOST_REQUIRE_THROW(source.seek(1, std::ios::end), std::ios_base::failure);
+	BOOST_REQUIRE_THROW(source.seek(source.size(), std::ios::end), std::ios_base::failure);
+	
+	
+	// re-opening is fine, this time with smaller size and no offset
+	source.open(f.file(), 5000);
+	BOOST_REQUIRE(source.is_open());
+	BOOST_CHECK(source.bytes_left() == 5000);
+	BOOST_CHECK(source.file_size() == f.size());
+	
+	// can still query values after close
+	source.close();
+	BOOST_CHECK(source.file_size() == 0);
+	BOOST_CHECK(!source.is_open());
+	
+	// closing several times is fine
+	source.close();
 }

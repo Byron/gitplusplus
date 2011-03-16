@@ -296,7 +296,22 @@ public:
 		stream_offset	m_ofs;		//! relative offset from the actually mapped area to our start area
 		size_type		m_size;		//! maximum size we should provide
 		
-		cursor& operator = (const cursor& rhs);
+		//! a freely accessible copy constructor
+		inline void copy_from(const cursor& rhs) {
+			m_manager = rhs.m_manager;
+			m_regions = rhs.m_regions;
+			m_region = rhs.m_region;
+			m_ofs = rhs.m_ofs;
+			m_size = rhs.m_size;
+			        
+			if (m_region) {
+				m_region->client_count() += 1;
+				m_region->usage_count() += 1;
+			}
+			if (m_regions) {
+				m_regions->client_count() += 1;
+			}
+		}
 		
 	public:
 		cursor(this_type* manager=nullptr, file_regions* regions=nullptr)
@@ -312,19 +327,14 @@ public:
 		}
 		
 		cursor(const cursor& rhs)
-		    : m_manager(rhs.m_manager)
-		    , m_regions(rhs.m_regions)
-		    , m_region(rhs.m_region)
-		    , m_ofs(rhs.m_ofs)
-		    , m_size(rhs.m_size)
 		{
-			if (m_region) {
-				m_region->client_count() += 1;
-				m_region->usage_count() += 1;
-			}
-			if (m_regions) {
-				m_regions->client_count() += 1;
-			}
+			copy_from(rhs);
+		}
+		
+		cursor& operator = (const cursor& rhs) {
+			this->~cursor();
+			copy_from(rhs);
+			return *this;
 		}
 		
 		~cursor() {
