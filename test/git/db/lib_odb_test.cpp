@@ -367,6 +367,7 @@ BOOST_AUTO_TEST_CASE(mem_db_test)
 
 BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 {
+	//! \todo templated base version of this implementation should go into the gtl tests
 	typedef typename git_object_traits::char_type char_type;
 	typedef typename LooseODB::input_stream_type input_stream_type;
 	typedef gtl::stack_heap<input_stream_type> stack_input_stream_type;
@@ -482,6 +483,7 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 
 BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 {
+	//! \todo templated base version of this implementation should go into the gtl tests
 	typedef PackODB::vector_pack_readers::const_iterator const_pack_iterator;
 	gtl::mapped_memory_manager<> manager;
 	
@@ -523,8 +525,10 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 		BOOST_REQUIRE(pit_end == pit_end);
 		BOOST_REQUIRE(pit != pit_end);
 		for (;pit != pit_end; ++pit) {
-			pit.key();
-			*pit;
+			BOOST_REQUIRE(pack->has_object(pit.key()));
+			PackOutputObject obj = *pit;
+			BOOST_REQUIRE(obj.key() == pit.key());
+			BOOST_REQUIRE(*podb.object(obj.key()) == obj);
 		}
 		
 		pack_index.index_checksum();
@@ -543,6 +547,10 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 	BOOST_REQUIRE(begin != end);
 	for (; begin != end; ++begin, ++obj_count) {
 		BOOST_REQUIRE(podb.has_object(begin.key()));
+		PackODB::output_object_type obj = *begin;
+		PackODB::accessor obj_acc = podb.object(begin.key());
+		BOOST_REQUIRE(*obj_acc == obj);
+		
 		//begin->size();
 	}
 	BOOST_REQUIRE(podb.count() == obj_count);

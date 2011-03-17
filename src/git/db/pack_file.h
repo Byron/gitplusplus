@@ -224,6 +224,23 @@ public:
 		return (m_ppack == rhs.m_ppack) & (m_entry == rhs.m_entry);
 	}
 	
+	bool operator != (const PackOutputObject& rhs) const {
+		return !(*this == rhs);
+	}
+	
+public:
+	//! @{ \name Accessor Functionality
+	
+	PackOutputObject* operator->() {
+		return this;
+	}
+	
+	PackOutputObject& operator*() {
+		return *this;
+	}
+	
+	//! @} end accessor functionality
+	
 public:
 	//! @{ \name Output Object Interface
 	stream_type* new_stream() const;
@@ -247,6 +264,7 @@ public:
 
 	//! @} end interface
 };
+
 
 
 /** \brief Iterator over all items within a pack
@@ -307,7 +325,8 @@ public:
 class PackFile
 {
 public:
-	typedef PackBidirectionalIterator		accessor;
+	typedef PackOutputObject				output_object_type;
+	typedef output_object_type				accessor;
 	typedef PackBidirectionalIterator		bidirectional_iterator;
 	typedef uint32							entry_size_type;
 	
@@ -355,6 +374,12 @@ public:
 	
 	inline bool has_object(const key_type& k) const {
 		return index().sha_to_entry(k) != PackIndexFile::hash_unknown;
+	}
+	
+	inline PackOutputObject object(const key_type& k) const {
+		// although we should raise, if key was not found, we trust the base implementation
+		assert(has_object(k));
+		return PackOutputObject(this, index().sha_to_entry(k));
 	}
 	
 	//! @} end packfile interface

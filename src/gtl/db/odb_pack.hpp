@@ -46,6 +46,7 @@ public:
 	typedef uint										accessor;
 	//! An iterator to move forward and backward. It provides the accessor interface as well.
 	typedef std::iterator<std::bidirectional_iterator_tag, output_object_type> bidirectional_iterator;
+	
 	//! Type able to point to and identify all possible pack entries. It must be a type 
 	//! which, if initialized with 0, identifies the first entry in a pack.
 	typedef uint32										entry_size_type;
@@ -76,6 +77,10 @@ public:
 	
 	//! \return true if the pack file contains the given object, false otherwise
 	bool has_object(const key_type& k) const;
+	
+	//! \return output object allowing access to object identified by the given key
+	//! \throw odb_hash_error if the object does not exist in the database
+	accessor object(const key_type& k) const;
 	
 	//! \return iterator to the beginning of all output objects in this pack
 	//! \note only valid as long as the parent pack is valid
@@ -233,10 +238,11 @@ public:
 	
 	typedef typename db_traits_type::path_type			path_type;
 	typedef typename db_traits_type::pack_reader_type	pack_reader_type;
+	typedef typename pack_reader_type::output_object_type output_object_type;
 	typedef typename db_traits_type::mapped_memory_manager_type mapped_memory_manager_type;
 	
-	typedef pack_forward_iterator<this_type>			accessor;
-	typedef accessor									forward_iterator;
+	typedef pack_forward_iterator<this_type>			forward_iterator;
+	typedef typename pack_reader_type::accessor			accessor;
 	
 	typedef std::vector<std::unique_ptr<pack_reader_type> > vector_pack_readers;
 	
@@ -288,7 +294,12 @@ public:
 	
 	accessor object(const key_type& k) const {
 		assure_update();
-		return accessor();
+		auto fun = [&k](typename vector_pack_readers::value_type& p)->bool{ return p->has_object(k); };
+		auto res = std::find_if(m_packs.begin(), m_packs.end(), fun);
+		if (res == m_packs.end()) {
+			throw hash_error_type(k);
+		}
+		return res->get()->object(k);
 	}
 	
 	forward_iterator begin() const {
