@@ -39,7 +39,7 @@ BOOST_FIXTURE_TEST_CASE(read_and_write, GitLooseODBFixture)
 		
 		// ONE BIG FILE
 		boost::timer t;
-		big_file_key = lodb.insert(iobj).key();
+		big_file_key = lodb.insert(iobj);
 		double elapsed = t.elapsed();
 		cerr << "Added " << dlen / mb << " MiB" << " to  loose object database in " << elapsed << " s (" << (dlen/mb) / elapsed << " MiB/s)" << endl;
 	 }
@@ -47,7 +47,7 @@ BOOST_FIXTURE_TEST_CASE(read_and_write, GitLooseODBFixture)
 	 // READ BIG FILE
 	 {
 		 boost::timer t;
-		 LooseODB::output_object_type::stream_type* stream = lodb.object(big_file_key)->new_stream();
+		 LooseODB::output_object_type::stream_type* stream = lodb.object(big_file_key).new_stream();
 		 io::copy(*stream, null);
 		 delete stream;
 		 double elapsed = t.elapsed();

@@ -601,11 +601,7 @@ protected:
 	}
 	
 protected:
-	//! copy constructor - public interfaces should only use the move constructor for now
-	loose_forward_iterator(const this_type& rhs)
-	    : m_obj(rhs.m_obj.path())
-	    , m_iter(rhs.m_iter)
-	{}
+	
 	
 public:
 	loose_forward_iterator(const path_type& root)
@@ -614,6 +610,13 @@ public:
 	
 	//! default constructor, used as end iterator
 	loose_forward_iterator()
+	{}
+	
+	//! copy constructor
+	//! this is required by the facade interface, but shouldn't actually be used
+	loose_forward_iterator(const this_type& rhs)
+	    : m_obj(rhs.m_obj.path())
+	    , m_iter(rhs.m_iter)
 	{}
 	
 	loose_forward_iterator(this_type&&) = default;
@@ -782,7 +785,9 @@ typename odb_loose<TraitsType>::key_type odb_loose<TraitsType>::insert(InputObje
 	// do nothing if we have the object already
 	if (object.key_pointer()) {
 		try {
-			return this->object(*object.key_pointer());
+			if (this->has_object(*object.key_pointer())) {
+				return *object.key_pointer();
+			}
 		} catch (odb_error&) {
 			
 		}
@@ -807,7 +812,7 @@ typename odb_loose<TraitsType>::key_type odb_loose<TraitsType>::insert(InputObje
 	path_type final_path;
 	key_type key;
 	if (object.key_pointer()) {
-		key = *object.key_pointer;
+		key = *object.key_pointer();
 		this->path_from_key(key, final_path);
 	} else {
 		key = ostream.hash_filter()->hash();
