@@ -4,6 +4,7 @@
 #include <gtl/config.h>
 #include <gtl/db/odb.hpp>
 #include <gtl/db/odb_object.hpp>
+#include <gtl/db/mapped_memory_manager.hpp>
 #include <gtl/util.hpp>
 
 #include <boost/iostreams/device/file.hpp>
@@ -400,6 +401,9 @@ struct odb_loose_traits : public odb_file_traits<	typename ObjectTraits::key_typ
 	//! Traits defininig the object itself and how to deal with it
 	typedef ObjectTraits									obj_traits_type;
 	
+	//! Memory manager used to handle all open files
+	typedef mapped_memory_manager<>							mapped_memory_manager_type;
+	
 	//! amount of hash-characters used as directory into which to put the loose object files.
 	//! One hash character will translate into two hexadecimal characters
 	static const uint32_t									num_prefix_characters = 1;
@@ -692,10 +696,11 @@ public:
   */
 template <class TraitsType>
 class odb_loose :	public odb_base<TraitsType>, 
-					public odb_file_mixin<typename TraitsType::path_type>
+					public odb_file_mixin<typename TraitsType::path_type, typename TraitsType::mapped_memory_manager_type>
 {
 public:
 	typedef TraitsType													db_traits_type;
+	typedef typename db_traits_type::mapped_memory_manager_type			mapped_memory_manager_type;
 	typedef typename db_traits_type::obj_traits_type					obj_traits_type;
 	typedef typename obj_traits_type::key_type							key_type;
 	typedef typename obj_traits_type::char_type							char_type;
@@ -761,8 +766,8 @@ protected:
 	}
 	
 public:
-	odb_loose(const path_type& root)
-		: odb_file_mixin<path_type>(root)
+	odb_loose(const path_type& root, mapped_memory_manager_type& manager)
+		: odb_file_mixin<path_type, mapped_memory_manager_type>(root, manager)
 	{}
 	
 public:

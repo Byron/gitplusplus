@@ -2,6 +2,7 @@
 #include <gtl/testutil.hpp>
 #include <git/fixture.hpp>
 #include <git/db/odb_loose.h>
+#include <gtl/db/mapped_memory_manager.hpp>
 
 #include <boost/timer.hpp>
 #include <boost/shared_array.hpp>
@@ -17,9 +18,11 @@ namespace io = boost::iostreams;
 
 const size_t mb = 1024*1024;
 
+gtl::mapped_memory_manager<> manager;
+
 BOOST_FIXTURE_TEST_CASE(read_and_write, GitLooseODBFixture)
 {
-	 LooseODB lodb(rw_dir());
+	 LooseODB lodb(rw_dir(), manager);
 	 
 	 // big file writing - its probably quite random as we don't initialze it
 	 LooseODB::key_type big_file_key;

@@ -27,6 +27,8 @@ const std::string hello_hex_sha("AAF4C61DDCC5E8A2DABEDE0F3B482CD9AEA9434D");
 const std::string hello_hex_sha_lc("aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d");
 const std::string null_hex_sha("0000000000000000000000000000000000000000");
 
+gtl::mapped_memory_manager<> manager;
+
 
 BOOST_AUTO_TEST_CASE(object_type_conversion)
 {
@@ -368,7 +370,7 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 	typedef typename git_object_traits::char_type char_type;
 	typedef typename LooseODB::input_stream_type input_stream_type;
 	typedef gtl::stack_heap<input_stream_type> stack_input_stream_type;
-	LooseODB lodb(rw_dir());
+	LooseODB lodb(rw_dir(), manager);
 	const uint num_objects = 10;
 	BOOST_REQUIRE(lodb.count() == num_objects);
 	

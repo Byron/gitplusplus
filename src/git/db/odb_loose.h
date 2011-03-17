@@ -49,11 +49,12 @@ struct git_loose_odb_traits : public gtl::odb_loose_traits<git_object_traits>
 class LooseODB : public gtl::odb_loose<git_loose_odb_traits>
 {
 public:
-	typedef git_loose_odb_traits::path_type path_type;
+//	typedef git_loose_odb_traits::path_type path_type;
+	//typedef git_loose_odb_traits::mapped_memory_manager_type mapped_memory_manager_type;
 	
 public:
-    LooseODB(const path_type& root)
-		: odb_loose(root)
+    LooseODB(const path_type& root, mapped_memory_manager_type& manager)
+		: odb_loose(root, manager)
 	{}
 	      
 };

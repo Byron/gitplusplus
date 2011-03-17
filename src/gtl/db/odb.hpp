@@ -126,27 +126,37 @@ public:
 /** \brief Mixin adding functionality required for interaction with files
   * This mixin does not have any requirements, it just defines a simple interface to handle root paths
   */
-template <class PathType>
+template <class PathType, class MemoryManagerType>
 class odb_file_mixin
 {
 public:
-	typedef PathType path_type;
+	typedef PathType			path_type;
+	typedef MemoryManagerType	mapped_memory_manager_type;
 
 protected:
-	path_type m_root;
+	path_type			m_root;
+	MemoryManagerType&	m_manager;
 	
 public:
 	//! initialize a database which expects to find its files in the given root directory
 	//! \note the root is not required to exist, the base
-	odb_file_mixin(const path_type& root)
+	odb_file_mixin(const path_type& root, mapped_memory_manager_type& manager)
 	    : m_root(root)
+	    , m_manager(manager)
 	{}
 	
 public:
 	inline const path_type& root_path() const {
 		return m_root;
 	}
+
+	inline mapped_memory_manager_type& manager() {
+		return m_manager;
+	}
 	
+	inline const mapped_memory_manager_type& manager() const {
+		return m_manager;
+	}
 };
 
 

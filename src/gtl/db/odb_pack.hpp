@@ -212,10 +212,11 @@ struct odb_pack_traits : public odb_file_traits<typename ObjectTraits::key_type,
   * 
   * \tparam ObjectTraits traits to define the objects to be stored within the database
   * \tparam Traits traits specific to the database itself, which includes the actual pack format
+  * \todo make the implementation thread-safe
   */ 
 template <class TraitsType>
 class odb_pack :	public odb_base<TraitsType>,
-					public odb_file_mixin<typename TraitsType::path_type>
+					public odb_file_mixin<typename TraitsType::path_type, typename TraitsType::mapped_memory_manager_type>
 {
 public:
 	typedef TraitsType									db_traits_type;
@@ -236,7 +237,6 @@ public:
 	typedef std::vector<std::unique_ptr<pack_reader_type> > vector_pack_readers;
 	
 protected:
-	mapped_memory_manager_type& m_manager;
 	mutable vector_pack_readers m_packs;
 	
 protected:
@@ -254,8 +254,7 @@ protected:
 	
 public:
 	odb_pack(const path_type& root, mapped_memory_manager_type& manager)
-	    : odb_file_mixin<path_type>(root)
-	    , m_manager(manager)
+	    : odb_file_mixin<path_type, mapped_memory_manager_type>(root, manager)
 	{}
 	
 public:
@@ -263,6 +262,7 @@ public:
 	
 	//! Update the internal cache of pack file instances. Call this method if the underlying 
 	//! set of files has changed after the database was first instantiated.
+	//! \todo implement handling for deleted packs - currently we will just add new ones
 	void update_cache();
 	
 	//! \return vector of unique pointers of packs
@@ -317,19 +317,21 @@ void odb_pack<TraitsType>::update_cache()
 		// skip packs we already have 
 		const path_type& path = iter->path();
 		auto packit = std::find_if(m_packs.begin(), m_packs.end(), 
-									[path](const typename vector_pack_readers::value_type& uptr) -> bool
+									[&path](const typename vector_pack_readers::value_type& uptr) -> bool
 									{return (uptr.get()->pack_path() == path);});
 		if (packit != m_packs.end()) {
 			continue;
 		}
 		
-		pack_reader_type* pack = pack_reader_type::new_pack(path, m_manager);
+		pack_reader_type* pack = pack_reader_type::new_pack(path, this->manager());
 		if (pack == nullptr) {
 			continue;
 		}
 		
 		m_packs.push_back(typename vector_pack_readers::value_type(pack));
 	}// for each directory entry
+
+	// todo: remove all packs which do not exist on disk anymore
 }
 
 GTL_NAMESPACE_END
