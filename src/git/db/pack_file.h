@@ -335,6 +335,9 @@ public:
 	//! compatible to the boost io-streams framework.
 	typedef gtl::managed_mapped_file_source<mapped_memory_manager_type>	mapped_file_source_type;
 	
+	
+	static const uint32						pack_signature = 0x5041434b;	// "PACK" in host format
+	
 private:
 	PackFile(const PackFile&);
 	PackFile(PackFile&&);

@@ -557,4 +557,6 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 	
 	
 	BOOST_CHECK(false); // verify iterators in empty pack databases
+	
+	// TODO: Verify invalid pack reading/handling
 }

@@ -123,6 +123,19 @@ public:
 };
 
 
+/** \brief utility to allow non-templated access to any object
+  * Use it in database which require access to any (unknown) object database.
+  * \note as this type uses virtual methods, it clearly sacrifices raw performance for flexibility
+  */
+class object_provider
+{
+protected:
+	object_provider(){};
+	~object_provider(){};
+	
+public:
+};
+
 /** \brief Mixin adding functionality required for interaction with files
   * This mixin does not have any requirements, it just defines a simple interface to handle root paths
   */

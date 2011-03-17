@@ -11,6 +11,7 @@
 #include <memory>
 #include <vector>
 #include <algorithm>
+#include <iostream>
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
@@ -67,6 +68,7 @@ public:
 	//! or nullptr if the file is not suitable to be handled by this pack type
 	//! The memory is managed by the caller, it will be deleted using a delete call
 	//! \param manager memory manager suitable for use in a managed device
+	//! \throw pack_parse_error if the pack is corrupted or could not be read.
 	//! \todo maybe allow overriding the deletor function of the unique_ptr
 	static odb_pack_file* new_pack(const path_type& file,  mapped_memory_manager_type& manager);
 	
@@ -340,12 +342,16 @@ void odb_pack<TraitsType>::update_cache()
 			continue;
 		}
 		
-		pack_reader_type* pack = pack_reader_type::new_pack(path, this->manager());
-		if (pack == nullptr) {
-			continue;
+		try {
+			pack_reader_type* pack = pack_reader_type::new_pack(path, this->manager());
+			if (pack == nullptr) {
+				continue;
+			}
+			
+			m_packs.push_back(typename vector_pack_readers::value_type(pack));
+		} catch (const pack_parse_error& err) {
+			std::cerr << "Ignoring invalid pack: " << err.what() << std::endl;
 		}
-		
-		m_packs.push_back(typename vector_pack_readers::value_type(pack));
 	}// for each directory entry
 
 	// todo: remove all packs which do not exist on disk anymore

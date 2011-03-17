@@ -5,6 +5,7 @@
 
 GIT_NAMESPACE_BEGIN
 
+
 PackIndexFile::PackIndexFile()
 {
 	reset();
@@ -157,6 +158,61 @@ PackFile::PackFile(const path_type& file, mapped_memory_manager_type& manager)
 	path_type index_file(file);
 	index_file.replace_extension(".idx");
 	m_index.open(index_file.string());
+	
+	// initialize pack - we map everything as we assume a sliding window
+	m_pack.open(file);
+	
+	struct Header
+	{
+		uint32	type;		// Usually "PACK" as char
+		uint32	version;	// Version
+		uint32	num_entries;// Amount of entries in the pack
+	};
+	
+	Header hdr;
+	if (m_pack.read(reinterpret_cast<char*>(&hdr), sizeof(Header)) != sizeof(Header)) {
+		ParseError err;
+		err.stream() << "Pack file at " << file << " does not have a header";
+		throw err;
+	}
+	
+	// signature
+	hdr.type = ntohl(hdr.type);
+	ParseError err;
+	err.stream() << "Error File " << file << ": ";
+	if (hdr.type != pack_signature) {
+		err.stream() << "First bytes are supposed to be PACK, but was " << std::hex << hdr.type;
+		throw err;
+	}
+	
+	// version
+	hdr.version = ntohl(hdr.version);
+	if (hdr.version != 2 && hdr.version != 3) {
+		err.stream() << "Cannot handle pack file version: " << hdr.version << ". Consider upgrading to a newer git++ library version";
+		throw err;
+	}
+	
+	// entries
+	hdr.num_entries = ntohl(hdr.num_entries);
+	if (hdr.num_entries != m_index.num_entries()) {
+		err.stream() << "Pack claims to have " << hdr.num_entries << " objects, but it has " << m_index.num_entries() << " according to the index file";
+		throw err;
+	}
+	
+	// verify sha
+	try {
+		m_pack.seek(-key_type::hash_len, std::ios::end);
+	} catch (const std::ios_base::failure& exc) {
+		err.stream() << "Failed to seek to end of pack to read sha: " << exc.what();
+		throw err;
+	}
+	
+	key_type key;
+	m_pack.read(key, key_type::hash_len);
+	if (key != m_index.pack_checksum()) {
+		err.stream() << "Pack checksum didn't match index checksum: " << key << " vs " << m_index.pack_checksum();
+		throw err;
+	}
 }
 
 bool PackFile::is_valid_path(const path_type& file)

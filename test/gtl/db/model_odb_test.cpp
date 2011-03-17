@@ -248,7 +248,7 @@ BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 		for (;(br = source.read(buf, buflen)) != -1; tbr += br) {
 			BOOST_REQUIRE(source.eof() == (br != static_cast<size_t>(buflen)));
 			BOOST_CHECK(br <= static_cast<std::streamsize>(buflen));
-			BOOST_REQUIRE(std::memcmp(pdata+ofs+tbr, buf, br) == 0);
+			BOOST_REQUIRE(!std::memcmp(pdata+ofs+tbr, buf, br));
 		}
 		BOOST_REQUIRE(tbr == static_cast<std::streamsize>(size));
 		BOOST_REQUIRE(source.tellg() == static_cast<stream_offset>(size)+ofs);
@@ -257,7 +257,7 @@ BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 	
 	// READ
 	check_read(source.size(), offset);
-	BOOST_CHECK(static_cast<std::streamsize>(source.seek(-10, std::ios::cur)) == source.file_size()-10);
+	BOOST_CHECK(static_cast<size_t>(source.seek(-10, std::ios::cur)) == source.file_size()-10);
 	char buf[10];
 	BOOST_REQUIRE(source.read(buf, 20) == 10);
 	
@@ -284,4 +284,7 @@ BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 	
 	// closing several times is fine
 	source.close();
+	
+	// the file is copy-constructible
+	managed_file_source source_too(source);
 }

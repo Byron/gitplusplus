@@ -47,6 +47,9 @@ protected:
 	size_type												m_nb;			//!< amount of bytes left for reading
 	size_type												m_size;			//!< total size of the mapping
 	
+private:
+	managed_mapped_file_source(managed_mapped_file_source&& source);
+	
 public:
 	
 	managed_mapped_file_source(memory_manager_type& manager)
@@ -56,8 +59,8 @@ public:
 	    , m_size(0)
 	{}
 	
-	managed_mapped_file_source(const managed_mapped_file_source& rhs);
-	managed_mapped_file_source(managed_mapped_file_source&& source);
+	managed_mapped_file_source(const managed_mapped_file_source& rhs) = default;
+	
 	
 public:
 	
@@ -184,7 +187,7 @@ public:
 			break;
 		}
 		case std::ios_base::end: {
-			if (off > 0 || static_cast<size_type>(-off) > (m_size - m_nb)) {
+			if (off > 0 || (static_cast<stream_offset>(m_size) + off) < 0) {
 				throw std::ios_base::failure("invalid offset");
 			}
 			m_ofs = m_ofs + (m_nb + off);
