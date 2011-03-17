@@ -229,19 +229,6 @@ public:
 	}
 	
 public:
-	//! @{ \name Accessor Functionality
-	
-	PackOutputObject* operator->() {
-		return this;
-	}
-	
-	PackOutputObject& operator*() {
-		return *this;
-	}
-	
-	//! @} end accessor functionality
-	
-public:
 	//! @{ \name Output Object Interface
 	stream_type* new_stream() const;
 	void stream(stream_type* stream) const;
@@ -301,11 +288,11 @@ public:
 	
 public:
 	
-	//! @{ \name Object Accessor Interface
+	//! @{ \name Interface
 	inline key_type key() const {
 		return m_obj.key();
 	}
-	//! @} end object accessor interface
+	//! @} end interface
 	
 };
 
@@ -326,7 +313,6 @@ class PackFile
 {
 public:
 	typedef PackOutputObject				output_object_type;
-	typedef output_object_type				accessor;
 	typedef PackBidirectionalIterator		bidirectional_iterator;
 	typedef uint32							entry_size_type;
 	

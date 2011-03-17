@@ -40,12 +40,9 @@ template <class TraitsType>
 class odb_pack_file
 {
 public:
-	//! The type of object being returned by our accessors and iterators
+	//! The type of object being returned by iterators
 	typedef uint										output_object_type;
-	//! An accessor pointing to exactly one object. It conforms to the interface of the 
-	//! object database accessor
-	typedef uint										accessor;
-	//! An iterator to move forward and backward. It provides the accessor interface as well.
+	//! An iterator to move forwards and backwards
 	typedef std::iterator<std::bidirectional_iterator_tag, output_object_type> bidirectional_iterator;
 	
 	//! Type able to point to and identify all possible pack entries. It must be a type 
@@ -82,7 +79,7 @@ public:
 	
 	//! \return output object allowing access to object identified by the given key
 	//! \throw odb_hash_error if the object does not exist in the database
-	accessor object(const key_type& k) const;
+	output_object_type object(const key_type& k) const;
 	
 	//! \return iterator to the beginning of all output objects in this pack
 	//! \note only valid as long as the parent pack is valid
@@ -179,13 +176,13 @@ public:
 	}
 	
 public:
-	//! @{ \name Accessor Interface
+	//! @{ \name Interface
 	key_type key() const {
 		assert_position();
 		return m_ientry.key();
 	}
 	 
-	//! @} end accessor interface
+	//! @} end interface
 	
 };
 
@@ -244,7 +241,6 @@ public:
 	typedef typename db_traits_type::mapped_memory_manager_type mapped_memory_manager_type;
 	
 	typedef pack_forward_iterator<this_type>			forward_iterator;
-	typedef typename pack_reader_type::accessor			accessor;
 	
 	typedef std::vector<std::unique_ptr<pack_reader_type> > vector_pack_readers;
 	
@@ -294,7 +290,7 @@ public:
 		return res != m_packs.end();
 	}
 	
-	accessor object(const key_type& k) const {
+	output_object_type object(const key_type& k) const {
 		assure_update();
 		auto fun = [&k](typename vector_pack_readers::value_type& p)->bool{ return p->has_object(k); };
 		auto res = std::find_if(m_packs.begin(), m_packs.end(), fun);

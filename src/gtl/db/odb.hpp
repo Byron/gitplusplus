@@ -58,6 +58,12 @@ struct odb_forward_iterator :	public boost::iterator_facade<	odb_forward_iterato
 																int, /*Output Object Type*/
 																boost::forward_traversal_tag>
 {
+	typedef TraitsType												db_traits_type;
+	typedef typename db_traits_type::obj_traits_type				obj_traits_type;
+	typedef typename obj_traits_type::key_type						key_type;
+	
+	//! \return key of the object we are currently pointing to
+	key_type key() const;
 };
 
 

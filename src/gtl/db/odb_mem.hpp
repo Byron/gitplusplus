@@ -94,12 +94,11 @@ public:
 };
 
 
-/** Iterator providing access to a single element of the memory odb.
-  * It's value can be queried read-only, and it cannot be used in iterations.
-  * \ingroup ODBIter
+/** \ingroup ODBIter
+  * \todo derive from boost::iterator_facade, which would allow to remove plenty of boilerplate
   */
 template <class TraitsType>
-class mem_accessor : public odb_accessor<TraitsType>
+class mem_forward_iterator
 {
 public:
 	typedef TraitsType														db_traits_type;
@@ -107,7 +106,7 @@ public:
 	typedef typename obj_traits_type::key_type								key_type;
 	typedef typename obj_traits_type::size_type								size_type;
 	typedef std::map<key_type, odb_mem_output_object<obj_traits_type> >		map_type;
-	typedef mem_accessor<db_traits_type>									this_type;
+	typedef mem_forward_iterator<db_traits_type>							this_type;
 	typedef typename map_type::value_type									value_type;
 
 protected:
@@ -116,7 +115,9 @@ protected:
 public:
 	//! initialize the iterator from the underlying mapping type's iterator
 	template <class Iterator>
-	mem_accessor(const Iterator& it) noexcept : m_iter(it) {}
+	mem_forward_iterator(const Iterator& it) noexcept : m_iter(it) {}
+	
+public:
 	
 	//! Equality comparison of compatible iterators
 	inline bool operator==(const this_type& rhs) const noexcept {
@@ -139,34 +140,21 @@ public:
 		return &m_iter->second;
 	}
 	
-	//! \return key instance which identifyies our object within this map
-	//! \note this method is an optional addition, just because our implementation provides this information
-	//! for free.
-	inline const typename map_type::value_type::first_type& key() const noexcept {
-		return m_iter->first;
-	}
-};
-
-/** \ingroup ODBIter
-  * \todo derive from boost::iterator_facade, which would allow to remove plenty of boilerplate
-  */
-template <class TraitsType>
-class mem_forward_iterator : public mem_accessor<TraitsType>
-{
-public:
-	typedef mem_accessor<TraitsType> parent_type;
-
-	
-	template <class Iterator>
-	mem_forward_iterator(const Iterator& it)
-		: mem_accessor<TraitsType>(it) {}
-	
 	mem_forward_iterator& operator++() {
 		++(this->m_iter); return *this;
 	}
 	mem_forward_iterator operator++(int) {
 		mem_forward_iterator cpy(*this); ++(this->m_iter); return cpy;
 	}
+	
+	//! @{ \name Interface
+	
+	//! \return key instance which identifyies our object within this map
+	inline const typename map_type::value_type::first_type& key() const noexcept {
+		return m_iter->first;
+	}
+	
+	//! @} end interface
 };
 
 /** \brief Class providing access to objects which are cached in memory
@@ -183,8 +171,7 @@ public:
 	typedef typename db_traits_type::obj_traits_type				obj_traits_type;
 	typedef odb_base<db_traits_type>								parent_type;
 	typedef typename obj_traits_type::key_type						key_type;
-	typedef typename mem_accessor<db_traits_type>::map_type			map_type;
-	typedef mem_accessor<db_traits_type>							accessor;
+	typedef typename mem_forward_iterator<db_traits_type>::map_type	map_type;
 	typedef mem_forward_iterator<db_traits_type>					forward_iterator;
 	typedef odb_hash_error<key_type>								hash_error_type;
 	typedef odb_mem_output_object<obj_traits_type>					output_object_type;
@@ -211,12 +198,12 @@ public:
 		return m_objs.find(k) != m_objs.end();
 	}
 	
-	accessor object(const key_type& k) const {
+	const output_object_type& object(const key_type& k) const {
 		typename map_type::const_iterator it(m_objs.find(k));
 		if (it == m_objs.end()) {
 			throw hash_error_type(k);
 		}
-		return accessor(it);
+		return it->second;
 	}
 	
 	forward_iterator begin() const noexcept {
@@ -237,23 +224,15 @@ public:
 	//! not, of course, if the element it points to is deleted.
 	//! \tparam InputObject odb_input_object compatible type
 	template <class InputObject>
-	accessor insert(InputObject& object);
+	key_type insert(InputObject& object);
 
 	//! Same as above, but will produce the required serialized version of object automatically
-	accessor insert_object(const typename obj_traits_type::input_reference_type object);
-	
-	//! insert the copy's of the contents of the given input iterators into this object database
-	//! The inserted items can be queried using the keys from the input iterators
-	template <class Iterator>
-	void insert(Iterator begin, const Iterator end);
-	
-	//! Same as above, but will produce the required serialized version of object automatically
-	accessor insert(typename obj_traits_type::input_reference_type object);
+	key_type insert_object(const typename obj_traits_type::input_reference_type object);
 	
 };
 
 template <class TraitsType>
-typename odb_mem<TraitsType>::accessor odb_mem<TraitsType>::insert_object(const typename TraitsType::obj_traits_type::input_reference_type inobj)
+typename odb_mem<TraitsType>::key_type odb_mem<TraitsType>::insert_object(const typename TraitsType::obj_traits_type::input_reference_type inobj)
 {
 	auto policy = typename obj_traits_type::policy_type();
 	output_object_type oobj(policy.type(inobj), policy.compute_size(inobj));
@@ -268,12 +247,12 @@ typename odb_mem<TraitsType>::accessor odb_mem<TraitsType>::insert_object(const 
 	typename obj_traits_type::hash_generator_type hashgen;
 	header_hash(hashgen, oobj);
 	hashgen.update(odata.data(), odata.size());
-	return accessor(m_objs.insert(typename map_type::value_type(hashgen.hash(), std::move(oobj))).first);
+	return m_objs.insert(typename map_type::value_type(hashgen.hash(), std::move(oobj))).first->first;
 }
 
 template <class TraitsType>
 template <class InputObject>
-typename odb_mem<TraitsType>::accessor odb_mem<TraitsType>::insert(InputObject& iobj)
+typename odb_mem<TraitsType>::key_type odb_mem<TraitsType>::insert(InputObject& iobj)
 {
 	static_assert(sizeof(typename obj_traits_type::char_type) == sizeof(typename InputObject::stream_type::char_type), "char types incompatible");
 	output_object_type oobj(iobj.type(), iobj.size());
@@ -286,12 +265,12 @@ typename odb_mem<TraitsType>::accessor odb_mem<TraitsType>::insert(InputObject& 
 	
 	auto pkey = iobj.key_pointer();
 	if (pkey) {
-		return accessor(m_objs.insert(typename map_type::value_type(*pkey, std::move(oobj))).first);
+		return m_objs.insert(typename map_type::value_type(*pkey, std::move(oobj))).first->first;
 	} else {
 		typename obj_traits_type::hash_generator_type hashgen;
 		header_hash(hashgen, oobj);
 		hashgen.update(odata.data(), odata.size());
-		return accessor(m_objs.insert(typename map_type::value_type(hashgen.hash(), std::move(oobj))).first);
+		return m_objs.insert(typename map_type::value_type(hashgen.hash(), std::move(oobj))).first->first;
 	}// handle key exists
 }
 

@@ -427,6 +427,7 @@ class odb_loose_output_object
 public:
 	typedef TraitsType										db_traits_type;
 	typedef typename db_traits_type::obj_traits_type		obj_traits_type;
+	typedef typename obj_traits_type::key_type				key_type;
 	typedef loose_object_input_stream<db_traits_type, typename db_traits_type::header_tag> stream_type;
 	typedef typename db_traits_type::path_type				path_type;
 	typedef typename obj_traits_type::size_type				size_type;
@@ -502,74 +503,6 @@ public:
 		return m_path;
 	}
 	
-	//! modifyable version of our internal path
-	path_type& path() {
-		m_pstream = nullptr;
-		return m_path;
-	}
-	
-	//! @}
-};
-
-
-/** \brief accessor pointing to one item in the database.
-  */
-template <class TraitsType>
-class loose_accessor :	public odb_accessor<TraitsType>
-{
-public:
-	typedef TraitsType												db_traits_type;
-	typedef typename db_traits_type::obj_traits_type				obj_traits_type;
-	typedef odb_loose_output_object<db_traits_type>					output_object_type;
-	typedef typename obj_traits_type::key_type						key_type;
-	typedef typename obj_traits_type::size_type						size_type;
-	typedef typename obj_traits_type::object_type					object_type;
-	typedef typename db_traits_type::path_type						path_type;
-	typedef loose_accessor<db_traits_type>							this_type;
-	
-protected:
-	output_object_type	m_obj;
-	
-protected:
-	//! Default constructor, only for derived types
-	loose_accessor(){}
-	
-private:
-	//! only allow move construction due to our (implicit) file stream, move constructor is implicitly defined
-	loose_accessor(const this_type& rhs) 
-	    : m_obj(rhs.m_obj)
-	{}
-	
-public:
-	//! Initialize this instance with a key to operate upon.
-	//! It should, but is not required, to point to a valid object
-	loose_accessor(const path_type& objpath)
-		: m_obj(objpath)
-	{}
-	
-	loose_accessor(this_type&&) = default;
-	
-	//! Equality comparison of compatible iterators
-	inline bool operator==(const this_type& rhs) const {
-		return m_obj == rhs.m_obj;
-	}
-	
-	//! Inequality comparison
-	inline bool operator!=(const this_type& rhs) const {
-		return !(m_obj == rhs.m_obj);
-	}
-	
-	//! allows access to the actual input object
-	inline const output_object_type& operator*() const {
-		return m_obj;
-	}
-	
-	//! allow -> semantics
-	inline const output_object_type* operator->() const {
-		return &m_obj;
-	}
-	
-public:
 	//! \return key matching our path
 	//! \note this generates the key instance from our object's path
 	//! \todo implementation could be more efficient by manually parsing the path's buffer - if we 
@@ -578,10 +511,10 @@ public:
 		// convert path to temporary key
 		typedef typename path_type::string_type::value_type char_type;
 		typedef typename path_type::string_type string_type;
-		assert(!m_obj.path().empty());
+		assert(!path().empty());
 		
-		string_type filename = m_obj.path().filename();
-		string_type parent_dir = m_obj.path().parent_path().filename();
+		string_type filename = path().filename();
+		string_type parent_dir = path().parent_path().filename();
 		assert(filename.size()/2 == key_type::hash_len - db_traits_type::num_prefix_characters);
 		assert(parent_dir.size()/2 == db_traits_type::num_prefix_characters);
 		
@@ -595,37 +528,46 @@ public:
 		return key_type(tmp);
 	}
 	
+	//! modifyable version of our internal path
+	path_type& path() {
+		m_pstream = nullptr;
+		return m_path;
+	}
+	
+	//! @}
 };
+
 
 
 /** \brief iterator for all loose objects in the database.
   * It iterates folders and files within these folders until the folder interation is depleted.
   * \tparam ObjectTraits traits specifying general git parameters and types
   * \tparam Traits traits to configure the database implentation
-  * \todo derive from boost::iterator_facade, which would allow to remove plenty of boilerplate
   * \note the iterator keeps an internal object which is changed on each iteration step. If you queried 
   * its information once, it will use system resources. On the next step, these are being released automatically
   * as the object then points to a different path.
   */
 template <class TraitsType>
-class loose_forward_iterator : public loose_accessor<TraitsType>
+class loose_forward_iterator : public boost::iterator_facade<	loose_forward_iterator<TraitsType>,
+																const odb_loose_output_object<TraitsType>,
+																boost::forward_traversal_tag>
 {
 public:
 	typedef TraitsType									db_traits_type;
 	typedef typename db_traits_type::obj_traits_type	obj_traits_type;
-	typedef odb_loose_output_object<obj_traits_type> output_object_type;
+	typedef odb_loose_output_object<db_traits_type>		output_object_type;
 	typedef typename obj_traits_type::key_type			key_type;
-	typedef typename obj_traits_type::size_type			size_type;
-	typedef typename obj_traits_type::object_type		object_type;
 	typedef typename db_traits_type::path_type			path_type;
-	typedef loose_forward_iterator						this_type;
+	typedef loose_forward_iterator<db_traits_type>		this_type;
 	
 protected:
+	friend class boost::iterator_core_access;
+	
+	output_object_type								m_obj;
 	boost::filesystem::recursive_directory_iterator m_iter;
 	
-protected:
 	//! increment our iterator to the next object file
-	void next() {
+	inline void next() {
 		boost::filesystem::recursive_directory_iterator end;
 		// have to increment m_iter prior to looping as we broke out the previous loop,
 		// which fails to increment m_iter. This is good, as comparisons with end (from the user side)
@@ -645,11 +587,23 @@ protected:
 			}
 		}// scrub iterator until we have a file
 	}
-
-private:
-	//! copy constructor - currently we only allow move semantics due to our file stream
+	
+	bool equal(const this_type& rhs) const {
+		return m_iter == rhs.m_iter;
+	}
+	
+	const output_object_type& dereference() const {
+		return this->m_obj;
+	}
+	
+	void increment() {
+		next();
+	}
+	
+protected:
+	//! copy constructor - public interfaces should only use the move constructor for now
 	loose_forward_iterator(const this_type& rhs)
-	    : loose_accessor<TraitsType>(rhs)
+	    : m_obj(rhs.m_obj.path())
 	    , m_iter(rhs.m_iter)
 	{}
 	
@@ -664,26 +618,13 @@ public:
 	
 	loose_forward_iterator(this_type&&) = default;
 	
-	//! Equality comparison of compatible iterators
-	inline bool operator==(const this_type& rhs) const {
-		return m_iter == rhs.m_iter;
-	}
+public:
 	
-	//! Inequality comparison
-	inline bool operator!=(const this_type& rhs) const {
-		return m_iter != rhs.m_iter;
-	}
-	
-	this_type& operator++() {
-		next(); return *this;
-	}
-	
-	this_type operator++(int) {
-		this_type cpy(*this); next(); return cpy;
+	key_type key() const {
+		return m_obj.key();
 	}
 	
 };
-
 
 /** \brief Model a fully paremeterized database which stores objects as compressed files on disk.
   *
@@ -712,7 +653,6 @@ public:
 	typedef typename output_object_type::stream_type					input_stream_type;
 	typedef loose_object_output_stream<db_traits_type>					output_stream_type;
 	
-	typedef loose_accessor<db_traits_type>								accessor;
 	typedef loose_forward_iterator<db_traits_type>						forward_iterator;
 
 protected:
@@ -777,14 +717,14 @@ public:
 		return fs::is_regular_file(path);
 	}
 	
-	accessor object(const key_type& k) const {
+	output_object_type object(const key_type& k) const {
 		path_type path;
 		path_from_key(k, path);
 		if (!fs::is_regular_file(path)){
 			throw hash_error_type(k);
 		}
 		// this one should be moved automatically
-		return accessor(std::move(path));
+		return output_object_type(std::move(path));
 	}
 	
 	forward_iterator begin() const {
@@ -803,12 +743,12 @@ public:
 	//! Insert the given object into the database
 	//! \tparam InputObject input object compatible type
 	template <class InputObject>
-	accessor insert(InputObject& object);
-	accessor insert_object(typename obj_traits_type::input_reference_type object);
+	key_type insert(InputObject& object);
+	key_type insert_object(typename obj_traits_type::input_reference_type object);
 };
 
 template <class TraitsType>
-typename odb_loose<TraitsType>::accessor odb_loose<TraitsType>::insert_object(typename TraitsType::obj_traits_type::input_reference_type object)
+typename odb_loose<TraitsType>::key_type odb_loose<TraitsType>::insert_object(typename TraitsType::obj_traits_type::input_reference_type object)
 {
 	auto policy = typename obj_traits_type::policy_type();
 	std::basic_stringstream<char_type> tmp_stream;
@@ -832,12 +772,12 @@ typename odb_loose<TraitsType>::accessor odb_loose<TraitsType>::insert_object(ty
 	
 	move_tmp_to_final(tmp_path, final_path);
 	
-	return accessor(final_path);
+	return ostream.hash_filter()->hash();
 }
 
 template <class TraitsType>
 template <class InputObject>
-typename odb_loose<TraitsType>::accessor odb_loose<TraitsType>::insert(InputObject& object)
+typename odb_loose<TraitsType>::key_type odb_loose<TraitsType>::insert(InputObject& object)
 {
 	// do nothing if we have the object already
 	if (object.key_pointer()) {
@@ -865,14 +805,17 @@ typename odb_loose<TraitsType>::accessor odb_loose<TraitsType>::insert(InputObje
 	ostream.pop();			
 	
 	path_type final_path;
+	key_type key;
 	if (object.key_pointer()) {
-		this->path_from_key(*object.key_pointer(), final_path);
+		key = *object.key_pointer;
+		this->path_from_key(key, final_path);
 	} else {
-		this->path_from_key(ostream.hash_filter()->hash(), final_path);
+		key = ostream.hash_filter()->hash();
+		this->path_from_key(key, final_path);
 	}
 	
 	move_tmp_to_final(tmp_path, final_path);
-	return accessor(final_path);
+	return key;
 }
 
 
