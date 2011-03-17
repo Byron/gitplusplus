@@ -296,7 +296,22 @@ public:
 		stream_offset	m_ofs;		//! relative offset from the actually mapped area to our start area
 		size_type		m_size;		//! maximum size we should provide
 		
-		cursor& operator = (const cursor& rhs);
+		//! a freely accessible copy constructor
+		inline void copy_from(const cursor& rhs) {
+			m_manager = rhs.m_manager;
+			m_regions = rhs.m_regions;
+			m_region = rhs.m_region;
+			m_ofs = rhs.m_ofs;
+			m_size = rhs.m_size;
+			        
+			if (m_region) {
+				m_region->client_count() += 1;
+				m_region->usage_count() += 1;
+			}
+			if (m_regions) {
+				m_regions->client_count() += 1;
+			}
+		}
 		
 	public:
 		cursor(this_type* manager=nullptr, file_regions* regions=nullptr)
@@ -312,19 +327,14 @@ public:
 		}
 		
 		cursor(const cursor& rhs)
-		    : m_manager(rhs.m_manager)
-		    , m_regions(rhs.m_regions)
-		    , m_region(rhs.m_region)
-		    , m_ofs(rhs.m_ofs)
-		    , m_size(rhs.m_size)
 		{
-			if (m_region) {
-				m_region->client_count() += 1;
-				m_region->usage_count() += 1;
-			}
-			if (m_regions) {
-				m_regions->client_count() += 1;
-			}
+			copy_from(rhs);
+		}
+		
+		cursor& operator = (const cursor& rhs) {
+			this->~cursor();
+			copy_from(rhs);
+			return *this;
 		}
 		
 		~cursor() {
@@ -550,8 +560,17 @@ public:
 		//! \note the internal region may not be set yet, a nullptr can be returned
 		//! \note as region is protected, you can only use it directly after the call
 		//! or store a pointer using auto
-		const region* region_ptr() const {
+		inline const region* region_ptr() const {
 			return m_region;
+		}
+		
+		//! \return true if the given offset is contained in the cursors current region
+		//! \note always false if the cursor does not point to a valid region
+		inline bool includes_ofs(stream_offset ofs) const {
+			if (!is_valid()) {
+				return false;
+			}
+			return (ofs_begin() <= ofs) & (ofs < ofs_end());
 		}
 		
 		//! \return total size of the unerlying mapped file

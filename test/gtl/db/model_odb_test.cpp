@@ -103,8 +103,10 @@ BOOST_AUTO_TEST_CASE(util)
 }
 
 
-BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
+BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 {
+	// MEMORY MANAGER TEST
+	//////////////////////
 	typedef std::vector<char>			char_vector;	
 	char_vector data;
 	file_creator f(1000 * 1000 * 8 + 5195, "window_test");
@@ -189,11 +191,89 @@ BOOST_AUTO_TEST_CASE(test_sliding_mappe_memory_device)
 			BOOST_REQUIRE(manager.max_file_handles() >= manager.num_file_handles());
 			BOOST_REQUIRE(c.use_region(base_offset, size).is_valid());
 			BOOST_REQUIRE(std::memcmp(c.begin(), pdata+c.ofs_begin(), c.size()) == 0);
-		}
+			
+			BOOST_CHECK(c.includes_ofs(base_offset));
+			BOOST_CHECK(c.includes_ofs(base_offset+c.size()-1));
+			BOOST_CHECK(!c.includes_ofs(base_offset+c.size()));
+		}// while num_random_accesses
 	} catch (const std::exception&) {
 		BOOST_REQUIRE(false);
 	}
 	
 	// Request memory beyond the size of the file
 	BOOST_REQUIRE(!c.use_region(f.size(), 100).is_valid());
+	
+	// SLIDING DEVICE TEST
+	//////////////////////
+	typedef managed_mapped_file_source<man_type> managed_file_source;
+	managed_file_source source(manager);
+	BOOST_CHECK(!source.is_open());
+	// can query things without open file
+	BOOST_CHECK(source.file_size() == 0);
+	BOOST_CHECK(source.bytes_left() == 0);
+	BOOST_CHECK(source.size() == 0);
+	BOOST_CHECK(source.tellg() == 0);
+	BOOST_REQUIRE_THROW(source.seek(1, std::ios::beg), std::ios_base::failure);	// seek closed device
+	
+	size_t offset = 5000;
+	source.open(f.file(), managed_file_source::max_length, offset);
+	BOOST_CHECK(source.bytes_left() == f.size() - offset);
+	BOOST_CHECK(source.size() == source.bytes_left());
+	BOOST_CHECK(source.file_size() == f.size());
+	BOOST_REQUIRE(source.is_open());
+	
+	// SEEK
+	// try all offset combinations
+	BOOST_REQUIRE_THROW(source.seek(-1, std::ios::beg), std::ios_base::failure);
+	BOOST_REQUIRE_THROW(source.seek(source.bytes_left(), std::ios::beg), std::ios_base::failure);
+	BOOST_REQUIRE_THROW(source.seek(-1, std::ios::cur), std::ios_base::failure);
+	BOOST_REQUIRE_THROW(source.seek(source.size(), std::ios::cur), std::ios_base::failure);
+	BOOST_REQUIRE_THROW(source.seek(1, std::ios::end), std::ios_base::failure);
+	BOOST_REQUIRE_THROW(source.seek(source.size(), std::ios::end), std::ios_base::failure);
+	
+	auto check_read = [&source,pdata](size_t size, stream_offset ofs=0){
+		const size_t buflen = 512;
+		char buf[buflen];
+		std::streamsize br = 0;		// bytes read per iteration
+		std::streamsize tbr = 0;	// total bytes read
+		BOOST_REQUIRE(source.tellg() == ofs);
+		for (;(br = source.read(buf, buflen)) != -1; tbr += br) {
+			BOOST_REQUIRE(source.eof() == (br != static_cast<size_t>(buflen)));
+			BOOST_CHECK(br <= static_cast<std::streamsize>(buflen));
+			BOOST_REQUIRE(std::memcmp(pdata+ofs+tbr, buf, br) == 0);
+		}
+		BOOST_REQUIRE(tbr == static_cast<std::streamsize>(size));
+		BOOST_REQUIRE(source.tellg() == static_cast<stream_offset>(size)+ofs);
+		BOOST_REQUIRE(source.eof());
+	};
+	
+	// READ
+	check_read(source.size(), offset);
+	BOOST_CHECK(static_cast<std::streamsize>(source.seek(-10, std::ios::cur)) == source.file_size()-10);
+	char buf[10];
+	BOOST_REQUIRE(source.read(buf, 20) == 10);
+	
+	// re-opening is fine, this time with smaller size and no offset
+	size_t ssize = 5000;
+	source.open(f.file(), ssize);
+	BOOST_REQUIRE(source.is_open());
+	BOOST_CHECK(source.bytes_left() == ssize);
+	BOOST_CHECK(source.file_size() == f.size());
+	
+	check_read(ssize);
+	
+	// seek it back to 0 from the back
+	BOOST_CHECK(source.seek(-static_cast<stream_offset>(ssize), std::ios::end) == 0);
+	BOOST_CHECK(source.tellg() == 0);
+	BOOST_CHECK(source.bytes_left() == ssize);
+	
+	// can still query values after close
+	source.close();
+	BOOST_CHECK(source.file_size() == 0);
+	BOOST_CHECK(source.size() == 0);
+	BOOST_CHECK(source.tellg() == 0);
+	BOOST_CHECK(!source.is_open());
+	
+	// closing several times is fine
+	source.close();
 }
