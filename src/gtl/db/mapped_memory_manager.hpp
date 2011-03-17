@@ -451,11 +451,19 @@ public:
 					mid.extend_left_to(left, m_manager->window_size());
 					mid.extend_right_to(right, m_manager->window_size());
 					mid.align();
+					// it may be that the alignment causes the offset we should contain to move out of bounds
+					// This happens as we extend to the left before to the right, but could possibly happen
+					// if we did it the other way round as well. Hence we extend it by one page size to include
+					// it once again
+					if (mid.ofs_end() <= offset) {
+						mid.size += this_type::page_size();
+					}
 					// It can happen that we align above the boundary of the file, so it gets larger
 					// than it may actually be.
 					if (mid.ofs_end() > right.ofs) {
 						mid.size = right.ofs - mid.ofs;
 					}
+					assert(mid.ofs_end() > offset);
 					assert(left.ofs_end() <= mid.ofs);
 					assert(mid.ofs_end() <= right.ofs);
 				
@@ -491,6 +499,8 @@ public:
 			}// end need region
 			
 			assert(m_region);
+			assert(m_region->ofs_end() > offset);
+			
 			// recomute size and relative offset
 			m_region->usage_count() += 1;
 			m_ofs = offset - m_region->ofs_begin();

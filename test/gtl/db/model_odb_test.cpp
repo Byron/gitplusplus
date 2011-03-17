@@ -11,6 +11,7 @@
 
 #include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/operations.hpp>
+#include <boost/timer.hpp>
 
 #include <type_traits>
 #include <vector>
@@ -168,7 +169,7 @@ BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 	pr = c.region_ptr();
 	BOOST_CHECK(pr->client_count() == 1);
 	BOOST_CHECK(pr->ofs_begin() < c.ofs_begin());	// it should have mapped some part to the front
-	BOOST_REQUIRE(c.uofs_end() < data.size());	// it extends the whole remaining window size to the left, so it cannot extend to the right anymore
+	BOOST_REQUIRE(c.uofs_end() <= data.size());	// it extends the whole remaining window size to the left, so it cannot extend to the right anymore
 	BOOST_REQUIRE(std::memcmp(pdata+base_offset, c.begin(), c.size())==0);
 	
 	// unusing a region makes the cursor invalid
@@ -177,9 +178,12 @@ BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 	
 	// iterate through the windows, verify data contents
 	// This will trigger map collections after a while
-	uint num_random_accesses = 10000;
+	const uint max_random_accesses = 15000;
+	uint num_random_accesses = max_random_accesses;
 	std::uniform_int_distribution<uint64_t> distribution(0ul, c.file_size());
 	std::mt19937 engine;
+	boost::timer timer;
+	size_t memory_read = 0;
 	try {
 		while (num_random_accesses--) {
 			base_offset = distribution(engine);
@@ -191,6 +195,7 @@ BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 			BOOST_REQUIRE(manager.max_file_handles() >= manager.num_file_handles());
 			BOOST_REQUIRE(c.use_region(base_offset, size).is_valid());
 			BOOST_REQUIRE(std::memcmp(c.begin(), pdata+c.ofs_begin(), c.size()) == 0);
+			memory_read += c.size();
 			
 			BOOST_CHECK(c.includes_ofs(base_offset));
 			BOOST_CHECK(c.includes_ofs(base_offset+c.size()-1));
@@ -199,6 +204,9 @@ BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 	} catch (const std::exception&) {
 		BOOST_REQUIRE(false);
 	}
+	double elapsed = timer.elapsed();
+	static const size_t mb = 1000*1000;
+	std::cerr << "Read " << memory_read/mb << " MB of memory with " << max_random_accesses << " random accesses in " << elapsed << "s (" << (double)(memory_read/mb) / elapsed << " mb/s)" << std::endl;
 	
 	// Request memory beyond the size of the file
 	BOOST_REQUIRE(!c.use_region(f.size(), 100).is_valid());
