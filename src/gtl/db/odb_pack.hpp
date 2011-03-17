@@ -55,6 +55,7 @@ protected:
 	typedef TraitsType											db_traits_type;
 	typedef typename db_traits_type::obj_traits_type			obj_traits_type;
 	typedef typename db_traits_type::path_type					path_type;
+	typedef typename db_traits_type::obj_traits_type::key_type	key_type;
 	typedef typename db_traits_type::mapped_memory_manager_type	mapped_memory_manager_type;
 	//! @} end internal use typedefs
 	
@@ -72,6 +73,9 @@ public:
 	//! \note the interface requires it to be cached as it needs fast access
 	//! to this information in case of a cache update
 	const path_type& pack_path() const;
+	
+	//! \return true if the pack file contains the given object, false otherwise
+	bool has_object(const key_type& k) const;
 	
 	//! \return iterator to the beginning of all output objects in this pack
 	//! \note only valid as long as the parent pack is valid
@@ -277,7 +281,9 @@ public:
 	
 	bool has_object(const key_type& k) const {
 		assure_update();
-		return false;
+		auto fun = [&k](typename vector_pack_readers::value_type& p)->bool{ return p->has_object(k); };
+		auto res = std::find_if(m_packs.begin(), m_packs.end(), fun);
+		return res != m_packs.end();
 	}
 	
 	accessor object(const key_type& k) const {

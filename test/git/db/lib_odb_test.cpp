@@ -517,14 +517,14 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 		}
 		
 		// Test pack iterators
-		auto piter = pack->begin();
-		const auto piter_end = pack->end();
-		BOOST_REQUIRE(piter == piter);
-		BOOST_REQUIRE(piter_end == piter_end);
-		BOOST_REQUIRE(piter != piter_end);
-		for (;piter != piter_end; ++piter) {
-			piter.key();
-			*piter;
+		auto pit = pack->begin();	// pack iterator
+		const auto pit_end = pack->end();
+		BOOST_REQUIRE(pit == pit);
+		BOOST_REQUIRE(pit_end == pit_end);
+		BOOST_REQUIRE(pit != pit_end);
+		for (;pit != pit_end; ++pit) {
+			pit.key();
+			*pit;
 		}
 		
 		pack_index.index_checksum();
@@ -542,7 +542,7 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 	BOOST_REQUIRE(end == end);
 	BOOST_REQUIRE(begin != end);
 	for (; begin != end; ++begin, ++obj_count) {
-		begin.key();
+		BOOST_REQUIRE(podb.has_object(begin.key()));
 		//begin->size();
 	}
 	BOOST_REQUIRE(podb.count() == obj_count);
