@@ -7,7 +7,7 @@
 
 #include <memory>
 #include <ios>
-
+#include <iostream> // debug
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
 
@@ -129,8 +129,9 @@ public:
 	void close() {
 		if (is_open()) {
 			m_cur.unuse_region();
-			m_ofs = -1;
+			m_ofs = 0;
 			m_nb = 0;
+			m_size = 0;
 		}
 	}
 	
@@ -140,18 +141,18 @@ public:
 		}
 		
 		std::streamsize br = 0; // bytes read
-		while ((br != n) && (m_nb != 0)) {
+		while ((br != n) & (m_nb != 0)) {
+			// Could use br as size, but it doesn't really matter as we have to verify the acutal cursor size anyway
 			if (!m_cur.use_region(m_ofs, n).is_valid()) {
 				// end of file
 				assert(m_nb == 0);
 				return br;
 			}
 
-			size_t bytes_to_copy = std::min(static_cast<std::streamsize>(m_cur.size()), n);
-			bytes_to_copy = std::min(m_nb, bytes_to_copy);
+			size_t bytes_to_copy =	std::min(m_cur.size(), std::min(static_cast<size_type>(n - br), m_nb));
 			std::memcpy(s, m_cur.begin(), bytes_to_copy);
-			
 			br += bytes_to_copy;
+			s += bytes_to_copy;
 			m_nb -= bytes_to_copy;
 			m_ofs += bytes_to_copy;
 		}// while there are bytes to read*/
@@ -159,6 +160,10 @@ public:
 	}
 
 	std::streampos seek(stream_offset off, std::ios_base::seekdir way) {
+		if (!is_open()) {
+			throw std::ios_base::failure("Cannot seek a closed device");
+		}
+		
 		switch(way)
 		{
 		case std::ios_base::beg: {
@@ -189,6 +194,8 @@ public:
 		default: throw std::ios_base::failure("unknown seek direction");
 		}
 		
+		// use the region to assure we free the current one, and require the one at the new offset
+		m_cur.use_region(m_ofs, m_nb);
 		return m_ofs;
 	}
 	
