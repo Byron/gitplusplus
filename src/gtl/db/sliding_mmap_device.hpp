@@ -94,6 +94,11 @@ public:
 		return m_nb;
 	}
 	
+	//! \return true if we reached the end of our mapping
+	bool eof() const {
+		return m_nb == 0;
+	}
+	
 	//! \return initial size of the mapping
 	size_type size() const {
 		return m_size;
@@ -130,10 +135,27 @@ public:
 	}
 	
 	std::streamsize read(char_type* s, std::streamsize n) {
-		/*while (n) {
+		if (m_nb == 0){
+			return -1;	// eof
+		}
+		
+		std::streamsize br = 0; // bytes read
+		while ((br != n) && (m_nb != 0)) {
+			if (!m_cur.use_region(m_ofs, n).is_valid()) {
+				// end of file
+				assert(m_nb == 0);
+				return br;
+			}
+
+			size_t bytes_to_copy = std::min(static_cast<std::streamsize>(m_cur.size()), n);
+			bytes_to_copy = std::min(m_nb, bytes_to_copy);
+			std::memcpy(s, m_cur.begin(), bytes_to_copy);
 			
+			br += bytes_to_copy;
+			m_nb -= bytes_to_copy;
+			m_ofs += bytes_to_copy;
 		}// while there are bytes to read*/
-		return -1;
+		return br;
 	}
 
 	std::streampos seek(stream_offset off, std::ios_base::seekdir way) {
@@ -148,7 +170,8 @@ public:
 			break;
 		}
 		case std::ios_base::cur: {
-			if (m_ofs + off >= m_ofs + static_cast<stream_offset>(m_nb) || m_ofs + off  < ((m_ofs + m_nb) - m_size)) {
+			if (m_ofs + off >= m_ofs + static_cast<stream_offset>(m_nb) || 
+			    m_ofs + off < ((m_ofs + static_cast<stream_offset>(m_nb)) - static_cast<stream_offset>(m_size))) {
 				throw std::ios_base::failure("offsets puts stream position out of bounds");
 			}
 			m_ofs += off;
@@ -160,7 +183,7 @@ public:
 				throw std::ios_base::failure("invalid offset");
 			}
 			m_ofs = m_ofs + (m_nb + off);
-			m_nb += off;
+			m_nb -= off;
 			break;
 		}
 		default: throw std::ios_base::failure("unknown seek direction");

@@ -560,8 +560,17 @@ public:
 		//! \note the internal region may not be set yet, a nullptr can be returned
 		//! \note as region is protected, you can only use it directly after the call
 		//! or store a pointer using auto
-		const region* region_ptr() const {
+		inline const region* region_ptr() const {
 			return m_region;
+		}
+		
+		//! \return true if the given offset is contained in the cursors current region
+		//! \note always false if the cursor does not point to a valid region
+		inline bool includes_ofs(stream_offset ofs) const {
+			if (!is_valid()) {
+				return false;
+			}
+			return (ofs_begin() <= ofs) & (ofs < ofs_end());
 		}
 		
 		//! \return total size of the unerlying mapped file
