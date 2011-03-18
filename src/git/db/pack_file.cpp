@@ -150,7 +150,7 @@ key_type PackOutputObject::key() const
    return k;
 }
 
-PackFile::PackFile(const path_type& file, mapped_memory_manager_type& manager, provider_mixin_type& db)
+PackFile::PackFile(const path_type& file, mapped_memory_manager_type& manager, const provider_mixin_type& db)
     : m_pack_path(file)
     , m_pack(manager)
     , m_db(db)
@@ -223,7 +223,7 @@ bool PackFile::is_valid_path(const path_type& file)
 	return (file.extension() == extension && file.filename().substr(0, 5) == prefix);
 }
 
-PackFile* PackFile::new_pack(const path_type& file, mapped_memory_manager_type& manager, provider_mixin_type& db)
+PackFile* PackFile::new_pack(const path_type& file, mapped_memory_manager_type& manager, const provider_mixin_type& db)
 {
 	if (!is_valid_path(file)) {
 		return nullptr;

@@ -12,14 +12,29 @@ class Object;
 union MultiObject;
 
 /** \brief Enumeration specifying codes representing object type known to git
+  * \note type is compatible to the respective pack type
   */
 enum class ObjectType : uchar
 {
-	None,
-	Blob,
-	Tree,
-	Commit,
-	Tag
+	None	= 0,
+	Commit	= 1,
+	Tree	= 2,
+	Blob	= 3,
+	Tag		= 4
+};
+
+/** \brief type ids for all types used in a pack
+  * We have 3 bit for this
+  */
+enum class PackedObjectType : uchar 
+{
+	Bad			= 0,
+	Commit		= 1,
+	Tree		= 2,
+	Blob		= 3,
+	Tag			= 4,
+	OfsDelta	= 6,
+	RefDelta	= 7
 };
 
 struct git_object_policy_traits

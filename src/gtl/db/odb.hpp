@@ -274,11 +274,6 @@ public:
 	odb_provider_mixin(odb_provider_mixin&&) = default;
 	
 public:
-	//! \return mutable version of the providre
-	provider_type* object_provider() {
-		return m_provider;
-	}
-	
 	//! \return read-only version of provider
 	const provider_type* object_provider() const {
 		return m_provider;

@@ -551,7 +551,8 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 		BOOST_REQUIRE(podb.has_object(begin.key()));
 		BOOST_REQUIRE(podb.object(begin.key()) == *begin);
 		
-		//begin->size();
+		BOOST_REQUIRE(begin->size() > 0);
+		BOOST_REQUIRE(begin->type() != ObjectType::None);
 	}
 	BOOST_REQUIRE(podb.count() == obj_count);
 	

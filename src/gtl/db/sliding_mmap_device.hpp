@@ -28,6 +28,7 @@ public:
 	typedef ManagerType													memory_manager_type;
 	typedef typename memory_manager_type::mapped_file_source::char_type	char_type;
 	typedef typename memory_manager_type::size_type						size_type;
+	typedef typename memory_manager_type::cursor						cursor_type;
 
 	static const size_type												max_length =  ~static_cast<size_type>(0);
 	
@@ -41,11 +42,11 @@ public:
 	{};
 	
 protected:
-	memory_manager_type&									m_man;			//!< memory manager to obtain cursors
-	typename memory_manager_type::cursor					m_cur;			//!< memory manager cursor
-	stream_offset											m_ofs;			//!< absolute offset into the mapping
-	size_type												m_nb;			//!< amount of bytes left for reading
-	size_type												m_size;			//!< total size of the mapping
+	memory_manager_type&	m_man;			//!< memory manager to obtain cursors
+	cursor_type				m_cur;			//!< memory manager cursor
+	stream_offset			m_ofs;			//!< absolute offset into the mapping
+	size_type				m_nb;			//!< amount of bytes left for reading
+	size_type				m_size;			//!< total size of the mapping
 	
 private:
 	managed_mapped_file_source(managed_mapped_file_source&& source);
@@ -123,6 +124,19 @@ public:
 	//! \return the system's page size
 	static int alignment() {
 		return memory_manager_type::page_size();
+	}
+	
+	//! \return reference to our memory manager
+	//! \note we are const as the manager cannot interfere with our constness at all
+	ManagerType& manager() const {
+		return const_cast<ManagerType&>(m_man);
+	}
+	
+	//! \return our cursor initialized to point to our pack file
+	//! \note the cursor is a handle to a region within a memory mapped file.
+	//! Use this method to create a copy allowing you free random access on your own.
+	const cursor_type& cursor() const {
+		return m_cur;
 	}
 	
 	//! @} end mapped file like interface

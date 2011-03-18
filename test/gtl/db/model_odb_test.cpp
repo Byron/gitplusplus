@@ -215,6 +215,7 @@ BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 	//////////////////////
 	typedef managed_mapped_file_source<man_type> managed_file_source;
 	managed_file_source source(manager);
+	BOOST_CHECK(&source.manager() == &manager);
 	BOOST_CHECK(!source.is_open());
 	// can query things without open file
 	BOOST_CHECK(source.file_size() == 0);

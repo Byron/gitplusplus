@@ -73,7 +73,7 @@ public:
 	//! \throw pack_parse_error if the pack is corrupted or could not be read.
 	//! \todo maybe allow overriding the deletor function of the unique_ptr the parent database uses to store
 	//! the returned pointer
-	static odb_pack_file* new_pack(const path_type& file, mapped_memory_manager_type& manager, provider_mixin_type& provider);
+	static odb_pack_file* new_pack(const path_type& file, mapped_memory_manager_type& manager, const provider_mixin_type& provider);
 	
 	//! \return the pack's path this instance was initialized with
 	//! \note the interface requires it to be cached as it needs fast access

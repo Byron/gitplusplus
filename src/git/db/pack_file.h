@@ -374,19 +374,19 @@ protected:
 	const path_type							m_pack_path;		//! original path to the pack
 	PackIndexFile							m_index;			//! Our index file
 	mapped_file_source_type					m_pack;				//! pack file itself
-	provider_mixin_type&					m_db;				//! reference to the database owning us
+	const provider_mixin_type&				m_db;				//! reference to the database owning us
 	
 protected:
 	//! \return true if the given path appears to be a valid pack file
 	static bool is_valid_path(const path_type& path);
 
 public:
-	PackFile(const path_type& root, mapped_memory_manager_type& manager, provider_mixin_type& db);
+	PackFile(const path_type& root, mapped_memory_manager_type& manager,const provider_mixin_type& db);
 	
 public:
 	
 	//! @{ \name PackFile Interface
-	static PackFile* new_pack(const path_type& file, mapped_memory_manager_type& manager, provider_mixin_type& db);
+	static PackFile* new_pack(const path_type& file, mapped_memory_manager_type& manager, const provider_mixin_type& db);
 	
 	const path_type& pack_path() const {
 		return m_pack_path;
@@ -420,6 +420,18 @@ public:
 	//! \return our associated index file
 	inline const PackIndexFile& index() const {
 		return m_index;
+	}
+	
+	//! \return provider interface pointer or 0 if no object provder was set
+	//! The provider pointer is borrowed and must not be deallocated.
+	const provider_type* provider() const {
+		return m_db.object_provider();
+	}
+	
+	//! \return mapped file of our pack
+	//! It may be used to retrieve the memory manager, or to copy it for own use
+	const mapped_file_source_type& pack() const {
+		return m_pack;
 	}
 	
 	//! @} end interface
