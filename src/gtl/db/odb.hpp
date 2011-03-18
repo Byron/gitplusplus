@@ -177,6 +177,80 @@ struct odb_virtual_provider
 };
 
 
+/** \brief template implementing an odb virtual provider based on any database as parameterized 
+  * by its template arguments.
+  * \tparam ODBType the database for which this provider should work. It must obey to the default 
+  * odb_base interface
+  */
+template <class ODBType>
+class odb_provider : public odb_virtual_provider<	typename ODBType::obj_traits_type::key_type, 
+													typename ODBType::obj_traits_type::object_type,
+													typename ODBType::obj_traits_type::size_type >
+{
+public:
+	typedef ODBType											odb_type;
+	typedef typename odb_type::obj_traits_type				obj_traits_type;
+	typedef typename odb_type::output_object_type			output_object_type;
+	typedef typename obj_traits_type::key_type				key_type;
+	typedef typename obj_traits_type::object_type			object_type;
+	typedef typename obj_traits_type::size_type				size_type;
+	typedef typename output_object_type::stream_type		stream_type;
+	typedef stack_heap<stream_type>							stack_stream_type;
+	typedef odb_virtual_provider<key_type, object_type, size_type> parent_type;
+
+protected:
+	const odb_type&			m_db;	//!< database we use to retrieve information
+	
+public:
+	odb_provider(const odb_type& db)
+	    : m_db(db)
+	{}
+	
+public:
+	class output_object_impl : public parent_type::output_object
+	{
+	protected:
+		output_object_type m_obj;
+		mutable bool m_has_stream;
+		stack_stream_type m_sstream;
+	public:
+		output_object_impl(const odb_type& db, const key_type& key)
+			: m_obj(db.object(key))
+		    , m_has_stream(false)
+		{}
+		
+		~output_object_impl() {
+			if (m_has_stream) {
+				m_sstream.destroy();
+			}
+		}
+
+	public:
+		virtual object_type type() const {
+			return m_obj.type();
+		}
+		
+		virtual size_type size() const {
+			return m_obj.size();
+		}
+		
+		virtual std::istream& stream() const {
+			if (!m_has_stream) {
+				m_obj.stream(const_cast<stream_type*>(&*m_sstream));
+				m_has_stream = true;
+			}
+			return const_cast<stream_type&>(*m_sstream);
+		}
+	};
+	
+public:
+	
+	virtual typename parent_type::output_object* new_object(const key_type& key) const {
+		return new output_object_impl(m_db, key);
+	}
+};
+
+
 /** \brief Mixin to add a virtual provider pointer to the database
   * The lookup provier is used to obtain objects from other database which may serve as basis for 
   * deltification or reference. These objects are hidden behind a runtime polymorphic virtual facade.
@@ -210,7 +284,7 @@ public:
 		return m_provider;
 	}
 	
-	//! Set the provider pointer
+	//! Set the provider pointer. It is treated as a borrowed pointer
 	void set_object_provider(provider_type* provider) {
 		m_provider = provider;
 	}

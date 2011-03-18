@@ -29,6 +29,11 @@ public:
 };
 
 
+/** \brief Implementation of a PackDatabase Virtual Provider
+  */
+typedef gtl::odb_provider<PackODB> PackODBProvider;
+
+
 GIT_NAMESPACE_END
 GIT_HEADER_END
 
