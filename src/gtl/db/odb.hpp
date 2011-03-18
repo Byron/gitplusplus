@@ -143,42 +143,76 @@ public:
 	size_t count() const;
 };
 
-/** \brief Mixin to add a lookup database pointer to the parent class
-  * The lookup database is used to obtain objects from other database which may serve as basis for 
-  * deltification or reference.
-  * It is important to note that we store a changable pointer, which may be zero
+
+/** \brief Base encapsulating virtual methods to obtain object information using a key
+  * This base is used to allow pointers to base types to be stored while maintaining 
+  * some basic query functionality. It provides a mechanism for runtime polymorphism, as opposed to the
+  * compile time polymorphism used throughout the gtl.
+  * Only some databases actually implement this if they want to be viable for use in pack databases.
   */
-template <class LookupODBType>
-class odb_lookup_mixin
+template <class KeyType, class ObjectType, class SizeType>
+struct odb_virtual_provider
+{
+	typedef KeyType				key_type;
+	typedef SizeType			size_type;
+	typedef ObjectType			object_type;
+	
+	/** Pure virtual object base mimicing the templated odb_output_object as far as possible.
+	  */
+	struct output_object 
+	{
+		//! \return object's type identifier
+		virtual object_type type() const = 0;
+		//! \return the objects uncompressed serialized size in bytes
+		virtual size_type size() const = 0;
+		//! \return stream reference allowing to read the serialized object
+		//! \note it is intentionally managed by this object, as it allows optimizations
+		//! regarding the heap usage to be implemented by the output object.
+		virtual std::istream& stream() const = 0;
+	};
+	
+	//! \return a newly allocated output object matching the given key, or nullptr if there 
+	//! is no such object.
+	virtual output_object* new_object(const key_type& key) const = 0;
+};
+
+
+/** \brief Mixin to add a virtual provider pointer to the database
+  * The lookup provier is used to obtain objects from other database which may serve as basis for 
+  * deltification or reference. These objects are hidden behind a runtime polymorphic virtual facade.
+  * It is important to note that we store a changable pointer, which may be zero.
+  */
+template <class VirtualProviderType>
+class odb_provider_mixin
 {
 public:
-	typedef LookupODBType		lookup_odb_type;
+	typedef VirtualProviderType		provider_type;
 	
 protected:
-	lookup_odb_type*			m_lu_odb;
+	provider_type*			m_provider;
 	
 public:
-	odb_lookup_mixin(lookup_odb_type* lu_odb = nullptr)
-	    : m_lu_odb(lu_odb)
+	odb_provider_mixin(provider_type* lu_odb = nullptr)
+	    : m_provider(lu_odb)
 	{}
 	
-	odb_lookup_mixin(const odb_lookup_mixin&) = default;
-	odb_lookup_mixin(odb_lookup_mixin&&) = default;
+	odb_provider_mixin(const odb_provider_mixin&) = default;
+	odb_provider_mixin(odb_provider_mixin&&) = default;
 	
 public:
-	//! \return mutable version of the lookup database
-	lookup_odb_type* lu_odb() {
-		return m_lu_odb;
+	//! \return mutable version of the providre
+	provider_type* object_provider() {
+		return m_provider;
 	}
 	
-	//! \return read-only version of the lookup database
-	const lookup_odb_type* lu_odb() const {
-		return m_lu_odb;
+	//! \return read-only version of provider
+	const provider_type* object_provider() const {
+		return m_provider;
 	}
 	
-	//! Set the stored lookup database pointer
-	void set_lu_odb(lookup_odb_type* lu_odb) {
-		m_lu_odb = lu_odb;
+	//! Set the provider pointer
+	void set_object_provider(provider_type* provider) {
+		m_provider = provider;
 	}
 };
 

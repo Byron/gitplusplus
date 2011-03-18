@@ -50,7 +50,10 @@ public:
 	typedef uint32										entry_size_type;
 	
 	//! Base of our parent database
-	typedef odb_base<TraitsType>						parent_db_type;
+	typedef typename TraitsType::provider_mixin_type				provider_mixin_type;
+	
+	//! Memmory manager to use for reading of files
+	typedef typename TraitsType::mapped_memory_manager_type			mapped_memory_manager_type;
 	
 protected:
 	//! @{ Internal Use
@@ -70,7 +73,7 @@ public:
 	//! \throw pack_parse_error if the pack is corrupted or could not be read.
 	//! \todo maybe allow overriding the deletor function of the unique_ptr the parent database uses to store
 	//! the returned pointer
-	static odb_pack_file* new_pack(const path_type& file,  parent_db_type& parent_db);
+	static odb_pack_file* new_pack(const path_type& file, mapped_memory_manager_type& manager, provider_mixin_type& provider);
 	
 	//! \return the pack's path this instance was initialized with
 	//! \note the interface requires it to be cached as it needs fast access
@@ -197,6 +200,14 @@ struct odb_pack_traits : public odb_file_traits<typename ObjectTraits::key_type,
 {
 	typedef ObjectTraits									obj_traits_type;
 	
+	//! provider compatible type which can be queried for objects
+	typedef odb_virtual_provider<	typename obj_traits_type::key_type, 
+									typename obj_traits_type::object_type, 
+									typename obj_traits_type::size_type>	provider_type;
+	
+	//! mixin to be used as base by the pack database to allow packs to acquire an object provider pointer
+	typedef odb_provider_mixin<provider_type>				provider_mixin_type;
+	
 	//! Type used to handle the reading of packs
 	//! \note see the dummy type for a complete interface, which includes typedefs
 	typedef odb_pack_file<odb_pack_traits>					pack_reader_type;
@@ -206,9 +217,7 @@ struct odb_pack_traits : public odb_file_traits<typename ObjectTraits::key_type,
 	typedef mapped_memory_manager<>							mapped_memory_manager_type;
 	
 	
-	//! odb compatible type which can be queried for objects. The only method which is required
-	//! is the object() method
-	typedef odb_base<odb_pack_traits>						lookup_odb_type;
+
 };
 
 
@@ -233,7 +242,7 @@ struct odb_pack_traits : public odb_file_traits<typename ObjectTraits::key_type,
 template <class TraitsType>
 class odb_pack :	public odb_base<TraitsType>,
 					public odb_file_mixin<typename TraitsType::path_type, typename TraitsType::mapped_memory_manager_type>,
-					public odb_lookup_mixin<typename TraitsType::lookup_odb_type>
+					public TraitsType::provider_mixin_type
         
 {
 public:
@@ -249,7 +258,8 @@ public:
 	typedef typename db_traits_type::pack_reader_type	pack_reader_type;
 	typedef typename pack_reader_type::output_object_type output_object_type;
 	typedef typename db_traits_type::mapped_memory_manager_type mapped_memory_manager_type;
-	typedef typename db_traits_type::lookup_odb_type	lookup_odb_type;
+	typedef typename db_traits_type::provider_mixin_type	provider_mixin_type;
+	typedef typename provider_mixin_type::provider_type provider_type;
 	
 	typedef pack_forward_iterator<this_type>			forward_iterator;
 	
@@ -272,9 +282,9 @@ protected:
 	}
 	
 public:
-	odb_pack(const path_type& root, mapped_memory_manager_type& manager, lookup_odb_type* lu_odb=0)
+	odb_pack(const path_type& root, mapped_memory_manager_type& manager, provider_type* provider=0)
 	    : odb_file_mixin<path_type, mapped_memory_manager_type>(root, manager)
-	    , odb_lookup_mixin<lookup_odb_type>(lu_odb)
+	    , provider_mixin_type(provider)
 	{}
 	
 public:
@@ -351,7 +361,7 @@ void odb_pack<TraitsType>::update_cache()
 		}
 		
 		try {
-			pack_reader_type* pack = pack_reader_type::new_pack(path, *this);
+			pack_reader_type* pack = pack_reader_type::new_pack(path, this->manager(), *this);
 			if (pack == nullptr) {
 				continue;
 			}

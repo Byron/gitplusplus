@@ -489,7 +489,6 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 	
 	const size_t pack_count = 3;
 	PackODB podb(rw_dir(), manager);
-	podb.set_lu_odb(&podb);
 	BOOST_REQUIRE(podb.packs().size() == pack_count);
 	
 	// update calls don't change amount of items, if there was no local change

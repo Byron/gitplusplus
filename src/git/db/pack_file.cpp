@@ -150,10 +150,10 @@ key_type PackOutputObject::key() const
    return k;
 }
 
-PackFile::PackFile(const path_type& file, parent_db_type& parent_db)
+PackFile::PackFile(const path_type& file, mapped_memory_manager_type& manager, provider_mixin_type& db)
     : m_pack_path(file)
-    , m_pack(dynamic_cast<odb_file_mixin_type&>(parent_db)->manager())
-    , m_parent_db(parent_db)
+    , m_pack(manager)
+    , m_db(db)
 {
 	// initialize index
 	path_type index_file(file);
@@ -223,13 +223,13 @@ bool PackFile::is_valid_path(const path_type& file)
 	return (file.extension() == extension && file.filename().substr(0, 5) == prefix);
 }
 
-PackFile* PackFile::new_pack(const path_type& file, parent_db_type& parent_db)
+PackFile* PackFile::new_pack(const path_type& file, mapped_memory_manager_type& manager, provider_mixin_type& db)
 {
 	if (!is_valid_path(file)) {
 		return nullptr;
 	}
 	
-	return new PackFile(file, parent_db);
+	return new PackFile(file, manager, db);
 }
 
 

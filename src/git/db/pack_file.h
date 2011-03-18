@@ -23,6 +23,8 @@ namespace io = boost::iostreams;
 typedef gtl::odb_pack_traits<git_object_traits>			gtl_pack_traits;
 typedef typename gtl_pack_traits::path_type				path_type;
 typedef typename gtl_pack_traits::key_type				key_type;
+typedef typename gtl_pack_traits::provider_mixin_type	provider_mixin_type;
+typedef typename provider_mixin_type::provider_type		provider_type;
 typedef typename git_object_traits::object_type			object_type;
 typedef typename git_object_traits::size_type			size_type;
 typedef git_object_traits::char_type					char_type;
@@ -319,6 +321,8 @@ public:
 	typedef uint32								entry_size_type;
 	typedef gtl::odb_base<gtl_pack_traits>		parent_db_type;
 	
+	typedef gtl_pack_traits::mapped_memory_manager_type	mapped_memory_manager_type;
+	
 	//! Type to be used as memory mapped device to read bytes from. It must be source device
 	//! compatible to the boost io-streams framework.
 	typedef gtl::managed_mapped_file_source<mapped_memory_manager_type>	mapped_file_source_type;
@@ -335,19 +339,19 @@ protected:
 	const path_type							m_pack_path;		//! original path to the pack
 	PackIndexFile							m_index;			//! Our index file
 	mapped_file_source_type					m_pack;				//! pack file itself
-	parent_db_type&							m_parent_db;		//! reference to the database owning us
+	provider_mixin_type&					m_db;				//! reference to the database owning us
 	
 protected:
 	//! \return true if the given path appears to be a valid pack file
 	static bool is_valid_path(const path_type& path);
 
 public:
-	PackFile(const path_type& root, parent_db_type& parent_db);
+	PackFile(const path_type& root, mapped_memory_manager_type& manager, provider_mixin_type& db);
 	
 public:
 	
 	//! @{ \name PackFile Interface
-	static PackFile* new_pack(const path_type& file, parent_db_type& parent_db);
+	static PackFile* new_pack(const path_type& file, mapped_memory_manager_type& manager, provider_mixin_type& db);
 	
 	const path_type& pack_path() const {
 		return m_pack_path;
