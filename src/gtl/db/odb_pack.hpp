@@ -49,13 +49,15 @@ public:
 	//! which, if initialized with 0, identifies the first entry in a pack.
 	typedef uint32										entry_size_type;
 	
+	//! Base of our parent database
+	typedef odb_base<TraitsType>						parent_db_type;
+	
 protected:
 	//! @{ Internal Use
 	typedef TraitsType											db_traits_type;
 	typedef typename db_traits_type::obj_traits_type			obj_traits_type;
 	typedef typename db_traits_type::path_type					path_type;
 	typedef typename db_traits_type::obj_traits_type::key_type	key_type;
-	typedef typename db_traits_type::mapped_memory_manager_type	mapped_memory_manager_type;
 	//! @} end internal use typedefs
 	
 	
@@ -64,10 +66,11 @@ public:
 	//! \return a new instance of this class initialized with the given file
 	//! or nullptr if the file is not suitable to be handled by this pack type
 	//! The memory is managed by the caller, it will be deleted using a delete call
-	//! \param manager memory manager suitable for use in a managed device
+	//! \param parent_db database which stores this pack. Cast this pointer to obtain additional information
 	//! \throw pack_parse_error if the pack is corrupted or could not be read.
-	//! \todo maybe allow overriding the deletor function of the unique_ptr
-	static odb_pack_file* new_pack(const path_type& file,  mapped_memory_manager_type& manager);
+	//! \todo maybe allow overriding the deletor function of the unique_ptr the parent database uses to store
+	//! the returned pointer
+	static odb_pack_file* new_pack(const path_type& file,  parent_db_type& parent_db);
 	
 	//! \return the pack's path this instance was initialized with
 	//! \note the interface requires it to be cached as it needs fast access
@@ -201,6 +204,11 @@ struct odb_pack_traits : public odb_file_traits<typename ObjectTraits::key_type,
 	
 	//! Type providing a memory map manager interface.
 	typedef mapped_memory_manager<>							mapped_memory_manager_type;
+	
+	
+	//! odb compatible type which can be queried for objects. The only method which is required
+	//! is the object() method
+	typedef odb_base<odb_pack_traits>						lookup_odb_type;
 };
 
 
@@ -224,7 +232,9 @@ struct odb_pack_traits : public odb_file_traits<typename ObjectTraits::key_type,
   */ 
 template <class TraitsType>
 class odb_pack :	public odb_base<TraitsType>,
-					public odb_file_mixin<typename TraitsType::path_type, typename TraitsType::mapped_memory_manager_type>
+					public odb_file_mixin<typename TraitsType::path_type, typename TraitsType::mapped_memory_manager_type>,
+					public odb_lookup_mixin<typename TraitsType::lookup_odb_type>
+        
 {
 public:
 	typedef TraitsType									db_traits_type;
@@ -239,6 +249,7 @@ public:
 	typedef typename db_traits_type::pack_reader_type	pack_reader_type;
 	typedef typename pack_reader_type::output_object_type output_object_type;
 	typedef typename db_traits_type::mapped_memory_manager_type mapped_memory_manager_type;
+	typedef typename db_traits_type::lookup_odb_type	lookup_odb_type;
 	
 	typedef pack_forward_iterator<this_type>			forward_iterator;
 	
@@ -261,8 +272,9 @@ protected:
 	}
 	
 public:
-	odb_pack(const path_type& root, mapped_memory_manager_type& manager)
+	odb_pack(const path_type& root, mapped_memory_manager_type& manager, lookup_odb_type* lu_odb=0)
 	    : odb_file_mixin<path_type, mapped_memory_manager_type>(root, manager)
+	    , odb_lookup_mixin<lookup_odb_type>(lu_odb)
 	{}
 	
 public:
@@ -339,7 +351,7 @@ void odb_pack<TraitsType>::update_cache()
 		}
 		
 		try {
-			pack_reader_type* pack = pack_reader_type::new_pack(path, this->manager());
+			pack_reader_type* pack = pack_reader_type::new_pack(path, *this);
 			if (pack == nullptr) {
 				continue;
 			}

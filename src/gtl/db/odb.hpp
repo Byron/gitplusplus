@@ -143,6 +143,45 @@ public:
 	size_t count() const;
 };
 
+/** \brief Mixin to add a lookup database pointer to the parent class
+  * The lookup database is used to obtain objects from other database which may serve as basis for 
+  * deltification or reference.
+  * It is important to note that we store a changable pointer, which may be zero
+  */
+template <class LookupODBType>
+class odb_lookup_mixin
+{
+public:
+	typedef LookupODBType		lookup_odb_type;
+	
+protected:
+	lookup_odb_type*			m_lu_odb;
+	
+public:
+	odb_lookup_mixin(lookup_odb_type* lu_odb = nullptr)
+	    : m_lu_odb(lu_odb)
+	{}
+	
+	odb_lookup_mixin(const odb_lookup_mixin&) = default;
+	odb_lookup_mixin(odb_lookup_mixin&&) = default;
+	
+public:
+	//! \return mutable version of the lookup database
+	lookup_odb_type* lu_odb() {
+		return m_lu_odb;
+	}
+	
+	//! \return read-only version of the lookup database
+	const lookup_odb_type* lu_odb() const {
+		return m_lu_odb;
+	}
+	
+	//! Set the stored lookup database pointer
+	void set_lu_odb(lookup_odb_type* lu_odb) {
+		m_lu_odb = lu_odb;
+	}
+};
+
 /** \brief Mixin adding functionality required for interaction with files
   * This mixin does not have any requirements, it just defines a simple interface to handle root paths
   */
@@ -164,6 +203,9 @@ public:
 	    : m_root(root)
 	    , m_manager(manager)
 	{}
+	
+	odb_file_mixin(const odb_file_mixin&) = default;
+	odb_file_mixin(odb_file_mixin&&) = default;
 	
 public:
 	inline const path_type& root_path() const {

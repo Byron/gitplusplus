@@ -26,6 +26,8 @@ typedef typename gtl_pack_traits::key_type				key_type;
 typedef typename git_object_traits::object_type			object_type;
 typedef typename git_object_traits::size_type			size_type;
 typedef git_object_traits::char_type					char_type;
+typedef typename gtl_pack_traits::mapped_memory_manager_type		mapped_memory_manager_type;
+typedef gtl::odb_file_mixin<path_type, mapped_memory_manager_type> odb_file_mixin_type;
 //! @} end convenience typedefs
 
 // Forward declarations
@@ -312,14 +314,15 @@ public:
 class PackFile
 {
 public:
-	typedef PackOutputObject				output_object_type;
-	typedef PackBidirectionalIterator		bidirectional_iterator;
-	typedef uint32							entry_size_type;
+	typedef PackOutputObject					output_object_type;
+	typedef PackBidirectionalIterator			bidirectional_iterator;
+	typedef uint32								entry_size_type;
+	typedef gtl::odb_base<gtl_pack_traits>		parent_db_type;
 	
-	typedef typename gtl_pack_traits::mapped_memory_manager_type		mapped_memory_manager_type;
 	//! Type to be used as memory mapped device to read bytes from. It must be source device
 	//! compatible to the boost io-streams framework.
 	typedef gtl::managed_mapped_file_source<mapped_memory_manager_type>	mapped_file_source_type;
+	
 	
 	
 	static const uint32						pack_signature = 0x5041434b;	// "PACK" in host format
@@ -332,18 +335,19 @@ protected:
 	const path_type							m_pack_path;		//! original path to the pack
 	PackIndexFile							m_index;			//! Our index file
 	mapped_file_source_type					m_pack;				//! pack file itself
+	parent_db_type&							m_parent_db;		//! reference to the database owning us
 	
 protected:
 	//! \return true if the given path appears to be a valid pack file
 	static bool is_valid_path(const path_type& path);
 
 public:
-	PackFile(const path_type& root, mapped_memory_manager_type& manager);
+	PackFile(const path_type& root, parent_db_type& parent_db);
 	
 public:
 	
 	//! @{ \name PackFile Interface
-	static PackFile* new_pack(const path_type& file, mapped_memory_manager_type& manager);
+	static PackFile* new_pack(const path_type& file, parent_db_type& parent_db);
 	
 	const path_type& pack_path() const {
 		return m_pack_path;
