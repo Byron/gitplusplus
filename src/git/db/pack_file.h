@@ -361,6 +361,7 @@ public:
 	//! Type to be used as memory mapped device to read bytes from. It must be source device
 	//! compatible to the boost io-streams framework.
 	typedef gtl::managed_mapped_file_source<mapped_memory_manager_type>	mapped_file_source_type;
+	typedef typename mapped_file_source_type::cursor_type				cursor_type;
 	
 	
 	
@@ -373,7 +374,7 @@ private:
 protected:
 	const path_type							m_pack_path;		//! original path to the pack
 	PackIndexFile							m_index;			//! Our index file
-	mapped_file_source_type					m_pack;				//! pack file itself
+	cursor_type								m_cursor;			//! cursor into our pack
 	const provider_mixin_type&				m_db;				//! reference to the database owning us
 	
 protected:
@@ -428,10 +429,10 @@ public:
 		return m_db.object_provider();
 	}
 	
-	//! \return mapped file of our pack
-	//! It may be used to retrieve the memory manager, or to copy it for own use
-	const mapped_file_source_type& pack() const {
-		return m_pack;
+	//! \return cursor into our pack
+	//! It should be copied for own use
+	const cursor_type& cursor() const {
+		return m_cursor;
 	}
 	
 	//! @} end interface

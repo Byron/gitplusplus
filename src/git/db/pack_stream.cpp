@@ -29,7 +29,7 @@ uint64 PackStream::msb_len(const char*& i) const
 	return size;
 }
 
-void PackStream::info_at_offset(cursor& cur, uint64 ofs, PackInfo &info) const
+void PackStream::info_at_offset(cursor_type& cur, uint64 ofs, PackInfo &info) const
 {
 	// 1 type + 8 bytes to encode 57bits of size (quite a lot) + max of 20 bytes for offset or ref + 1 bonus
 	// Internally, the implementation is likely to provide more space
@@ -88,7 +88,7 @@ void PackStream::assure_object_info() const
 	
 	PackInfo info;
 	uint64 ofs = m_pack.index().offset(m_entry);
-	cursor cur = m_pack.pack().cursor();
+	cursor_type cur = m_pack.cursor();
 	
 	for(;;)
 	{

@@ -152,7 +152,6 @@ key_type PackOutputObject::key() const
 
 PackFile::PackFile(const path_type& file, mapped_memory_manager_type& manager, const provider_mixin_type& db)
     : m_pack_path(file)
-    , m_pack(manager)
     , m_db(db)
 {
 	// initialize index
@@ -161,7 +160,10 @@ PackFile::PackFile(const path_type& file, mapped_memory_manager_type& manager, c
 	m_index.open(index_file.string());
 	
 	// initialize pack - we map everything as we assume a sliding window
-	m_pack.open(file);
+	mapped_file_source_type pack(manager);
+	pack.open(file);
+	m_cursor = pack.cursor();
+	assert(m_cursor.is_valid());
 	
 	struct Header
 	{
@@ -171,7 +173,7 @@ PackFile::PackFile(const path_type& file, mapped_memory_manager_type& manager, c
 	};
 	
 	Header hdr;
-	if (m_pack.read(reinterpret_cast<char*>(&hdr), sizeof(Header)) != sizeof(Header)) {
+	if (pack.read(reinterpret_cast<char*>(&hdr), sizeof(Header)) != sizeof(Header)) {
 		ParseError err;
 		err.stream() << "Pack file at " << file << " does not have a header";
 		throw err;
@@ -202,14 +204,14 @@ PackFile::PackFile(const path_type& file, mapped_memory_manager_type& manager, c
 	
 	// verify sha
 	try {
-		m_pack.seek(-key_type::hash_len, std::ios::end);
+		pack.seek(-key_type::hash_len, std::ios::end);
 	} catch (const std::ios_base::failure& exc) {
 		err.stream() << "Failed to seek to end of pack to read sha: " << exc.what();
 		throw err;
 	}
 	
 	key_type key;
-	m_pack.read(key, key_type::hash_len);
+	pack.read(key, key_type::hash_len);
 	if (key != m_index.pack_checksum()) {
 		err.stream() << "Pack checksum didn't match index checksum: " << key << " vs " << m_index.pack_checksum();
 		throw err;

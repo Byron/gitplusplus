@@ -46,7 +46,7 @@ public:
 	typedef git_object_traits_base::key_type			key_type;
 	typedef git_object_traits_base::size_type			size_type;
 	typedef git_object_traits_base::object_type			object_type;
-	typedef typename mapped_memory_manager_type::cursor	cursor;
+	typedef typename mapped_memory_manager_type::cursor	cursor_type;
 	
 public:
 	/** Small structure to hold the pack header information
@@ -77,7 +77,7 @@ public:
 
 protected:	
 	//! Parse object information at the given offset and put it into the info structure
-	void info_at_offset(cursor& cur, uint64 ofs, PackInfo& info) const;
+	void info_at_offset(cursor_type& cur, uint64 ofs, PackInfo& info) const;
 	
 	//! Get all object info and follow the delta chain, if there is no object info yet
 	void assure_object_info() const;
@@ -107,6 +107,7 @@ public:
 	
 	//! read-write access to our object
 	uint32& entry() {
+		m_type = ObjectType::None;	// reset our cache
 		return m_entry;
 	}
 	
@@ -119,6 +120,10 @@ public:
 		assure_object_info();
 		return m_size;
 	}
+	
+	//! \return amount of deltas required to compute this object. 0 if the object is not deltified
+	//! \todo implementation. This method should be used to analyse a big pack like git-verify-pack
+	uint32 chain_length() const;
 	
 	//! @} end interface
 };
