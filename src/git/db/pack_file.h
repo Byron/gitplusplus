@@ -27,6 +27,7 @@ typedef typename gtl_pack_traits::provider_mixin_type	provider_mixin_type;
 typedef typename provider_mixin_type::provider_type		provider_type;
 typedef typename git_object_traits::object_type			object_type;
 typedef typename git_object_traits::size_type			size_type;
+typedef typename git_object_traits::output_reference_type	output_reference_type;
 typedef git_object_traits::char_type					char_type;
 typedef typename gtl_pack_traits::mapped_memory_manager_type		mapped_memory_manager_type;
 typedef gtl::odb_file_mixin<path_type, mapped_memory_manager_type> odb_file_mixin_type;
@@ -211,10 +212,22 @@ public:
 class PackOutputObject
 {
 public:
-	typedef DeltaPackStream				stream_type;
+	typedef PackStream				stream_type;
+	
 protected:
 	const PackFile* m_ppack;			//!< pack that contains this object
 	uint32			m_entry;			//!< pack entry we refer to
+	mutable std::unique_ptr<stream_type>		m_pstream;	//!< on-demand pointer
+	
+	inline void assure_stream() const {
+		if (!m_pstream) {
+			assert(m_ppack);
+			m_pstream.reset(new stream_type(*m_ppack, m_entry));
+		}
+		if (m_pstream->entry() != m_entry) {
+			m_pstream->entry() = m_entry;
+		}
+	}
 
 public:
 	
@@ -222,6 +235,11 @@ public:
 	PackOutputObject(const PackFile* pack=nullptr, uint32 entry=0)
 	    : m_ppack(pack)
 	    , m_entry(entry)
+	{}
+	
+	PackOutputObject(const PackOutputObject& rhs)
+	    : m_ppack(rhs.m_ppack)
+	    , m_entry(rhs.m_entry)
 	{}
 	
 	bool operator == (const PackOutputObject& rhs) const {
@@ -234,10 +252,27 @@ public:
 	
 public:
 	//! @{ \name Output Object Interface
-	stream_type* new_stream() const;
-	void stream(stream_type* stream) const;
-	object_type type() const;
-	size_type size() const;
+	stream_type* new_stream() const {
+		assert(m_ppack);
+		return new stream_type(*m_ppack, m_entry);
+	}
+	
+	void stream(stream_type* stream) const {
+		assert(m_ppack);
+		new (stream) stream_type(*m_ppack, m_entry);
+	}
+	
+	object_type type() const {
+		assure_stream();
+		return m_pstream->type();
+	}
+	size_type size() const {
+		assure_stream();
+		return m_pstream->size();
+	}
+	
+	void deserialize(output_reference_type out) const;
+	
 	//! @} output object interface
 	
 	//! @{ Interface
