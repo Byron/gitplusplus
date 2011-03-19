@@ -502,6 +502,7 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 	uint64 obj_count = 0;
 	for (const_pack_iterator piter = podb.packs().begin(); piter != pend; ++piter) {
 		const PackFile* pack = piter->get();
+		uint64 pack_size = boost::filesystem::file_size(pack->pack_path());
 		const PackIndexFile& pack_index = pack->index();
 		BOOST_CHECK(pack_index.type() != PackIndexFile::Type::Undefined);
 		
@@ -515,7 +516,7 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 		for (uint32 eid = 0; eid < pack_index.num_entries(); ++eid) {
 			pack_index.crc(eid);
 			pack_index.sha(eid, hash);
-			pack_index.offset(eid);
+			BOOST_REQUIRE(pack_index.offset(eid) < pack_size);
 			
 			BOOST_REQUIRE(pack_index.sha_to_entry(hash) == eid);
 		}

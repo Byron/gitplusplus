@@ -17,16 +17,16 @@ PackStream::PackStream(const PackFile& pack, uint32 entry)
 
 uint64 PackStream::msb_len(const char*& i) const
 {
-	uint64 size = 0;
-	uint shift = 0;
+	uint64 len = 0;
+	const char* x = i;
 	char c;
 	do {
-		c = *i++;
-		size += (c & 0x7f) << shift;
-		shift += 7;
+		c = *x;
+		++x;
+		len = (len << 7) + (c & 0x7f);
 	} while (c & 0x80);
-	
-	return size;
+	i = x;
+	return len;
 }
 
 void PackStream::info_at_offset(cursor_type& cur, uint64 ofs, PackInfo &info) const
@@ -60,7 +60,15 @@ void PackStream::info_at_offset(cursor_type& cur, uint64 ofs, PackInfo &info) co
 	}
 	case PackedObjectType::OfsDelta:
 	{
-		info.ofs = msb_len(i);
+		c = *i;
+		++i;
+		info.delta.ofs = c & 0x7f;
+		while (c & 0x80) {
+			c = *i;
+			++i;
+			info.delta.ofs += 1;
+			info.delta.ofs = (info.delta.ofs << 7) + (c & 0x7f);
+		}
 		break;
 	}
 	case PackedObjectType::RefDelta:
@@ -72,12 +80,12 @@ void PackStream::info_at_offset(cursor_type& cur, uint64 ofs, PackInfo &info) co
 	default: 
 	{
 			PackParseError err;
-			err.stream() << "Invalid type in pack - this really shouldn't be possible";
+			err.stream() << "Invalid type in pack - this really shouldn't be possible: " << (int)info.type;
 			throw err;
 	}
 	}// end type switch
 	
-	info.ofs = i - cur.begin();
+	info.rofs = i - cur.begin();
 }
 
 void PackStream::assure_object_info() const
@@ -97,7 +105,7 @@ void PackStream::assure_object_info() const
 		
 		// note: could make this a switch for maybe even more performance
 		if (info.type == PackedObjectType::OfsDelta) {
-			ofs = info.delta.ofs;
+			ofs = ofs - info.delta.ofs;
 		} else if (info.type == PackedObjectType::RefDelta) {
 			uint32 entry = m_pack.index().sha_to_entry(info.delta.key);
 			assert(entry != PackIndexFile::hash_unknown);

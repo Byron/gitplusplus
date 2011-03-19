@@ -55,12 +55,12 @@ public:
 	{
 		PackedObjectType	type;	//!< object type
 		size_type			size;	//!< uncompressed size in bytes
-		uchar				ofs;	//!< relative offset from the type byte to the compressed stream
+		uchar				rofs;	//!< relative offset from the type byte to the compressed stream
 	
 		union Additional {
 			Additional() {};		//!< Don't initialize anything
 			key_type		key;	//!< key to the delta base object in our pack
-			uint64			ofs;	//!< offset to a position into the pack
+			uint64			ofs;	//!< interpreted as negative offset from the current delta's offset.
 		};
 		Additional			delta;	//! additional delta information
 		

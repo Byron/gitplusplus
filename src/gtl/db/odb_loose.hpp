@@ -485,6 +485,7 @@ public:
 	stream_type* new_stream() const {
 		// release our own one, otherwise create a new one
 		if (m_pstream.get() != nullptr) {
+			//m_pstream->seek(0, std::ios::beg); cannot seek our own stream :(
 			return m_pstream.release();
 		}
 		stream_type* stream = new stream_type;
