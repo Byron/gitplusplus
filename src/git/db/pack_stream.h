@@ -5,6 +5,7 @@
 #include <git/db/policy.hpp>
 #include <gtl/util.hpp>
 #include <gtl/db/odb_pack.hpp>			// just for exception and db traits
+#include <gtl/db/zlib_mmap_device.hpp>
 
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/filter/zlib.hpp>

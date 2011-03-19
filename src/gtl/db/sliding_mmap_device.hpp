@@ -4,10 +4,11 @@
 #include <gtl/config.h>
 #include <gtl/util.hpp>
 
+#include <boost/iostreams/categories.hpp>
 
 #include <memory>
 #include <ios>
-#include <iostream> // debug
+
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
 
@@ -132,7 +133,7 @@ public:
 		return const_cast<ManagerType&>(m_man);
 	}
 	
-	//! \return our cursor initialized to point to our pack file
+	//! \return our cursor initialized to point to our file
 	//! \note the cursor is a handle to a region within a memory mapped file.
 	//! Use this method to create a copy allowing you free random access on your own.
 	const cursor_type& cursor() const {
