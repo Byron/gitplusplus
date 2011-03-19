@@ -54,12 +54,25 @@ private:
 	
 public:
 	
-	managed_mapped_file_source(memory_manager_type& manager)
+	/** Initialize this instance with a memory manager.
+	  * \param cursor this optional paramenter assures the file is already opened at the location
+	  * of the cursor. The cursor must be associated, otherwise undefined behaviour occurs.
+	  * \param length of bytes to map if cursor is given
+	  * \param offset into the file if cursor is given
+	  */ 
+	managed_mapped_file_source(memory_manager_type& manager, 
+	                           const cursor_type* cursor = nullptr, size_type length=max_length, stream_offset offset = 0)
 		: m_man(manager)
 	    , m_ofs(0)
 	    , m_nb(0)
 	    , m_size(0)
-	{}
+	{
+		if (cursor) {
+			assert(cursor->is_associated());
+			m_cur = *cursor;
+			open(cursor->path(), length, offset);
+		}
+	}
 	
 	managed_mapped_file_source(const managed_mapped_file_source& rhs) = default;
 	
@@ -83,7 +96,9 @@ public:
 		if (is_open()) {
 			close();
 		}
-		m_cur = m_man.make_cursor(path);
+		if (!m_cur.is_associated() || m_cur.path() != path) {
+			m_cur = m_man.make_cursor(path);
+		}
 		m_cur.use_region(offset, length);
 		if (!m_cur.is_valid()) {
 			throw std::ios_base::failure("Could not map given file region");

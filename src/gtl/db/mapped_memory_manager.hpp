@@ -527,6 +527,11 @@ public:
 			return m_region != nullptr;
 		}
 		
+		//! \return true if we are associated with a specific file already
+		inline bool is_associated() const {
+			return m_regions != nullptr;
+		}
+		
 		//! \return offset to first byte into the file
 		inline stream_offset ofs_begin() const {
 			assert(is_valid());
@@ -587,6 +592,13 @@ public:
 		size_type file_size() const {
 			assert(m_regions);
 			return m_regions->file_size();
+		}
+		
+		//! \return file path our cursor maps
+		//! \note undefined behaviour if is_associated() is false
+		const path_type& path() const {
+			assert(m_regions);
+			return m_regions->path();
 		}
 		
 		//! @} end interface

@@ -6,6 +6,7 @@
 
 #include <boost/iostreams/filter/zlib.hpp>	// for zlib params
 #include <gtl/db/sliding_mmap_device.hpp>
+#include <zlib.h>
 
 #include <exception>
 #include <memory>
@@ -35,10 +36,21 @@ struct zlib_error :		public std::exception,
 	}
 };
 
+
+/** Simple stream wrapper to facilitate using the stream structure, to initialize and deinitialize it
+  */
+class zlib_stream : protected z_stream
+{
+public:
+	zlib_stream(const zlib_params& params = io::zlib::default_compression)
+	{}
+	
+};
+
 /** Base class with common initialization routines and members to be used by both input and output devices
   */
 template <class ManagerType>
-class zlib_mmap_device_base
+class zlib_device_base
 {
 public:
 	typedef ManagerType													memory_manager_type;
@@ -51,10 +63,14 @@ protected:
 	        public io::closable_tag,
 	        public io::direct_tag
 	{};
+
+protected:
+	zlib_stream		m_stream;
 	
 protected:
-	zlib_mmap_device_base(const zlib_params& params = io::zlib::default_compression)
+	zlib_device_base(const zlib_params& params = io::zlib::default_compression)
 	{}
+	
 };
 
 
@@ -64,14 +80,15 @@ protected:
   * which will be read by the client. Once it is depleted, the next batch of bytes will be decompressed to fill the buffer.
   */
 template <class ManagerType>
-class zlib_file_source :		public zlib_mmap_device_base<ManagerType>, 
-								protected managed_mapped_file_source<ManagerType>
+class zlib_file_source :	public zlib_device_base<ManagerType>,
+							protected managed_mapped_file_source<ManagerType>
 {
 public:
 	typedef ManagerType													memory_manager_type;
 	typedef typename memory_manager_type::cursor						cursor_type;
-	typedef zlib_mmap_device_base<memory_manager_type>					zlib_parent_type;
+	typedef zlib_device_base<memory_manager_type>						zlib_parent_type;
 	typedef managed_mapped_file_source<ManagerType>						file_parent_type;
+	
 	typedef typename memory_manager_type::mapped_file_source::char_type	char_type;
 	typedef typename memory_manager_type::size_type						size_type;
 
@@ -80,8 +97,6 @@ public:
 	struct category :	public zlib_parent_type::category_base,
 				        public io::input
 	{};
-	
-protected:
 	
 private:
 	zlib_file_source(zlib_file_source&& source);

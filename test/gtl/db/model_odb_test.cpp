@@ -288,4 +288,7 @@ BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 	
 	// the file is copy-constructible
 	managed_file_source source_too(source);
+	
+	// open right during instantiation with existing cursor
+	managed_file_source source_three(manager, &source.cursor(), managed_file_source::max_length, 500);
 }
