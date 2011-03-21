@@ -5,6 +5,7 @@
 #include <git/db/policy.hpp>
 #include <gtl/util.hpp>
 #include <gtl/db/odb_pack.hpp>			// just for exception and db traits
+#include <gtl/db/sliding_mmap_device.hpp>
 #include <gtl/db/zlib_mmap_device.hpp>
 
 #include <boost/iostreams/categories.hpp>
@@ -16,6 +17,7 @@ GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
 
 namespace io = boost::iostreams;
+using boost::iostreams::stream_offset;
 
 //! @{ \name forward declarations
 class PackFile;
@@ -47,7 +49,7 @@ typedef gtl_pack_traits::mapped_memory_manager_type		mapped_memory_manager_type;
   * allocated at once, as well as the delta stream which contains instruction on how the base buffer
   * needs to be processed to create the destination buffer.
   */
-class PackDevice
+class PackDevice : public gtl::seekable_memory_device_mixin<mapped_memory_manager_type>
 {
 public:
 	typedef git_object_traits_base::key_type			key_type;
@@ -56,11 +58,11 @@ public:
 	typedef std::pair<char_type*, char_type*>			char_range;
 	typedef git_object_traits_base::object_type			object_type;
 	typedef typename mapped_memory_manager_type::cursor	cursor_type;
+	typedef gtl::seekable_memory_device_mixin<mapped_memory_manager_type> parent_type;
 	
 	struct category : 
 	        public io::input_seekable,
-	        public io::device_tag,
-	        public io::direct_tag
+	        public io::device_tag
 	{};
 	
 protected:
@@ -127,7 +129,7 @@ protected:
 	uint32					m_entry;		//!< pack entry we refer to
 	mutable object_type		m_type;			//!< type of the underlying object, None by default
 	mutable size_type		m_size;			//!< uncompressed final size of our object
-	mutable std::unique_ptr<char>	m_data;			//!< pointer to fully undeltified object data.
+	mutable std::unique_ptr<char>	m_data;	//!< pointer to fully undeltified object data.
 	
 public:
     PackDevice(const PackFile& pack, uint32 entry = 0);
@@ -174,10 +176,8 @@ public:
 		return true;
 	}
 	
-	char_range input_sequence() const {
-		assure_data();
-		return char_range(m_data.get(), m_data.get() + m_size);
-	}
+	std::streamsize read(char_type* s, std::streamsize n);
+	
 	
 	//! @} end device interface
 };

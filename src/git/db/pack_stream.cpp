@@ -16,10 +16,12 @@ PackDevice::PackDevice(const PackFile& pack, uint32 entry)
 }
 
 PackDevice::PackDevice(const PackDevice &rhs)
-	: m_pack(rhs.m_pack)
+	: parent_type(rhs)
+    , m_pack(rhs.m_pack)
     , m_entry(rhs.m_entry)
     , m_type(rhs.m_type)
     , m_size(rhs.m_size)
+    
 {
 	std::cerr << "PACK DEVICE: " << "INVOKED COPY CONSTRUCTOR" << std::endl;
 	// don't copy the data, it will be recreated when it is first needed
@@ -153,29 +155,29 @@ void PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo& info,
 {
 }
 
-void PackDevice::assure_data() const 
+std::streamsize PackDevice::read(char_type* s, std::streamsize n)
 {
-	if (!!m_data) {
-		return;
-	}
-	
-	// Gather all deltas and store their header information. We do this recursively for small objects.
-	// For larger objects, we first merge all deltas into one byte stream, to finally generate the final output
-	// at once. This way, we do not need two possibly huge buffers in memory, but only one in a moderate size
-	// for the merged delta, and the buffer for the final result. The basic source buffer will is memory mapped.
-	assure_object_info(true);
-	
-	cursor_type cur = m_pack.cursor();
-	if (m_size < 1024*1024) {
-		PackInfo info;
-		info.ofs = m_pack.index().offset(m_entry);
+	if (!m_data) {
+		// Gather all deltas and store their header information. We do this recursively for small objects.
+		// For larger objects, we first merge all deltas into one byte stream, to finally generate the final output
+		// at once. This way, we do not need two possibly huge buffers in memory, but only one in a moderate size
+		// for the merged delta, and the buffer for the final result. The basic source buffer will is memory mapped.
+		assure_object_info(true);
 		
-		info_at_offset(cur, info);
-		assert(!!m_data);
-	} else {
-		assert(false);
+		cursor_type cur = m_pack.cursor();
+		if (m_size < 1024*1024) {
+			PackInfo info;
+			info.ofs = m_pack.index().offset(m_entry);
+			
+			const_cast<PackDevice*>(this)->info_at_offset(cur, info);
+		} else {
+			assert(false);
+		}
 	}
+	assert(!!m_data);
 	
+	// Finally copy the requested amount of data
+	return parent_type::read(s, n, m_data.get());
 }
 
 uint64 PackDevice::delta_target_size(cursor_type& cur, uint64 ofs) const
