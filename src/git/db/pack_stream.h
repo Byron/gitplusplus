@@ -7,11 +7,15 @@
 #include <gtl/db/odb_pack.hpp>			// just for exception and db traits
 #include <gtl/db/zlib_mmap_device.hpp>
 
-#include <boost/iostreams/filtering_stream.hpp>
-#include <boost/iostreams/filter/zlib.hpp>
+#include <boost/iostreams/categories.hpp>
+#include <boost/iostreams/stream.hpp>
+
+#include <memory>
 
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
+
+namespace io = boost::iostreams;
 
 //! @{ \name forward declarations
 class PackFile;
@@ -36,26 +40,37 @@ typedef gtl::odb_pack_traits<git_object_traits>			gtl_pack_traits;
 typedef gtl_pack_traits::mapped_memory_manager_type		mapped_memory_manager_type;
 
 
-/** \brief A stream providing access to a deltified object
-  * It operates by pre-assembling all deltas into a single delta, which will be applied to the base at once
-  * For this to work, the stream must know its pack (to dereference in-pack object refs) as well as a lookup 
-  * git repository to obtain base object data.
+/** \brief A device providing access to a deltified object
+  * It operates by pre-assembling all deltas into a single delta, which will be applied to the base at once.
+  * On the first read, the destination will be assembled into a buffer large enough to hold it completely.
+  * The memory peaks during buffer reconstruction, when the base and destination buffers need to be 
+  * allocated at once, as well as the delta stream which contains instruction on how the base buffer
+  * needs to be processed to create the destination buffer.
   */
-class PackStream : public boost::iostreams::filtering_stream<boost::iostreams::input>
+class PackDevice
 {
 public:
 	typedef git_object_traits_base::key_type			key_type;
 	typedef git_object_traits_base::size_type			size_type;
+	typedef git_object_traits_base::char_type			char_type;
+	typedef std::pair<char_type*, char_type*>			char_range;
 	typedef git_object_traits_base::object_type			object_type;
 	typedef typename mapped_memory_manager_type::cursor	cursor_type;
 	
-public:
+	struct category : 
+	        public io::input_seekable,
+	        public io::device_tag,
+	        public io::direct_tag
+	{};
+	
+protected:
 	/** Small structure to hold the pack header information
 	  */
 	struct PackInfo
 	{
 		PackedObjectType	type;	//!< object type
 		size_type			size;	//!< uncompressed size in bytes
+		uint64				ofs;	//!< absolute offset into the pack at which this information was retrieved
 		uchar				rofs;	//!< relative offset from the type byte to the compressed stream
 	
 		union Additional {
@@ -75,13 +90,25 @@ public:
 		}
 	};
 	
+	// struct 
+	
 
 protected:	
 	//! Parse object information at the given offset and put it into the info structure
-	void info_at_offset(cursor_type& cur, uint64 ofs, PackInfo& info) const;
+	//! \note info structure must have its offset set already
+	void info_at_offset(cursor_type& cur, PackInfo& info) const;
 	
 	//! Get all object info and follow the delta chain, if there is no object info yet
-	void assure_object_info() const;
+	//! \param size_only if true, only the size will be obtained, not the type, which would 
+	//! require iterating the full delta chain
+	void assure_object_info(bool size_only = false) const;
+
+	//! Recursively unpack the object identified by the given info structure
+	//! \return memory initialized with the unpacked object data
+	void unpack_object_recursive(cursor_type& cur, const PackInfo& info, const char* base) const;
+	
+	//! Resolve all deltas and store the result in memory
+	void assure_data() const;
 	
 	//! \return most siginificant bit encoded length starting at begin
 	//! \param begin pointer which is advanced during reading
@@ -100,9 +127,13 @@ protected:
 	uint32					m_entry;		//!< pack entry we refer to
 	mutable object_type		m_type;			//!< type of the underlying object, None by default
 	mutable size_type		m_size;			//!< uncompressed final size of our object
+	mutable std::unique_ptr<char>	m_data;			//!< pointer to fully undeltified object data.
 	
 public:
-    PackStream(const PackFile& pack, uint32 entry=0);
+    PackDevice(const PackFile& pack, uint32 entry = 0);
+	PackDevice(const PackDevice& rhs);
+	PackDevice(PackDevice&&) = default;
+	~PackDevice();
 	
 public:
 	//! @{ \name Interface
@@ -115,6 +146,7 @@ public:
 	//! read-write access to our object
 	uint32& entry() {
 		m_type = ObjectType::None;	// reset our cache
+		m_data.reset(nullptr);
 		return m_entry;
 	}
 	
@@ -133,7 +165,27 @@ public:
 	uint32 chain_length() const;
 	
 	//! @} end interface
+	
+	
+	//! @{ \name Device Interface
+	
+	//! We are always open, but it is possible to change our entry.
+	bool is_open() const {
+		return true;
+	}
+	
+	char_range input_sequence() const {
+		assure_data();
+		return char_range(m_data.get(), m_data.get() + m_size);
+	}
+	
+	//! @} end device interface
 };
+
+//!< Main type to allow using the delta as a stream
+//! \todo maybe make this a class and assure the stream is unbuffered
+typedef boost::iostreams::stream<PackDevice> PackStream;
+
 
 GIT_NAMESPACE_END
 GIT_HEADER_END

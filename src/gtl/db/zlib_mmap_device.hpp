@@ -163,8 +163,7 @@ public:
 protected:
 	struct category_base : 
 	        public io::device_tag,
-	        public io::closable_tag,
-	        public io::direct_tag
+	        public io::closable_tag
 	{};
 
 protected:
@@ -181,7 +180,7 @@ protected:
   * When reading, it assumes a compressed stream which will be decompressed when reading. Decompression
   * will always be performed in a certain configurable buffer size, decompressed bytes are placed in a buffer, 
   * which will be read by the client. Once it is depleted, the next batch of bytes will be decompressed to fill the buffer.
-  * \todo implementation
+  * \todo implementation - this could be useful for the loose object database
   */
 template <class ManagerType>
 class zlib_file_source :	public zlib_device_base<ManagerType>,
