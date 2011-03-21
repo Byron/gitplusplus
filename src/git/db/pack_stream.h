@@ -88,6 +88,12 @@ protected:
 	//! \note we assume we can read enough bytes, without overshooting any bounds
 	inline uint64 msb_len(const char*& begin) const;
 	
+	//! \return target size of the delta identified by the given PackInfo
+	//! \param cur cursor to acquire read acess to the pack
+	//! \param ofs absolute offset of the delta's entry into the pack, to where the zstream starts
+	//! \note this partly decompresses the stream but ignores the base size
+	uint64 delta_target_size(cursor_type& cur, uint64 ofs) const;
+	
 	
 protected:
 	const PackFile&			m_pack;			//!< pack that contains this object

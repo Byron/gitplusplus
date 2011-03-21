@@ -10,6 +10,7 @@
 
 #include <exception>
 #include <memory>
+#include <limits>
 #include <ios>
 
 GTL_HEADER_BEGIN
@@ -38,16 +39,118 @@ struct zlib_error :		public std::exception,
 
 
 /** Simple stream wrapper to facilitate using the stream structure, to initialize and deinitialize it
+  * \note Althogh zlib_params include the crc32 check, this flags is not currently supported
+  * \note for now we only support the default allocation methods
   */
-class zlib_stream : protected z_stream
+class zlib_stream : public z_stream
 {
 public:
-	zlib_stream(const zlib_params& params = io::zlib::default_compression)
+	enum Mode {
+		Compress, 
+		Decompress
+	};
+	
+protected:
+	zlib_stream(Mode mode, const zlib_params& params)
+	{
+		zalloc = nullptr;
+		zfree = nullptr;
+		opaque = nullptr;
+		                 
+		int err;
+		int window_bits = params.noheader ? -params.window_bits : params.window_bits;
+		if (mode == Compress) {
+			err = deflateInit2(this, params.level, params.method, window_bits, params.mem_level, params.strategy);
+		} else {
+			// Needs to be set with an actual pointer, or 0 to inidcate the actual initialization
+			// should be delayed until the first decompression call
+			next_in = nullptr;
+			err = inflateInit2(this, window_bits);
+		}
+		check(err);
+	}
+	
+public:
+	//! check the given zlib error code and produce the respective exception
+	inline static void check(int err) {
+		switch (err) {
+			case Z_OK:
+			case Z_STREAM_END:
+				return;
+			case Z_MEM_ERROR:
+				throw std::bad_alloc();
+			default:
+				throw zlib_error(err);
+		}
+	}
+	
+	//! Prepare the stream for the next input or output operation by setting the respective source 
+	//! and destination memory areas
+	inline int prepare(const char* src_begin, const char* src_end, char* dest_begin, char* dest_end) {
+		next_in = reinterpret_cast<uchar*>(const_cast<char*>(src_begin));
+		assert(src_end - src_begin <= std::numeric_limits<uint32>::max());
+		avail_in = static_cast<uint32>(src_end - src_begin);
+		next_out = reinterpret_cast	<uchar*>(dest_begin);
+		assert(dest_end - dest_begin <= std::numeric_limits<uint32>::max());
+		avail_out= static_cast<uint32>(dest_end - dest_begin);
+	}
+};
+
+/** \brief zlib stream to be used for compression
+  */
+class zlib_compressor : public zlib_stream
+{
+public:
+	zlib_compressor(const zlib_params& params = io::zlib::default_compression)
+	    : zlib_stream(Compress, params)
 	{}
+	
+	~zlib_compressor() {
+		deflateEnd(this);
+	}
+	
+public:
+	
+	void reset() {
+		deflateReset(this);
+	}
+	
+	//! Perform a compression step and return the error code
+	int compress(int flush = true) {
+		return deflate(this, flush);
+	}
 	
 };
 
+/** \brief zlib stream for decompression
+  */
+class zlib_decompressor : public zlib_stream
+{
+public:
+	zlib_decompressor(const zlib_params& params = io::zlib::default_compression)
+	    : zlib_stream(Decompress, params)
+	    
+	{
+	}
+	
+	~zlib_decompressor() {
+		inflateEnd(this);
+	}
+	
+public:
+	void reset() {
+		inflateReset(this);
+	}
+	
+	//! Perform the decompression and return the error code
+	int decompress(int flush = false) {
+		return inflate(this, flush);
+	}
+};
+
+
 /** Base class with common initialization routines and members to be used by both input and output devices
+  * \todo implementation
   */
 template <class ManagerType>
 class zlib_device_base
@@ -68,7 +171,7 @@ protected:
 	zlib_stream		m_stream;
 	
 protected:
-	zlib_device_base(const zlib_params& params = io::zlib::default_compression)
+	zlib_device_base(zlib_stream::Mode mode, const zlib_params& params = io::zlib::default_compression)
 	{}
 	
 };
@@ -78,6 +181,7 @@ protected:
   * When reading, it assumes a compressed stream which will be decompressed when reading. Decompression
   * will always be performed in a certain configurable buffer size, decompressed bytes are placed in a buffer, 
   * which will be read by the client. Once it is depleted, the next batch of bytes will be decompressed to fill the buffer.
+  * \todo implementation
   */
 template <class ManagerType>
 class zlib_file_source :	public zlib_device_base<ManagerType>,
@@ -105,7 +209,7 @@ public:
 	
 	zlib_file_source(memory_manager_type& manager,
 	                 const zlib_params& params = io::zlib::default_compression)
-		: zlib_parent_type(params)
+		: zlib_parent_type(zlib_stream::Mode::Decompress, params)
 	    , file_parent_type(manager)
 	{}
 	
