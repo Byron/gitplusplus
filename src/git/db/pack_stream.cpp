@@ -13,6 +13,7 @@ GIT_NAMESPACE_BEGIN
 //! Decompress all bytes from the cursor (it must be set to the correct first byte)
 //! and continue decompression until the end of the stream or until our destination buffer
 //! is full.
+//! \param cur cursor whose offset is pointing to the start of the stream we should decompress
 //! 
 static void decompress_some(PackDevice::cursor_type& cur, PackDevice::char_type* dest, uint64 nb)
 {
@@ -216,11 +217,11 @@ char_type* PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo&
 	case PackedObjectType::Blob:
 	case PackedObjectType::Tag:
 	{
-		char_type* dest = reinterpret_cast<char_type*>(operator new(info.size));
+		dest = reinterpret_cast<char_type*>(operator new(info.size));
 		if (dest) {
 			// base object, just decompress the stream  and return the information
 			// Size doesn't really matter as the window will slide
-			cur.use_region(info.ofs, info.size/2);
+			cur.use_region(info.ofs+info.rofs, info.size/2);
 			decompress_some(cur, dest, info.size);
 		}
 		break;
@@ -238,26 +239,26 @@ char_type* PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo&
 		}
 		
 		// obtain base and decompress the delta to apply it
-		uint64 base_size;
-		uint64 ofs = info.ofs + info.rofs;				//!< offset to the beginning of our stream
-		
 		info_at_offset(cur, next_info);
 		pchar_type base_data(unpack_object_recursive(cur, next_info, out_size));	// base memory
 		pchar_type ddata(reinterpret_cast<char_type*>(operator new(info.size)));		// delta memory
 		if (!ddata) {
 			throw std::bad_alloc();
 		}
+		
 		char_type* pddata = ddata.get();		//!< pointer to delta data
 		const char_type* cpddata = ddata.get();
+		cur.use_region(info.ofs+info.rofs, info.size/2);
 		decompress_some(cur, pddata, info.size);
 		
-		base_size = msb_len(cpddata);
+		msb_len(cpddata);
 		out_size = msb_len(cpddata);
+		
 		
 		// Allocate memory to keep the destination
 		char_type* dest = reinterpret_cast<char_type*>(operator new(out_size));
 		if (dest) {
-			
+			assert(false);	// todo
 			
 		}// apply delta
 		

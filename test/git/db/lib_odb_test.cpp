@@ -9,6 +9,7 @@
 #include <git/db/sha1.h>
 #include <git/db/sha1_gen.h>
 #include <git/obj/blob.h>
+#include <gtl/util.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <utility>
 
@@ -485,6 +486,7 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 {
 	//! \todo templated base version of this implementation should go into the gtl tests
 	typedef PackODB::vector_pack_readers::const_iterator const_pack_iterator;
+	typedef gtl::stack_heap<PackOutputObject::stream_type> stack_stream_type;
 	gtl::mapped_memory_manager<> manager;
 	
 	const size_t pack_count = 3;
@@ -545,6 +547,9 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 	PackODB::forward_iterator begin = podb.begin();
 	const PackODB::forward_iterator end = podb.end();
 	obj_count = 0;
+	stack_stream_type stream;
+	MultiObject mobj;
+	
 	BOOST_REQUIRE(begin == begin);
 	BOOST_REQUIRE(end == end);
 	BOOST_REQUIRE(begin != end);
@@ -554,6 +559,15 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 		
 		BOOST_REQUIRE(begin->size() > 0);
 		BOOST_REQUIRE(begin->type() != ObjectType::None);
+		
+		begin->stream(stream);
+		BOOST_REQUIRE(stream->is_open());
+		stream.destroy();
+		
+		BOOST_REQUIRE(mobj.type == ObjectType::None);
+		begin->deserialize(mobj);
+		BOOST_REQUIRE(mobj.type != ObjectType::None);
+		mobj.destroy();
 	}
 	BOOST_REQUIRE(podb.count() == obj_count);
 	

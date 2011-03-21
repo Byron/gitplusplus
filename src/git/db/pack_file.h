@@ -271,7 +271,9 @@ public:
 		return (*m_pstream)->size();
 	}
 	
-	void deserialize(output_reference_type out) const;
+	void deserialize(output_reference_type out) const {
+		git_object_traits::policy_type().deserialize(out, *this);
+	}
 	
 	//! @} output object interface
 	
