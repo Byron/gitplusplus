@@ -7,11 +7,58 @@
 
 GIT_NAMESPACE_BEGIN
 
+
+//! @{ Utilties
+
+//! Decompress all bytes from the cursor (it must be set to the correct first byte)
+//! and continue decompression until the end of the stream or until our destination buffer
+//! is full.
+//! 
+static void decompress_some(PackDevice::cursor_type& cur, PackDevice::char_type* dest, uint64 nb)
+{
+	assert(cur.is_valid());
+	
+	int status = Z_OK;
+	gtl::zlib_decompressor z;
+	stream_offset ofs = cur.ofs_begin();
+	
+	// As zip can only take 32 bit numbers, we must chop up the operation
+	const uint64 chunk_size = 1024*1024*16;
+	static_assert(chunk_size <= std::numeric_limits<decltype(z.avail_out)>::max(), "chunk too large");
+	
+	for (uint64 bd = 0; status != Z_STREAM_END && bd < nb; bd += chunk_size)
+	{
+		z.next_out = reinterpret_cast<uchar*>(dest + std::min(bd, nb));
+		z.avail_out = static_cast<uint>(std::min(chunk_size, nb));
+		do {
+			cur.use_region(ofs, chunk_size / 2);
+			if (!cur.is_valid()) {
+				ParseError err;
+				err.stream() << "Failed to map pack at offset " << ofs;
+				throw err;
+			}
+			z.next_in = const_cast<uchar*>(reinterpret_cast<const uchar*>(cur.begin()));
+			z.avail_in = cur.size();
+			status = z.decompress(true);
+			ofs += z.next_in - const_cast<uchar*>(reinterpret_cast<const uchar*>(cur.begin()));
+		} while ((status == Z_OK || status == Z_BUF_ERROR) && 
+				 (z.avail_in && z.avail_out));
+		
+		gtl::zlib_stream::check(status);
+	}// for each chunk
+	
+	if (status != Z_STREAM_END && z.total_out != nb) {
+		throw gtl::zlib_error(status);
+	}
+}
+
+//! @} end utilities
+
+
 PackDevice::PackDevice(const PackFile& pack, uint32 entry)
     : m_pack(pack)
     , m_entry(entry)
     , m_type(ObjectType::None)
-    , m_size(0)
 {
 }
 
@@ -20,7 +67,6 @@ PackDevice::PackDevice(const PackDevice &rhs)
     , m_pack(rhs.m_pack)
     , m_entry(rhs.m_entry)
     , m_type(rhs.m_type)
-    , m_size(rhs.m_size)
     
 {
 	std::cerr << "PACK DEVICE: " << "INVOKED COPY CONSTRUCTOR" << std::endl;
@@ -31,11 +77,11 @@ PackDevice::~PackDevice()
 {
 }
 
-uint64 PackDevice::msb_len(const char*& i) const
+uint64 PackDevice::msb_len(const char_type*& i) const
 {
 	uint64 len = 0;
-	const char* x = i;
-	char c;
+	const char_type* x = i;
+	char_type c;
 	do {
 		c = *x;
 		++x;
@@ -51,8 +97,8 @@ void PackDevice::info_at_offset(cursor_type& cur, PackInfo &info) const
 	// Internally, the implementation is likely to provide more space
 	cur.use_region(info.ofs, 1+8+20+1);
 	assert(cur.is_valid());
-	const char* i = cur.begin();
-	char c = *i++;
+	const char_type* i = cur.begin();
+	char_type c = *i++;
 	info.type = static_cast<PackedObjectType>((c >> 4) & 7);
 	
 	info.size = c & 15;
@@ -111,20 +157,19 @@ void PackDevice::assure_object_info(bool size_only) const
 	}
 	
 	PackInfo info;
-	uint64 ofs = m_pack.index().offset(m_entry);
+	info.ofs = m_pack.index().offset(m_entry);
 	uint64 next_ofs;
 	cursor_type cur = m_pack.cursor();
 	bool has_delta_size = false;
 	
 	for(;;)
 	{
-		info.ofs = ofs;
 		info_at_offset(cur, info);
 		assert(info.type != PackedObjectType::Bad);
 		
 		// note: could make this a switch for maybe even more performance
 		if (info.type == PackedObjectType::OfsDelta) {
-			next_ofs = ofs - info.delta.ofs;
+			next_ofs = info.ofs - info.delta.ofs;
 		} else if (info.type == PackedObjectType::RefDelta) {
 			uint32 entry = m_pack.index().sha_to_entry(info.delta.key);
 			assert(entry != PackIndexFile::hash_unknown);
@@ -133,13 +178,15 @@ void PackDevice::assure_object_info(bool size_only) const
 			m_type = static_cast<ObjectType>(info.type);
 			// if we are not a delta, we have to obtain the original objects size
 			if (!has_delta_size) {
-				m_size = info.size;
+				const_cast<PackDevice*>(this)->m_size = info.size;
 			}
 			break;
 		}// handle object type
 		
 		if (!has_delta_size) {
-			m_size = delta_target_size(cur, ofs + info.rofs);
+			delta_size(cur, info.ofs + info.rofs,
+			           const_cast<PackDevice*>(this)->m_size, 
+			           const_cast<PackDevice*>(this)->m_size);	 // target size assigned last
 			has_delta_size = true;
 		}
 		
@@ -147,12 +194,86 @@ void PackDevice::assure_object_info(bool size_only) const
 			break;
 		}
 		
-		ofs = next_ofs;
+		info.ofs = next_ofs;
 	}// while we are not at the base
+	
+	// assure our base knows we may read
+	const_cast<PackDevice*>(this)->m_nb = m_size;
 }
 
-void PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo& info, const char* base) const
+char_type* PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo& info, uint64& out_size) const
 {
+	assert(info.type != PackedObjectType::Bad);
+	typedef std::unique_ptr<char_type> pchar_type;
+	
+	//! NOTE: We allocate the memory late to prevent excessive memory use during recursion
+	char_type* dest = nullptr;
+	
+	switch (info.type)
+	{
+	case PackedObjectType::Commit:
+	case PackedObjectType::Tree:
+	case PackedObjectType::Blob:
+	case PackedObjectType::Tag:
+	{
+		char_type* dest = reinterpret_cast<char_type*>(operator new(info.size));
+		if (dest) {
+			// base object, just decompress the stream  and return the information
+			// Size doesn't really matter as the window will slide
+			cur.use_region(info.ofs, info.size/2);
+			decompress_some(cur, dest, info.size);
+		}
+		break;
+	}
+	case PackedObjectType::OfsDelta:
+	case PackedObjectType::RefDelta:
+	{
+		PackInfo next_info;
+		if (info.type == PackedObjectType::OfsDelta) {
+			next_info.ofs = info.ofs - info.delta.ofs;
+		} else {
+			uint32 entry = m_pack.index().sha_to_entry(info.delta.key);
+			assert(entry != PackIndexFile::hash_unknown);
+			next_info.ofs = m_pack.index().offset(entry);
+		}
+		
+		// obtain base and decompress the delta to apply it
+		uint64 base_size;
+		uint64 ofs = info.ofs + info.rofs;				//!< offset to the beginning of our stream
+		
+		info_at_offset(cur, next_info);
+		pchar_type base_data(unpack_object_recursive(cur, next_info, out_size));	// base memory
+		pchar_type ddata(reinterpret_cast<char_type*>(operator new(info.size)));		// delta memory
+		if (!ddata) {
+			throw std::bad_alloc();
+		}
+		char_type* pddata = ddata.get();		//!< pointer to delta data
+		const char_type* cpddata = ddata.get();
+		decompress_some(cur, pddata, info.size);
+		
+		base_size = msb_len(cpddata);
+		out_size = msb_len(cpddata);
+		
+		// Allocate memory to keep the destination
+		char_type* dest = reinterpret_cast<char_type*>(operator new(out_size));
+		if (dest) {
+			
+			
+		}// apply delta
+		
+		break;
+	}
+	default: 
+	{
+		throw ParseError();
+	}
+	};// end type switch
+	
+	if (!dest) {
+		throw std::bad_alloc();
+	}
+	
+	return dest;
 }
 
 std::streamsize PackDevice::read(char_type* s, std::streamsize n)
@@ -162,17 +283,20 @@ std::streamsize PackDevice::read(char_type* s, std::streamsize n)
 		// For larger objects, we first merge all deltas into one byte stream, to finally generate the final output
 		// at once. This way, we do not need two possibly huge buffers in memory, but only one in a moderate size
 		// for the merged delta, and the buffer for the final result. The basic source buffer will is memory mapped.
+		// NOTE: We will need random access to the base buffer, which is only available in compressed form.
+		// The only advantage would be to keep the delta separate, and only produce the requested amount of 
+		// output bytes. Unfortunately, this would mean a larger persistent memory footprint. Otherwise we would
+		// have two buffer, base and target, and the decompressed delta stream allocated.
+		// A good way to keep memory demands reasonable is to actually stream big objects which may not even 
+		// be deltified.
 		assure_object_info(true);
 		
 		cursor_type cur = m_pack.cursor();
-		if (m_size < 1024*1024) {
-			PackInfo info;
-			info.ofs = m_pack.index().offset(m_entry);
-			
-			const_cast<PackDevice*>(this)->info_at_offset(cur, info);
-		} else {
-			assert(false);
-		}
+		PackInfo info;
+		info.ofs = m_pack.index().offset(m_entry);
+		info_at_offset(cur, info);
+		uint64 size;
+		m_data.reset(unpack_object_recursive(cur, info, size));
 	}
 	assert(!!m_data);
 	
@@ -180,28 +304,17 @@ std::streamsize PackDevice::read(char_type* s, std::streamsize n)
 	return parent_type::read(s, n, m_data.get());
 }
 
-uint64 PackDevice::delta_target_size(cursor_type& cur, uint64 ofs) const
+uint PackDevice::delta_size(cursor_type& cur, uint64 ofs, uint64& base_size, uint64& target_size) const
 {
-	unsigned char delta_header[20];	// can handle two 64 bit numbers
-	gtl::zlib_decompressor zstream;
-	zstream.next_out = delta_header;
-	zstream.avail_out = sizeof(delta_header);
-	int status;
-	do {
-		cur.use_region(ofs, 20);	// just pick a static size to map which is small to prevent unnecessary mapping
-		zstream.next_in = const_cast<uchar*>(reinterpret_cast<const uchar*>(cur.begin()));
-		zstream.avail_in = cur.size();
-		status = zstream.decompress(true);
-		ofs += zstream.next_in - const_cast<uchar*>(reinterpret_cast<const uchar*>(cur.begin()));
-	} while ((status == Z_OK || status == Z_BUF_ERROR) && 
-	         zstream.total_out < sizeof(delta_header));
-	if (status != Z_STREAM_END && zstream.total_out != sizeof(delta_header)) {
-		throw gtl::zlib_error(status);
-	}
+	char_type delta_header[20];	// can handle two 64 bit numbers
+	cur.use_region(ofs, 20);
+	decompress_some(cur, delta_header, 20);
 	
-	const char* data = reinterpret_cast<char*>(&delta_header[0]);
-	msb_len(data);				// base offset - ignore
-	return msb_len(data);		// target offset
+	const char_type* data = delta_header;
+	base_size = msb_len(data);
+	target_size = msb_len(data);		// target offset
+	
+	return data - delta_header;
 }
 
 GIT_NAMESPACE_END

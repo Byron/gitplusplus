@@ -18,6 +18,7 @@ using boost::iostreams::stream_offset;
 
 
 /** \brief utilty which adds members to facilite navigation and seeking in a memory area
+  * \note the m_nb member must be set to the number of bytes left for reading !
   */
 template <class ManagerType>
 class seekable_memory_device_mixin

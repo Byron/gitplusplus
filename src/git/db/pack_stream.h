@@ -106,8 +106,11 @@ protected:
 	void assure_object_info(bool size_only = false) const;
 
 	//! Recursively unpack the object identified by the given info structure
-	//! \return memory initialized with the unpacked object data
-	void unpack_object_recursive(cursor_type& cur, const PackInfo& info, const char* base) const;
+	//! \return memory initialized with the unpacked object data. The caller is responsible
+	//! for deallocation
+	//! \param out_size amount of bytes allocated in the returned buffer
+	//! \throw std::bad_alloc() or ParseError
+	char_type* unpack_object_recursive(cursor_type& cur, const PackInfo& info, uint64& out_size) const;
 	
 	//! Resolve all deltas and store the result in memory
 	void assure_data() const;
@@ -115,21 +118,21 @@ protected:
 	//! \return most siginificant bit encoded length starting at begin
 	//! \param begin pointer which is advanced during reading
 	//! \note we assume we can read enough bytes, without overshooting any bounds
-	inline uint64 msb_len(const char*& begin) const;
+	inline uint64 msb_len(const char_type*& begin) const;
 	
-	//! \return target size of the delta identified by the given PackInfo
+	//! retrieve the base and target size of the delta identified by the given PackInfo
 	//! \param cur cursor to acquire read acess to the pack
 	//! \param ofs absolute offset of the delta's entry into the pack, to where the zstream starts
-	//! \note this partly decompresses the stream but ignores the base size
-	uint64 delta_target_size(cursor_type& cur, uint64 ofs) const;
+	//! \return number of bytes read from the data at offset
+	//! \note this partly decompresses the stream
+	uint delta_size(cursor_type& cur, uint64 ofs, uint64& base_size, uint64& target_size) const;
 	
 	
 protected:
-	const PackFile&			m_pack;			//!< pack that contains this object
-	uint32					m_entry;		//!< pack entry we refer to
-	mutable object_type		m_type;			//!< type of the underlying object, None by default
-	mutable size_type		m_size;			//!< uncompressed final size of our object
-	mutable std::unique_ptr<char>	m_data;	//!< pointer to fully undeltified object data.
+	const PackFile&			m_pack;				//!< pack that contains this object
+	uint32					m_entry;			//!< pack entry we refer to
+	mutable object_type		m_type;				//!< type of the underlying object, None by default
+	mutable std::unique_ptr<char_type>	m_data;	//!< pointer to fully undeltified object data.
 	
 public:
     PackDevice(const PackFile& pack, uint32 entry = 0);
