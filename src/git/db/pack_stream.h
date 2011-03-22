@@ -112,6 +112,11 @@ protected:
 	//! \throw std::bad_alloc() or ParseError
 	char_type* unpack_object_recursive(cursor_type& cur, const PackInfo& info, uint64& out_size) const;
 	
+	//! Apply the encoded delta stream using the base buffer and write the result into the target buffer
+	//! The base buffer is assumed to be able to serve all requests from the delta stream, the destination
+	//! buffer must have the correct final size.
+	void apply_delta(const char_type* base, char_type* dest, const char_type* delta, size_t deltalen) const;
+	
 	//! Resolve all deltas and store the result in memory
 	void assure_data() const;
 	

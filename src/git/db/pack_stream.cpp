@@ -41,7 +41,7 @@ static void decompress_some(PackDevice::cursor_type& cur, PackDevice::char_type*
 			z.next_in = const_cast<uchar*>(reinterpret_cast<const uchar*>(cur.begin()));
 			z.avail_in = cur.size();
 			status = z.decompress(true);
-			ofs += z.next_in - const_cast<uchar*>(reinterpret_cast<const uchar*>(cur.begin()));
+			ofs += z.next_in - reinterpret_cast<const uchar*>(cur.begin());
 		} while ((status == Z_OK || status == Z_BUF_ERROR) && 
 				 (z.avail_in && z.avail_out));
 		
@@ -202,6 +202,42 @@ void PackDevice::assure_object_info(bool size_only) const
 	const_cast<PackDevice*>(this)->m_nb = m_size;
 }
 
+void PackDevice::apply_delta(const char_type* base, char_type* dest, const char_type* delta, size_t deltalen) const
+{
+	const char_type*const dend = delta + deltalen;
+	
+	while (delta < dend)
+	{
+		const char_type cmd = *delta++;
+		
+		if (cmd & 0x80) 
+		{
+			unsigned long cp_off = 0, cp_size = 0;
+			if (cmd & 0x01) cp_off = *delta++;
+			if (cmd & 0x02) cp_off |= (*delta++ << 8);
+			if (cmd & 0x04) cp_off |= (*delta++ << 16);
+			if (cmd & 0x08) cp_off |= ((unsigned) *delta++ << 24);
+			if (cmd & 0x10) cp_size = *delta++;
+			if (cmd & 0x20) cp_size |= (*delta++ << 8);
+			if (cmd & 0x40) cp_size |= (*delta++ << 16);
+			if (cp_size == 0) cp_size = 0x10000;
+			
+			memcpy(dest, base + cp_off, cp_size); 
+			dest += cp_size;
+			
+		} else if (cmd) {
+			memcpy(dest, delta, cmd);
+			dest += cmd;
+			delta += cmd;
+		} else {                                                                               
+			PackParseError err;
+			err.stream() << "Encountered an unknown delta operation";
+			throw err;
+		}// end handle opcode
+	}// end while there are delta opcodes
+	
+}
+
 char_type* PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo& info, uint64& out_size) const
 {
 	assert(info.type != PackedObjectType::Bad);
@@ -218,12 +254,11 @@ char_type* PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo&
 	case PackedObjectType::Tag:
 	{
 		dest = reinterpret_cast<char_type*>(operator new(info.size));
-		if (dest) {
-			// base object, just decompress the stream  and return the information
-			// Size doesn't really matter as the window will slide
-			cur.use_region(info.ofs+info.rofs, info.size/2);
-			decompress_some(cur, dest, info.size);
-		}
+		out_size = info.size;
+		// base object, just decompress the stream  and return the information
+		// Size doesn't really matter as the window will slide
+		cur.use_region(info.ofs+info.rofs, info.size/2);
+		decompress_some(cur, dest, info.size);
 		break;
 	}
 	case PackedObjectType::OfsDelta:
@@ -241,11 +276,8 @@ char_type* PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo&
 		// obtain base and decompress the delta to apply it
 		info_at_offset(cur, next_info);
 		pchar_type base_data(unpack_object_recursive(cur, next_info, out_size));	// base memory
-		pchar_type ddata(reinterpret_cast<char_type*>(operator new(info.size)));		// delta memory
-		if (!ddata) {
-			throw std::bad_alloc();
-		}
 		
+		pchar_type ddata(reinterpret_cast<char_type*>(operator new(info.size)));		// delta memory
 		char_type* pddata = ddata.get();		//!< pointer to delta data
 		const char_type* cpddata = ddata.get();
 		cur.use_region(info.ofs+info.rofs, info.size/2);
@@ -254,13 +286,9 @@ char_type* PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo&
 		msb_len(cpddata);
 		out_size = msb_len(cpddata);
 		
-		
-		// Allocate memory to keep the destination
-		char_type* dest = reinterpret_cast<char_type*>(operator new(out_size));
-		if (dest) {
-			assert(false);	// todo
-			
-		}// apply delta
+		// Allocate memory to keep the destination and apply delta
+		dest = reinterpret_cast<char_type*>(operator new(out_size));
+		apply_delta(base_data.get(), dest, cpddata, info.size - (cpddata - pddata));
 		
 		break;
 	}
@@ -269,10 +297,6 @@ char_type* PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo&
 		throw ParseError();
 	}
 	};// end type switch
-	
-	if (!dest) {
-		throw std::bad_alloc();
-	}
 	
 	return dest;
 }
@@ -290,14 +314,13 @@ std::streamsize PackDevice::read(char_type* s, std::streamsize n)
 		// have two buffer, base and target, and the decompressed delta stream allocated.
 		// A good way to keep memory demands reasonable is to actually stream big objects which may not even 
 		// be deltified.
-		assure_object_info(true);
-		
 		cursor_type cur = m_pack.cursor();
 		PackInfo info;
 		info.ofs = m_pack.index().offset(m_entry);
 		info_at_offset(cur, info);
-		uint64 size;
-		m_data.reset(unpack_object_recursive(cur, info, size));
+		
+		m_data.reset(unpack_object_recursive(cur, info, m_size));
+		this->m_nb = this->m_size;
 	}
 	assert(!!m_data);
 	

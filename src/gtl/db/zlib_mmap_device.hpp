@@ -138,13 +138,13 @@ public:
 	}
 	
 public:
-	void reset() {
+	inline void reset() {
 		inflateReset(this);
 	}
 	
 	//! Perform the decompression and return the error code
-	int decompress(int flush = false) {
-		return inflate(this, flush);
+	inline int decompress(int flush = false) {
+		return inflate(this, flush ? Z_FINISH : Z_NO_FLUSH);
 	}
 };
 
