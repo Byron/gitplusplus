@@ -478,13 +478,17 @@ public:
 						// are likely to fail in that condition (like reading a file from disk, etc)
 						// we free up as much as possible
 						// Make sure our insert position doesn't get collected !
-						const_cast<region&>(*insertpos).client_count() += 1;
+						if (regions.size() && insertpos != rend) {
+							const_cast<region&>(*insertpos).client_count() += 1;
+						}
 						try {
 							while (true) {
 								m_manager->collect_one_lru_region(0);
 							}
 						} catch (const lru_failure&) {}
-						const_cast<region&>(*insertpos).client_count() -= 1;
+						if (regions.size() && insertpos != rend) {
+							const_cast<region&>(*insertpos).client_count() -= 1;
+						}
 						m_region = new region(m_regions->path(), mid.ofs, mid.size);
 					}
 
@@ -645,7 +649,7 @@ protected:
 			const region_iterator rend(rlist.end());
 			for (; rbeg != rend; ++rbeg) {
 				if (rbeg->client_count() == 0 && 
-				    (lru_region == no_region || (*rbeg).usage_count() < lru_region->usage_count())) {
+				    (lru_region == no_region || rbeg->usage_count() < lru_region->usage_count())) {
 					lru_region = rbeg;
 					lru_list = &rlist;
 				}

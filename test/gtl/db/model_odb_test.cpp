@@ -11,6 +11,11 @@
 
 #include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/operations.hpp>
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/filter/zlib.hpp>
+#include <boost/iostreams/operations.hpp>
+#include <boost/iostreams/device/array.hpp>
+#include <boost/scoped_array.hpp>
 #include <boost/timer.hpp>
 
 #include <type_traits>
@@ -79,6 +84,33 @@ const DT& ctest_fun_2(const DT& r) {
 	 return r;
 }
 
+
+BOOST_AUTO_TEST_CASE(test_zlib_device)
+{
+	// NOTE: This test must come last, as the destruction of the filtered stream (ostream)
+	// destroys something that kills the test in a spot that doesn't make sense and cannot be 
+	// debugged (null ptr exception).
+	
+	// produce sample data
+	const size_t slen = 1024*1024*4 +5238;
+	const char*const sbuf = new char[slen];			// source buffer with uninitialized memory
+	boost::scoped_array<const char> sbuf_manager(sbuf);	// delegate memory handling
+	
+	std::vector<char> dbuf;		// destination buffer with compressed data
+	dbuf.reserve(slen/2);
+	
+	boost::iostreams::filtering_stream<io::output, char> ostream;
+	boost::iostreams::back_insert_device<decltype(dbuf)> back_inserter(dbuf);
+	ostream.push(boost::iostreams::zlib_compressor());
+	ostream.push(back_inserter);
+	
+	boost::iostreams::basic_array_source<char>	source(sbuf, sbuf + slen);
+	boost::iostreams::copy(source, ostream);
+	
+	BOOST_REQUIRE(dbuf.size());
+	
+}
+
 BOOST_AUTO_TEST_CASE(util)
 {
 	typedef stack_heap<DT> stack_heap_type;
@@ -102,7 +134,6 @@ BOOST_AUTO_TEST_CASE(util)
 	BOOST_REQUIRE(*csh == *sh);
 	BOOST_REQUIRE(sh->destroyed == true);
 }
-
 
 BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 {
@@ -201,7 +232,8 @@ BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 			BOOST_CHECK(c.includes_ofs(base_offset+c.size()-1));
 			BOOST_CHECK(!c.includes_ofs(base_offset+c.size()));
 		}// while num_random_accesses
-	} catch (const std::exception&) {
+	} catch (const std::exception& err) {
+		std::cerr << err.what() << std::endl;
 		BOOST_REQUIRE(false);
 	}
 	double elapsed = timer.elapsed();
@@ -292,3 +324,6 @@ BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 	// open right during instantiation with existing cursor
 	managed_file_source source_three(manager, &source.cursor(), managed_file_source::max_length, 500);
 }
+
+
+
