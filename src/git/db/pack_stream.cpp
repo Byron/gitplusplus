@@ -90,17 +90,18 @@ PackDevice::~PackDevice()
 {
 }
 
-uint64 PackDevice::msb_len(const char_type*& i) const
+uint64 PackDevice::msb_len(const char_type*& data) const
 {
 	uint64 len = 0;
-	const char_type* x = i;
+	const char_type* x = data;
 	char_type c;
+	uint s = 0;
 	do {
-		c = *x;
-		++x;
-		len = (len << 7) + (c & 0x7f);
+		c = *x++;
+		len |= (c & 0x7f) << s;
+		s += 7;
 	} while (c & 0x80);
-	i = x;
+	data = x;
 	return len;
 }
 
@@ -291,7 +292,7 @@ char_type* PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo&
 		
 		pchar_type ddata(new char_type[info.size]);		// delta memory
 		char_type* pddata = ddata.get();		//!< pointer to delta data
-		const char_type* cpddata = ddata.get();
+		const char_type* cpddata = ddata.get(); //!< const pointer to delta data
 		cur.use_region(info.ofs+info.rofs, info.size/2);
 		decompress_some(cur, pddata, info.size);
 		
@@ -299,6 +300,9 @@ char_type* PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo&
 		if (base_size != out_size) {
 			ParseError err;
 			err.stream() << "Base buffer length didn't match the parsed information: " << out_size << " != " << base_size;
+			if (info.type == PackedObjectType::RefDelta) {
+				err.stream() << std::endl << "Base was " << info.delta.key;
+			}
 			throw err;
 		}
 		out_size = msb_len(cpddata);
