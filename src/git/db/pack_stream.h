@@ -10,6 +10,7 @@
 
 #include <boost/iostreams/categories.hpp>
 #include <boost/iostreams/stream.hpp>
+#include <boost/scoped_array.hpp>
 
 #include <memory>
 
@@ -107,7 +108,7 @@ protected:
 
 	//! Recursively unpack the object identified by the given info structure
 	//! \return memory initialized with the unpacked object data. The caller is responsible
-	//! for deallocation
+	//! for deallocation, using delete []
 	//! \param out_size amount of bytes allocated in the returned buffer
 	//! \throw std::bad_alloc() or ParseError
 	char_type* unpack_object_recursive(cursor_type& cur, const PackInfo& info, uint64& out_size) const;
@@ -137,7 +138,7 @@ protected:
 	const PackFile&			m_pack;				//!< pack that contains this object
 	uint32					m_entry;			//!< pack entry we refer to
 	mutable object_type		m_type;				//!< type of the underlying object, None by default
-	mutable std::unique_ptr<char_type>	m_data;	//!< pointer to fully undeltified object data.
+	mutable boost::scoped_array<char_type>	m_data;	//!< pointer to fully undeltified object data.
 	
 public:
     PackDevice(const PackFile& pack, uint32 entry = 0);

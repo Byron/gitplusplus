@@ -28,9 +28,11 @@ struct zlib_error :		public std::exception,
 {
 	int status;	//!< zlib status we encountered
 	
-	zlib_error(int status)
+	zlib_error(int status, const char* msg = nullptr)
 	    : status(status)
-	{}
+	{
+		stream() << (msg ? msg : "ZLib encountered an error") << " (Status = " << status << ")";
+	}
 	
 	const char* what() const throw() {
 		return streaming_exception::what();
@@ -72,7 +74,7 @@ protected:
 	
 public:
 	//! check the given zlib error code and produce the respective exception
-	inline static void check(int err) {
+	inline static void check(int err, const char* msg = nullptr) {
 		switch (err) {
 			case Z_OK:
 			case Z_STREAM_END:
@@ -80,7 +82,7 @@ public:
 			case Z_MEM_ERROR:
 				throw std::bad_alloc();
 			default:
-				throw zlib_error(err);
+				throw zlib_error(err, msg);
 		}
 	}
 	

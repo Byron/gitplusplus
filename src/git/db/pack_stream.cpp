@@ -14,8 +14,9 @@ GIT_NAMESPACE_BEGIN
 //! and continue decompression until the end of the stream or until our destination buffer
 //! is full.
 //! \param cur cursor whose offset is pointing to the start of the stream we should decompress
-//! 
-static void decompress_some(PackDevice::cursor_type& cur, PackDevice::char_type* dest, uint64 nb)
+//! \param max_input_chunk_size if not 0, the amount of bytes we should put in per iteration. Use this if you only have a few
+//! input bytes  and don't want it to decompress more than necessary
+static void decompress_some(PackDevice::cursor_type& cur, PackDevice::char_type* dest, uint64 nb, size_t max_input_chunk_size = 0)
 {
 	assert(cur.is_valid());
 	
@@ -39,17 +40,28 @@ static void decompress_some(PackDevice::cursor_type& cur, PackDevice::char_type*
 				throw err;
 			}
 			z.next_in = const_cast<uchar*>(reinterpret_cast<const uchar*>(cur.begin()));
-			z.avail_in = cur.size();
+			z.avail_in = max_input_chunk_size ? std::min(cur.size(), max_input_chunk_size) : cur.size();
 			status = z.decompress(true);
 			ofs += z.next_in - reinterpret_cast<const uchar*>(cur.begin());
-		} while ((status == Z_OK || status == Z_BUF_ERROR) && 
-				 (z.avail_in && z.avail_out));
+		} while ((status == Z_OK || status == Z_BUF_ERROR) && z.avail_out);
 		
-		gtl::zlib_stream::check(status);
+		switch(status) 
+		{
+			case Z_ERRNO:
+			case Z_STREAM_ERROR:
+			case Z_DATA_ERROR:
+			case Z_MEM_ERROR:
+			case Z_VERSION_ERROR:
+			{
+				throw gtl::zlib_error(status, "ZLib stream error");
+			}
+		}// end switch
 	}// for each chunk
 	
-	if (status != Z_STREAM_END && z.total_out != nb) {
-		throw gtl::zlib_error(status);
+	// Most importantly, we produce the amount of bytes we wanted. BUF ERRORs occour
+	// if there is not enough output (or input)
+	if (z.total_out != nb && (status != Z_STREAM_END && status != Z_BUF_ERROR)) {
+		throw gtl::zlib_error(status, "Failed to produce enough bytes during decompression");
 	}
 }
 
@@ -204,44 +216,44 @@ void PackDevice::assure_object_info(bool size_only) const
 
 void PackDevice::apply_delta(const char_type* base, char_type* dest, const char_type* delta, size_t deltalen) const
 {
-	const char_type*const dend = delta + deltalen;
+	const uchar* data = reinterpret_cast<const uchar*>(delta);
+	const uchar* const dend = data + deltalen;
 	
-	while (delta < dend)
+	while (data < dend)
 	{
-		const char_type cmd = *delta++;
-		
+		const uchar cmd = *data++;
 		if (cmd & 0x80) 
 		{
 			unsigned long cp_off = 0, cp_size = 0;
-			if (cmd & 0x01) cp_off = *delta++;
-			if (cmd & 0x02) cp_off |= (*delta++ << 8);
-			if (cmd & 0x04) cp_off |= (*delta++ << 16);
-			if (cmd & 0x08) cp_off |= ((unsigned) *delta++ << 24);
-			if (cmd & 0x10) cp_size = *delta++;
-			if (cmd & 0x20) cp_size |= (*delta++ << 8);
-			if (cmd & 0x40) cp_size |= (*delta++ << 16);
+			if (cmd & 0x01) cp_off = *data++;
+			if (cmd & 0x02) cp_off |= (*data++ << 8);
+			if (cmd & 0x04) cp_off |= (*data++ << 16);
+			if (cmd & 0x08) cp_off |= ((unsigned) *data++ << 24);
+			if (cmd & 0x10) cp_size = *data++;
+			if (cmd & 0x20) cp_size |= (*data++ << 8);
+			if (cmd & 0x40) cp_size |= (*data++ << 16);
 			if (cp_size == 0) cp_size = 0x10000;
 			
 			memcpy(dest, base + cp_off, cp_size); 
 			dest += cp_size;
 			
 		} else if (cmd) {
-			memcpy(dest, delta, cmd);
+			memcpy(dest, data, cmd);
 			dest += cmd;
-			delta += cmd;
+			data += cmd;
 		} else {                                                                               
 			PackParseError err;
-			err.stream() << "Encountered an unknown delta operation";
+			err.stream() << "Encountered an unknown data operation";
 			throw err;
 		}// end handle opcode
-	}// end while there are delta opcodes
+	}// end while there are data opcodes
 	
 }
 
 char_type* PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo& info, uint64& out_size) const
 {
 	assert(info.type != PackedObjectType::Bad);
-	typedef std::unique_ptr<char_type> pchar_type;
+	typedef boost::scoped_array<char_type> pchar_type;
 	
 	//! NOTE: We allocate the memory late to prevent excessive memory use during recursion
 	char_type* dest = nullptr;
@@ -253,7 +265,7 @@ char_type* PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo&
 	case PackedObjectType::Blob:
 	case PackedObjectType::Tag:
 	{
-		dest = reinterpret_cast<char_type*>(operator new(info.size));
+		dest = new char_type[info.size];
 		out_size = info.size;
 		// base object, just decompress the stream  and return the information
 		// Size doesn't really matter as the window will slide
@@ -277,17 +289,22 @@ char_type* PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo&
 		info_at_offset(cur, next_info);
 		pchar_type base_data(unpack_object_recursive(cur, next_info, out_size));	// base memory
 		
-		pchar_type ddata(reinterpret_cast<char_type*>(operator new(info.size)));		// delta memory
+		pchar_type ddata(new char_type[info.size]);		// delta memory
 		char_type* pddata = ddata.get();		//!< pointer to delta data
 		const char_type* cpddata = ddata.get();
 		cur.use_region(info.ofs+info.rofs, info.size/2);
 		decompress_some(cur, pddata, info.size);
 		
-		msb_len(cpddata);
+		auto base_size = msb_len(cpddata);
+		if (base_size != out_size) {
+			ParseError err;
+			err.stream() << "Base buffer length didn't match the parsed information: " << out_size << " != " << base_size;
+			throw err;
+		}
 		out_size = msb_len(cpddata);
 		
 		// Allocate memory to keep the destination and apply delta
-		dest = reinterpret_cast<char_type*>(operator new(out_size));
+		dest = new char_type[out_size];
 		apply_delta(base_data.get(), dest, cpddata, info.size - (cpddata - pddata));
 		
 		break;
@@ -332,7 +349,7 @@ uint PackDevice::delta_size(cursor_type& cur, uint64 ofs, uint64& base_size, uin
 {
 	char_type delta_header[20];	// can handle two 64 bit numbers
 	cur.use_region(ofs, 20);
-	decompress_some(cur, delta_header, 20);
+	decompress_some(cur, delta_header, 20, 128);	// should process 128 bytes in one go
 	
 	const char_type* data = delta_header;
 	base_size = msb_len(data);

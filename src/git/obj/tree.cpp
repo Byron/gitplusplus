@@ -60,7 +60,8 @@ git_basic_istream& operator >> (git_basic_istream& stream, Tree& inst)
 		Tree::Element elm;	// we will move the element in
 		elm.mode = 0;
 
-		for (; c != ' '; stream.get(c)) {
+		// stream.good check is only required in case we have corrupted streams
+		for (; c != ' ' && stream.good(); stream.get(c)) {
 			elm.mode = (elm.mode << 3) + (c - '0');
 		}
 		// parse name

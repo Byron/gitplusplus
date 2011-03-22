@@ -224,7 +224,8 @@ protected:
 			assert(m_ppack);
 			m_pstream.reset(new stream_type(*m_ppack, m_entry));
 		}
-		if ((*m_pstream)->entry() != m_entry) {
+		// have to make it const explicitly, otherwise it uses the lvalue version of entry !
+		if (static_cast<const PackDevice&>(**m_pstream).entry() != m_entry) {
 			(*m_pstream)->entry() = m_entry;
 		}
 	}
