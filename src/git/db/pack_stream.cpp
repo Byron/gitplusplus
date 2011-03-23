@@ -340,8 +340,13 @@ std::streamsize PackDevice::read(char_type* s, std::streamsize n)
 		info.ofs = m_pack.index().offset(m_entry);
 		info_at_offset(cur, info);
 		
-		m_data.reset(unpack_object_recursive(cur, info, m_size));
-		this->m_nb = this->m_size;
+		// if we have deltas, there is no other way than extracting it into memory, one way or another.
+		//if (info.is_delta()) {
+			m_data.reset(unpack_object_recursive(cur, info, m_size));
+			this->m_nb = this->m_size;
+		//} else {
+			
+		//}
 	}
 	assert(!!m_data);
 	

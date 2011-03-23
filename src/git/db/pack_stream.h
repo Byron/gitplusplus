@@ -81,7 +81,7 @@ protected:
 			key_type		key;	//!< key to the delta base object in our pack
 			uint64			ofs;	//!< interpreted as negative offset from the current delta's offset.
 		};
-		Additional			delta;	//! additional delta information
+		Additional			delta;	//!< additional delta information
 		
 		PackInfo()
 		    : type(PackedObjectType::Bad)

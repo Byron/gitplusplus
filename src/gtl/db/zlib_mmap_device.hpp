@@ -40,16 +40,21 @@ struct zlib_error :		public std::exception,
 };
 
 
-/** Simple stream wrapper to facilitate using the stream structure, to initialize and deinitialize it
+/** Simple stream wrapper to facilitate using the stream structure, to initialize, deinitialize and copy it
+  * A stream instance is in one of 3 modes: either setup  for compression, decompression or not set.
+  * It may only be used if it is set to a mode which is not None.
   * \note Althogh zlib_params include the crc32 check, this flags is not currently supported
   * \note for now we only support the default allocation methods
+  * \note we could get rid of the mode variable (1 byte) by templating this class, so we would loose the runtime
+  * adjutability of the compression mode. For now, we keep it as it shouldn't make any difference.	
   */
 class zlib_stream : public z_stream
 {
 public:
 	enum class Mode : uchar {
 		Compress, 
-		Decompress
+		Decompress, 
+		None
 	};
 	
 protected:
@@ -170,32 +175,6 @@ public:
 	}
 };
 
-/** Base class with common initialization routines and members to be used by both input and output devices
-  * \todo implementation
-  */
-template <class ManagerType>
-class zlib_device_base
-{
-public:
-	typedef ManagerType													memory_manager_type;
-	typedef typename memory_manager_type::mapped_file_source::char_type	char_type;
-	typedef typename memory_manager_type::size_type						size_type;
-	
-protected:
-	struct category_base : 
-	        public io::device_tag,
-	        public io::closable_tag
-	{};
-
-protected:
-	zlib_stream		m_stream;
-	
-protected:
-	zlib_device_base(zlib_stream::Mode mode, const zlib_params& params = io::zlib::default_compression)
-		: m_stream(mode, params)
-	{}
-	
-};
 
 
 /** \brief Implements a memory mapped device which reads or writes a stream using zlib.
@@ -205,14 +184,12 @@ protected:
   * \todo implementation - this could be useful for the loose object database
   */
 template <class ManagerType>
-class zlib_file_source :	public zlib_device_base<ManagerType>,
-							protected managed_mapped_file_source<ManagerType>
+class zlib_file_source : protected managed_mapped_file_source<ManagerType>
 {
 public:
 	typedef ManagerType													memory_manager_type;
 	typedef typename memory_manager_type::cursor						cursor_type;
 	typedef zlib_file_source<memory_manager_type>						this_type;
-	typedef zlib_device_base<memory_manager_type>						zlib_parent_type;
 	typedef managed_mapped_file_source<ManagerType>						file_parent_type;
 	
 	typedef typename memory_manager_type::mapped_file_source::char_type	char_type;
@@ -222,7 +199,8 @@ public:
 
 public:
 	
-	struct category :	public zlib_parent_type::category_base,
+	struct category :	public io::device_tag,
+						public io::closable_tag,
 				        public io::input
 	{};
 	
@@ -230,6 +208,7 @@ protected:
 	
 	
 	int										m_stat;			//!< last zlib status
+	zlib_stream								m_stream;		//!< inflate stream
 	char_type								m_buf[buf_size];
 	zlib_file_source(this_type&& source);
 	
@@ -242,7 +221,7 @@ protected:
 	
 	//! \return remaining amount of bytes in input buffer
 	inline size_t iremain() const {
-		return this->m_stream.avail_in;
+		return m_stream.avail_in;
 	}
 	
 	//! size of the input buffer
@@ -257,16 +236,17 @@ public:
 	//! \note only a fraction of the params are useful in decompression mode
 	zlib_file_source(memory_manager_type& manager,
 	                 const zlib_params& params = io::zlib::default_compression)
-		: zlib_parent_type(zlib_stream::Mode::Decompress, params)
-	    , file_parent_type(manager)
+		: m_stream(zlib_stream::Mode::Decompress, params)
 	    , m_stat(Z_STREAM_END)
+	    , file_parent_type(manager)
 	{}
 	
 	//! required by boost 
 	zlib_file_source(const this_type& rhs)
-		: zlib_parent_type(rhs)
-	    , file_parent_type(rhs)
-	    , m_stat(rhs.m_stat)
+	    : file_parent_type(rhs)
+		, m_stat(rhs.m_stat)
+		, m_stream(rhs.m_stream)
+	    
 	{
 		std::memcpy(m_buf, rhs.m_buf, buf_size);
 	}
@@ -325,7 +305,7 @@ public:
 	
 	void close() {
 		if (is_open()) {
-			this->m_stream.reset();	// just reset, as we cannot re-init it
+			m_stream.reset();	// just reset, as we cannot re-init it
 			m_stat = Z_STREAM_END;
 			file_parent_type::close();
 		}
@@ -343,12 +323,12 @@ public:
 		}
 		
 		// fill output buffer
-		assert(this->m_stream.avail_out == 0);
-		this->m_stream.avail_out = static_cast<uint32>(n);
-		this->m_stream.next_out = reinterpret_cast<uchar*>(s);
+		assert(m_stream.avail_out == 0);
+		m_stream.avail_out = static_cast<uint32>(n);
+		m_stream.next_out = reinterpret_cast<uchar*>(s);
 		
 		
-		while (m_stat != Z_STREAM_END && this->m_stream.avail_out) {
+		while (m_stat != Z_STREAM_END && m_stream.avail_out) {
 			// Is there still space in the input buffer ? If not, replenish it
 			if (iremain() == 0) {
 				// read n bytes, assuming worst case compression ration. This honors the desired amount of 
@@ -363,22 +343,22 @@ public:
 					assert(!is_open());
 					throw zlib_error(Z_BUF_ERROR, "Zlib source buffer depleted before stream end");
 				}
-				this->m_stream.next_in = ibegin();
-				this->m_stream.avail_in = static_cast<uint32>(ibr);
+				m_stream.next_in = ibegin();
+				m_stream.avail_in = static_cast<uint32>(ibr);
 			}
 			
-			m_stat = this->m_stream.decompress(true);
+			m_stat = m_stream.decompress(true);
 			
 			switch(m_stat) {
 			case Z_OK:				// fallthrough
 			case Z_STREAM_END:		// fallthrough
 			case Z_BUF_ERROR:
 				break;
-			default: throw zlib_error(m_stat, this->m_stream.msg);
+			default: throw zlib_error(m_stat, m_stream.msg);
 			}
 		}// read-loop
 		
-		return n - static_cast<std::streamsize>(this->m_stream.avail_out);
+		return n - static_cast<std::streamsize>(m_stream.avail_out);
 	}
 	//! @} end device interface
 };
