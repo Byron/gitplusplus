@@ -143,6 +143,19 @@ protected:
 	memory_manager_type&	m_man;			//!< memory manager to obtain cursors
 	cursor_type				m_cur;			//!< memory manager cursor
 	
+protected:
+	//! finalize open operation, assuming our cursor to be set
+	inline void do_open(size_type length, stream_offset offset) {
+		m_cur.use_region(offset, length);
+		if (!m_cur.is_valid()) {
+			throw std::ios_base::failure("Could not map given file region");
+		}
+		// Compute our own size
+		this->m_nb = std::min(m_cur.file_size() - static_cast<size_type>(offset), length - static_cast<size_type>(offset));
+		this->m_size = this->m_nb;
+		this->m_ofs = offset;
+	}
+	
 private:
 	managed_mapped_file_source(managed_mapped_file_source&& source);
 	
@@ -159,10 +172,9 @@ public:
 		: m_man(manager)
 	    
 	{
-		if (cursor) {
-			assert(cursor->is_associated());
+		if (cursor && cursor->is_associated()) {
 			m_cur = *cursor;
-			open(cursor->path(), length, offset);
+			do_open(length, offset);
 		}
 	}
 	
@@ -191,14 +203,25 @@ public:
 		if (!m_cur.is_associated() || m_cur.path() != path) {
 			m_cur = m_man.make_cursor(path);
 		}
-		m_cur.use_region(offset, length);
-		if (!m_cur.is_valid()) {
-			throw std::ios_base::failure("Could not map given file region");
+		do_open(length, offset);
+	}
+	
+	//! Special version allowing to quickly open a file from a cursor
+	//! \param cursor cursor initialized to a path
+	//! \throw ios_base::failure if cursor is not associated
+	//! \note see first open version for additional argument descriptions
+	void open(const typename memory_manager_type::cursor& cursor, size_type length = parent_type::max_length, stream_offset offset = 0)
+	{
+		if (!cursor.is_associated()) {
+			throw std::ios_base::failure("cannot open from an un-initialized cursor");
 		}
-		// Compute our own size
-		this->m_nb = std::min(m_cur.file_size() - static_cast<size_type>(offset), length - static_cast<size_type>(offset));
-		this->m_size = this->m_nb;
-		this->m_ofs = offset;
+		
+		if (is_open()) {
+			close();
+		}
+		
+		m_cur = cursor;
+		do_open(length, offset);
 	}
 	
 	

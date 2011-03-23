@@ -383,6 +383,11 @@ BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 	
 	// open right during instantiation with existing cursor
 	managed_file_source source_three(manager, &source.cursor(), managed_file_source::max_length, 500);
+	
+	// use cursor open version
+	source_too.open(source.cursor(), 1000, 500);
+	
+	BOOST_REQUIRE_THROW(source.open(man_type::cursor()), std::ios_base::failure);
 }
 
 
