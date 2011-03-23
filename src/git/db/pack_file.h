@@ -224,8 +224,9 @@ protected:
 			assert(m_ppack);
 			m_pstream.reset(new stream_type(*m_ppack, m_entry));
 		}
-		if (m_pstream->entry() != m_entry) {
-			m_pstream->entry() = m_entry;
+		// have to make it const explicitly, otherwise it uses the lvalue version of entry !
+		if (static_cast<const PackDevice&>(**m_pstream).entry() != m_entry) {
+			(*m_pstream)->entry() = m_entry;
 		}
 	}
 
@@ -264,14 +265,16 @@ public:
 	
 	object_type type() const {
 		assure_stream();
-		return m_pstream->type();
+		return (*m_pstream)->type();
 	}
 	size_type size() const {
 		assure_stream();
-		return m_pstream->size();
+		return (*m_pstream)->size();
 	}
 	
-	void deserialize(output_reference_type out) const;
+	void deserialize(output_reference_type out) const {
+		git_object_traits::policy_type().deserialize(out, *this);
+	}
 	
 	//! @} output object interface
 	

@@ -478,13 +478,17 @@ public:
 						// are likely to fail in that condition (like reading a file from disk, etc)
 						// we free up as much as possible
 						// Make sure our insert position doesn't get collected !
-						const_cast<region&>(*insertpos).client_count() += 1;
+						if (regions.size() && insertpos != rend) {
+							const_cast<region&>(*insertpos).client_count() += 1;
+						}
 						try {
 							while (true) {
 								m_manager->collect_one_lru_region(0);
 							}
 						} catch (const lru_failure&) {}
-						const_cast<region&>(*insertpos).client_count() -= 1;
+						if (regions.size() && insertpos != rend) {
+							const_cast<region&>(*insertpos).client_count() -= 1;
+						}
 						m_region = new region(m_regions->path(), mid.ofs, mid.size);
 					}
 
@@ -525,6 +529,11 @@ public:
 		//! \return true if we have a valid and usable region
 		inline bool is_valid() const {
 			return m_region != nullptr;
+		}
+		
+		//! \return true if we are associated with a specific file already
+		inline bool is_associated() const {
+			return m_regions != nullptr;
 		}
 		
 		//! \return offset to first byte into the file
@@ -589,6 +598,13 @@ public:
 			return m_regions->file_size();
 		}
 		
+		//! \return file path our cursor maps
+		//! \note undefined behaviour if is_associated() is false
+		const path_type& path() const {
+			assert(m_regions);
+			return m_regions->path();
+		}
+		
 		//! @} end interface
 		
 	};// end class cursor
@@ -633,7 +649,7 @@ protected:
 			const region_iterator rend(rlist.end());
 			for (; rbeg != rend; ++rbeg) {
 				if (rbeg->client_count() == 0 && 
-				    (lru_region == no_region || (*rbeg).usage_count() < lru_region->usage_count())) {
+				    (lru_region == no_region || rbeg->usage_count() < lru_region->usage_count())) {
 					lru_region = rbeg;
 					lru_list = &rlist;
 				}

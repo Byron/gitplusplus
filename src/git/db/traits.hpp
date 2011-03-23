@@ -33,6 +33,7 @@ enum class PackedObjectType : uchar
 	Tree		= 2,
 	Blob		= 3,
 	Tag			= 4,
+	// 5 unused
 	OfsDelta	= 6,
 	RefDelta	= 7
 };

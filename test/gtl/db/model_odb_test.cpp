@@ -8,9 +8,15 @@
 #include <gtl/fixture.hpp>
 #include <gtl/db/mapped_memory_manager.hpp>
 #include <gtl/db/sliding_mmap_device.hpp>
+#include <gtl/db/zlib_mmap_device.hpp>
 
 #include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/operations.hpp>
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/filter/zlib.hpp>
+#include <boost/iostreams/operations.hpp>
+#include <boost/iostreams/device/array.hpp>
+#include <boost/scoped_array.hpp>
 #include <boost/timer.hpp>
 
 #include <type_traits>
@@ -79,6 +85,92 @@ const DT& ctest_fun_2(const DT& r) {
 	 return r;
 }
 
+
+BOOST_AUTO_TEST_CASE(test_zlib_device)
+{
+	typedef zlib_file_source<man_type>	zlib_source;
+	man_type manager;
+	
+	// produce sample data
+	const size_t slen = 1024*1024*2 +5238;
+	char*const sbuf = new char[slen];			// source buffer with uninitialized memory
+	boost::scoped_array<const char> sbuf_manager(sbuf);	// delegate memory handling
+	std::vector<char> compressed_dvec;					// destination buffer with compressed data
+	
+	const char vals[] = {4, 8, 32, 64, 127};
+	const uint valslen = sizeof(vals) / sizeof(decltype(vals[0]));
+	for (const char* beg = vals; beg < vals + valslen; ++beg) 
+	{
+		std::uniform_int_distribution<char> distribution(-*beg, *beg);
+		std::mt19937 engine;
+		std::transform(sbuf, sbuf+slen, sbuf, [&engine,&distribution](char input)->char{return distribution(engine);});
+		compressed_dvec.clear();
+		compressed_dvec.reserve(slen/2);
+		
+		{
+			boost::iostreams::filtering_ostream ostream;
+			boost::iostreams::back_insert_device<decltype(compressed_dvec)> back_inserter(compressed_dvec);
+			ostream.push(boost::iostreams::zlib_compressor());
+			ostream.push(back_inserter);
+			
+			// TODO: Use a zlib target to write the file
+			boost::iostreams::basic_array_source<char>	source(sbuf, sbuf + slen);
+			boost::iostreams::copy(source, ostream);
+			ostream.flush();
+			ostream.reset();
+		}
+		
+		BOOST_REQUIRE(compressed_dvec.size());
+		
+		file_creator f(compressed_dvec.begin(), compressed_dvec.end(), "compression");
+		assert(boost::filesystem::is_regular_file(f.file()));
+		
+		
+		// READ FILE BACK
+		zlib_source zsource(manager);
+		boost::timer t;
+		for (int cause_error = 0; cause_error < 2; ++cause_error) {
+			BOOST_CHECK(!zsource.is_open());
+			BOOST_CHECK(zsource.eof());		// its not yet open
+			
+			if (!cause_error) {
+				zsource.open(f.file());
+			} else {
+				zsource.open(f.file(), f.size() - 50);	// cause stream to end prematurely
+			}
+			BOOST_REQUIRE(zsource.is_open());
+			
+			char*const dbuf = new char[slen];			// destination for result of decompression
+			std::memset(dbuf, 0, slen);
+			boost::scoped_array<char> dbuf_manager(dbuf);
+			boost::iostreams::basic_array_sink<char> array_dest(dbuf, dbuf+slen);
+			
+			try {
+				boost::iostreams::copy(zsource, array_dest);
+				BOOST_CHECK(!zsource.eof());
+				BOOST_CHECK(zsource.is_open());
+				BOOST_REQUIRE(std::memcmp(dbuf, sbuf, slen) == 0);
+			} catch (const zlib_error& err) {
+				if (!cause_error) {
+					BOOST_REQUIRE(false);	// shouldn't just abort
+				}
+				BOOST_REQUIRE(err.status == Z_BUF_ERROR);
+				// Actually, it boost::copy operates on a copy of the device ! Evil 
+				// BOOST_CHECK(!zsource.is_open());
+			}
+			
+			zsource.close();
+			BOOST_REQUIRE(!zsource.is_open());
+		}
+		double elapsed = t.elapsed();
+		const double mb = 1000*1000;
+		std::cerr << "Unzipped " << (slen * 2) / mb << " mb with compression ratio of " 
+		          << (double)compressed_dvec.size() / (double)slen 
+		          <<  " in " << elapsed << " s (" << ((slen * 2) / mb) / elapsed << " mb/s)" << std::endl;
+	}// for each randomness value
+	
+}
+
 BOOST_AUTO_TEST_CASE(util)
 {
 	typedef stack_heap<DT> stack_heap_type;
@@ -102,7 +194,6 @@ BOOST_AUTO_TEST_CASE(util)
 	BOOST_REQUIRE(*csh == *sh);
 	BOOST_REQUIRE(sh->destroyed == true);
 }
-
 
 BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 {
@@ -201,7 +292,8 @@ BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 			BOOST_CHECK(c.includes_ofs(base_offset+c.size()-1));
 			BOOST_CHECK(!c.includes_ofs(base_offset+c.size()));
 		}// while num_random_accesses
-	} catch (const std::exception&) {
+	} catch (const std::exception& err) {
+		std::cerr << err.what() << std::endl;
 		BOOST_REQUIRE(false);
 	}
 	double elapsed = timer.elapsed();
@@ -288,4 +380,10 @@ BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 	
 	// the file is copy-constructible
 	managed_file_source source_too(source);
+	
+	// open right during instantiation with existing cursor
+	managed_file_source source_three(manager, &source.cursor(), managed_file_source::max_length, 500);
 }
+
+
+
