@@ -107,46 +107,66 @@ BOOST_AUTO_TEST_CASE(test_zlib_device)
 		compressed_dvec.clear();
 		compressed_dvec.reserve(slen/2);
 		
-		boost::iostreams::filtering_stream<io::output, char> ostream;
-		boost::iostreams::back_insert_device<decltype(compressed_dvec)> back_inserter(compressed_dvec);
-		ostream.push(boost::iostreams::zlib_compressor());
-		ostream.push(back_inserter);
-		
-		// TODO: Use a zlib target to write the file
-		boost::iostreams::basic_array_source<char>	source(sbuf, sbuf + slen);
-		boost::iostreams::copy(source, ostream);
+		{
+			boost::iostreams::filtering_ostream ostream;
+			boost::iostreams::back_insert_device<decltype(compressed_dvec)> back_inserter(compressed_dvec);
+			ostream.push(boost::iostreams::zlib_compressor());
+			ostream.push(back_inserter);
+			
+			// TODO: Use a zlib target to write the file
+			boost::iostreams::basic_array_source<char>	source(sbuf, sbuf + slen);
+			boost::iostreams::copy(source, ostream);
+			ostream.flush();
+			ostream.reset();
+		}
 		
 		BOOST_REQUIRE(compressed_dvec.size());
 		
-		std::cerr << "Compression Ratio = " << (double)compressed_dvec.size() / (double)slen << std::endl;
-		
-		file_creator f(sbuf, sbuf+slen, "compression");
+		file_creator f(compressed_dvec.begin(), compressed_dvec.end(), "compression");
 		assert(boost::filesystem::is_regular_file(f.file()));
 		
 		
 		// READ FILE BACK
 		zlib_source zsource(manager);
-		for (int x = 0; x < 2; ++x) {
+		boost::timer t;
+		for (int cause_error = 0; cause_error < 2; ++cause_error) {
 			BOOST_CHECK(!zsource.is_open());
 			BOOST_CHECK(zsource.eof());		// its not yet open
 			
-			zsource.open(f.file());
+			if (!cause_error) {
+				zsource.open(f.file());
+			} else {
+				zsource.open(f.file(), f.size() - 50);	// cause stream to end prematurely
+			}
 			BOOST_REQUIRE(zsource.is_open());
 			
 			char*const dbuf = new char[slen];			// destination for result of decompression
-			BOOST_REQUIRE(std::memcmp(dbuf, sbuf, slen) != 0);
+			std::memset(dbuf, 0, slen);
 			boost::scoped_array<char> dbuf_manager(dbuf);
 			boost::iostreams::basic_array_sink<char> array_dest(dbuf, dbuf+slen);
 			
-			boost::iostreams::copy(zsource, array_dest);
-			BOOST_CHECK(!zsource.eof());
-			BOOST_CHECK(zsource.is_open());
-			BOOST_REQUIRE(std::memcmp(dbuf, sbuf, slen) == 0);
+			try {
+				boost::iostreams::copy(zsource, array_dest);
+				BOOST_CHECK(!zsource.eof());
+				BOOST_CHECK(zsource.is_open());
+				BOOST_REQUIRE(std::memcmp(dbuf, sbuf, slen) == 0);
+			} catch (const zlib_error& err) {
+				if (!cause_error) {
+					BOOST_REQUIRE(false);	// shouldn't just abort
+				}
+				BOOST_REQUIRE(err.status == Z_BUF_ERROR);
+				// Actually, it boost::copy operates on a copy of the device ! Evil 
+				// BOOST_CHECK(!zsource.is_open());
+			}
 			
 			zsource.close();
+			BOOST_REQUIRE(!zsource.is_open());
 		}
-		
-		
+		double elapsed = t.elapsed();
+		const double mb = 1000*1000;
+		std::cerr << "Unzipped " << (slen * 2) / mb << " mb with compression ratio of " 
+		          << (double)compressed_dvec.size() / (double)slen 
+		          <<  " in " << elapsed << " s (" << ((slen * 2) / mb) / elapsed << " mb/s)" << std::endl;
 	}// for each randomness value
 	
 }

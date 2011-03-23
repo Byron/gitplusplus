@@ -86,18 +86,24 @@ public:
 	zlib_stream(const zlib_stream& rhs) {
 		if (m_mode == Mode::Compress) {
 			deflateEnd(this);
-			deflateCopy(this, const_cast<zlib_stream*>(&rhs));
 		} else {
 			inflateEnd(this);
+		}
+		
+		m_mode = rhs.m_mode;
+		
+		if (m_mode == Mode::Compress) {
+			deflateCopy(this, const_cast<zlib_stream*>(&rhs));
+		} else {
 			inflateCopy(this, const_cast<zlib_stream*>(&rhs));
 		}
 	}
 	
 	~zlib_stream() {
 		if (m_mode == Mode::Compress) {
-			inflateEnd(this);
-		} else {
 			deflateEnd(this);
+		} else {
+			inflateEnd(this);
 		}
 	}
 	
@@ -211,6 +217,8 @@ public:
 	
 	typedef typename memory_manager_type::mapped_file_source::char_type	char_type;
 	typedef typename memory_manager_type::size_type						size_type;
+	
+	static const size_t buf_size = 4096;		//!< internal static buffer size
 
 public:
 	
@@ -220,66 +228,28 @@ public:
 	
 protected:
 	
+	
 	int										m_stat;			//!< last zlib status
-	char_type								m_buf[this_type::total_buf_size()];
+	char_type								m_buf[buf_size];
 	zlib_file_source(this_type&& source);
 	
-	static size_t total_buf_size() {
-		static_assert(memory_manager_type::page_size() >= 2048, "page size too small on this platform");
-		return memory_manager_type::page_size();
+	
+	
+	//! \return first byte of the input buffer
+	inline uchar* ibegin() {
+		return reinterpret_cast<uchar*>(m_buf);
 	}
 	
-	//! Offset to the read-section of our buffer. It contains compressed input bytes
-	static size_t iofs() {
-		return 0;
-	}
-	
-	//! pointer to one past the last valid byte in the buffer
-	inline char_type* iend() {
-		return m_buf + iofs() + (ilen() - iremain());
-	}
-	
-	//! remaining amount of bytes in input buffer
+	//! \return remaining amount of bytes in input buffer
 	inline size_t iremain() const {
 		return this->m_stream.avail_in;
 	}
 	
-	inline bool ifull() const {
-		return iremain() == 0;
-	}
-	
 	//! size of the input buffer
-	static size_t ilen() {
-		return oofs();
+	static std::streamsize ilen() {
+		return static_cast<std::streamsize>(buf_size);
 	}
 	
-	//! Offset to the write-section of our buffer. It contains the decompressed bytes
-	static size_t oofs() {
-		return 1024;
-	}
-	
-	inline char_type* oend() {
-		return m_buf + oofs() + (olen() - oremain());
-	}
-	
-	inline size_t oremain() const {
-		return this->m_stream.avail_out;
-	}
-	
-	//! \return pointer to region which was not copied to the client yet
-	//! \note it assumes that total_in was manipulated to mark the spot
-	inline char_type* ofrom() {
-		return m_buf + oofs() + this->m_stream.total_out;
-	}
-	
-	inline bool ofull() const {
-		return oremain() == 0;
-	}
-	
-	//! size of the write (output) buffer
-	static size_t olen() {
-		return total_buf_size();
-	}
 	
 public:
 	
@@ -293,7 +263,13 @@ public:
 	{}
 	
 	//! required by boost 
-	zlib_file_source(const zlib_file_source& rhs) = default;
+	zlib_file_source(const this_type& rhs)
+		: zlib_parent_type(rhs)
+	    , file_parent_type(rhs)
+	    , m_stat(rhs.m_stat)
+	{
+		std::memcpy(m_buf, rhs.m_buf, buf_size);
+	}
 	
 public:
 	
@@ -349,7 +325,7 @@ public:
 	
 	void close() {
 		if (is_open()) {
-			inflateReset(&this->m_stream);
+			this->m_stream.reset();	// just reset, as we cannot re-init it
 			m_stat = Z_STREAM_END;
 			file_parent_type::close();
 		}
@@ -362,27 +338,47 @@ public:
 		if (this->eof()) {
 			return -1;
 		}
+		if (n > std::numeric_limits<uint32>::max()) {
+			throw zlib_error(Z_STREAM_ERROR, "Cannot currently handle read sizes larger than 2**32-1");
+		}
 		
-		std::streamsize bw = 0;			// amount of bytes written to user output
-		while (m_stat != Z_STREAM_END && bw != n) {
-			/*std::streamsize bl = file_parent_type::read(&buf[0], ManagerType::page_size());
-			
-			// it is possible that we hit the end of compressed bytes, before the stream is done
-			// This is an error, as we can never finish reading the stream, and we indicate this.
-			// But we leave ourselves in a valid state
-			if (bl == -1) {
-				// provide as many bytes as possible from our remaining buffer
-				this->close();
-				throw zlib_error(Z_BUF_ERROR);
+		// fill output buffer
+		assert(this->m_stream.avail_out == 0);
+		this->m_stream.avail_out = static_cast<uint32>(n);
+		this->m_stream.next_out = reinterpret_cast<uchar*>(s);
+		
+		
+		while (m_stat != Z_STREAM_END && this->m_stream.avail_out) {
+			// Is there still space in the input buffer ? If not, replenish it
+			if (iremain() == 0) {
+				// read n bytes, assuming worst case compression ration. This honors the desired amount of 
+				// output bytes, but also assures we don't try sizes which are too small for zip
+				std::streamsize ibr = file_parent_type::read(reinterpret_cast<char_type*>(ibegin()), 
+				                                             std::min(ilen(), std::max(n, std::streamsize(128))));
+				if (ibr == -1) {
+					// it is possible that we hit the end of compressed bytes, before the stream is done
+					// This is an error, as we can never finish reading the stream, and we indicate this.
+					// But we leave ourselves in a valid state
+					this->close();
+					assert(!is_open());
+					throw zlib_error(Z_BUF_ERROR, "Zlib source buffer depleted before stream end");
+				}
+				this->m_stream.next_in = ibegin();
+				this->m_stream.avail_in = static_cast<uint32>(ibr);
 			}
 			
-			decltype(this->m_stream.total_out) prev_total_out = this->m_stream.total_out;
-			this->m_stream.total_out = 0;				*/
+			m_stat = this->m_stream.decompress(true);
 			
-			// m_stream.next_in
-			return -1;
+			switch(m_stat) {
+			case Z_OK:				// fallthrough
+			case Z_STREAM_END:		// fallthrough
+			case Z_BUF_ERROR:
+				break;
+			default: throw zlib_error(m_stat, this->m_stream.msg);
+			}
 		}// read-loop
-		return -1;	// eof
+		
+		return n - static_cast<std::streamsize>(this->m_stream.avail_out);
 	}
 	//! @} end device interface
 };
