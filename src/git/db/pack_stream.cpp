@@ -324,7 +324,7 @@ char_type* PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo&
 
 std::streamsize PackDevice::read(char_type* s, std::streamsize n)
 {
-	if (!m_data) {
+	if (!m_data && this->m_stream.mode() == gtl::zlib_stream::Mode::None) {
 		// Gather all deltas and store their header information. We do this recursively for small objects.
 		// For larger objects, we first merge all deltas into one byte stream, to finally generate the final output
 		// at once. This way, we do not need two possibly huge buffers in memory, but only one in a moderate size
@@ -341,17 +341,23 @@ std::streamsize PackDevice::read(char_type* s, std::streamsize n)
 		info_at_offset(cur, info);
 		
 		// if we have deltas, there is no other way than extracting it into memory, one way or another.
-		//if (info.is_delta()) {
+		if (info.is_delta()) {
 			m_data.reset(unpack_object_recursive(cur, info, m_size));
 			this->m_nb = this->m_size;
-		//} else {
-			
-		//}
-	}
-	assert(!!m_data);
+		} else {
+			parent_type::open(cur, parent_type::max_length, info.ofs+info.rofs);
+		}
+	} // end initialize data
 	
-	// Finally copy the requested amount of data
-	return parent_type::read(s, n, m_data.get());
+	
+	if (!!m_data) { // uncompressed delta
+		// seekable device - have to call it directly as protected methods can only be called
+		// from directly inherited bases (this is the mapped_file_source)
+		return parent_type::parent_type::read(s, n, m_data.get());
+	} else { // undeltified object
+		assert(parent_type::is_open());
+		return parent_type::read(s, n);	// automatic and direct decompression
+	}
 }
 
 uint PackDevice::delta_size(cursor_type& cur, uint64 ofs, uint64& base_size, uint64& target_size) const

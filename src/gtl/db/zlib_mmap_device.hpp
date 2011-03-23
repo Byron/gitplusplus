@@ -202,7 +202,6 @@ public:
 	typedef typename memory_manager_type::cursor						cursor_type;
 	typedef zlib_file_source<memory_manager_type>						this_type;
 	typedef managed_mapped_file_source<ManagerType>						file_parent_type;
-	
 	typedef typename memory_manager_type::mapped_file_source::char_type	char_type;
 	typedef typename memory_manager_type::size_type						size_type;
 	
@@ -244,14 +243,15 @@ protected:
 	
 public:
 	
-	//! Initialize this instance with a manager and zlib configuration paramters
-	//! \note only a fraction of the params are useful in decompression mode
-	zlib_file_source(memory_manager_type& manager,
-	                 const zlib_params& params = io::zlib::default_compression)
-		: file_parent_type(manager)
-	    , m_stat(Z_STREAM_END)
+	//! Initialize this instance, optionally open the given region right away
+	zlib_file_source(const cursor_type* cursor = nullptr, size_type length=file_parent_type::max_length, stream_offset offset = 0)
+	    : m_stat(Z_STREAM_END)
 	    
-	{}
+	{
+		if (cursor) {
+			open(*cursor, length, offset);
+		}
+	}
 	
 	//! required by boost 
 	zlib_file_source(const this_type& rhs)
@@ -279,10 +279,10 @@ public:
 	//! \param length amount of compressed bytes to map
 	//! \param offset offset into the file at which the compressed stream starts.
 	//! \throw system error
-	template <typename Path>
-	void open(const Path& path, size_type length = file_parent_type::max_length, stream_offset offset = 0)
+	void open(const cursor_type& cursor, 
+	          size_type length = file_parent_type::max_length, stream_offset offset = 0)
 	{
-		file_parent_type::open(path, length, offset);
+		file_parent_type::open(cursor, length, offset);
 		if (m_stream.mode() != zlib_stream::Mode::Decompress) {
 			m_stream.set_mode(zlib_stream::Mode::Decompress);
 		}

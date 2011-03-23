@@ -160,8 +160,8 @@ PackFile::PackFile(const path_type& file, mapped_memory_manager_type& manager, c
 	m_index.open(index_file.string());
 	
 	// initialize pack - we map everything as we assume a sliding window
-	mapped_file_source_type pack(manager);
-	pack.open(file);
+	mapped_file_source_type pack;
+	pack.open(manager.make_cursor(file));
 	m_cursor = pack.cursor();
 	assert(m_cursor.is_valid());
 	

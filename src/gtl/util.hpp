@@ -122,9 +122,10 @@ class stack_heap
 {
 public:
 	typedef Type			type;
+	static const size_t		type_size = sizeof(Type);	//!< length of the internal buffer to store the object
 	
 protected:
-	char _inst_buf[sizeof(Type)];
+	char _inst_buf[type_size];
 
 protected:
 	type* get() {
