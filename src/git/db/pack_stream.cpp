@@ -21,7 +21,7 @@ static void decompress_some(PackDevice::cursor_type& cur, PackDevice::char_type*
 	assert(cur.is_valid());
 	
 	int status = Z_OK;
-	gtl::zlib_decompressor z;
+	gtl::zlib_stream z(gtl::zlib_stream::Mode::Decompress);
 	stream_offset ofs = cur.ofs_begin();
 	
 	// As zip can only take 32 bit numbers, we must chop up the operation

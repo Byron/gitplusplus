@@ -8,6 +8,7 @@
 #include <gtl/fixture.hpp>
 #include <gtl/db/mapped_memory_manager.hpp>
 #include <gtl/db/sliding_mmap_device.hpp>
+#include <gtl/db/zlib_mmap_device.hpp>
 
 #include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/operations.hpp>
@@ -87,27 +88,66 @@ const DT& ctest_fun_2(const DT& r) {
 
 BOOST_AUTO_TEST_CASE(test_zlib_device)
 {
-	// NOTE: This test must come last, as the destruction of the filtered stream (ostream)
-	// destroys something that kills the test in a spot that doesn't make sense and cannot be 
-	// debugged (null ptr exception).
+	typedef zlib_file_source<man_type>	zlib_source;
+	man_type manager;
 	
 	// produce sample data
-	const size_t slen = 1024*1024*4 +5238;
-	const char*const sbuf = new char[slen];			// source buffer with uninitialized memory
+	const size_t slen = 1024*1024*2 +5238;
+	char*const sbuf = new char[slen];			// source buffer with uninitialized memory
 	boost::scoped_array<const char> sbuf_manager(sbuf);	// delegate memory handling
+	std::vector<char> compressed_dvec;					// destination buffer with compressed data
 	
-	std::vector<char> dbuf;		// destination buffer with compressed data
-	dbuf.reserve(slen/2);
-	
-	boost::iostreams::filtering_stream<io::output, char> ostream;
-	boost::iostreams::back_insert_device<decltype(dbuf)> back_inserter(dbuf);
-	ostream.push(boost::iostreams::zlib_compressor());
-	ostream.push(back_inserter);
-	
-	boost::iostreams::basic_array_source<char>	source(sbuf, sbuf + slen);
-	boost::iostreams::copy(source, ostream);
-	
-	BOOST_REQUIRE(dbuf.size());
+	const char vals[] = {4, 8, 32, 64, 127};
+	const uint valslen = sizeof(vals) / sizeof(decltype(vals[0]));
+	for (const char* beg = vals; beg < vals + valslen; ++beg) 
+	{
+		std::uniform_int_distribution<char> distribution(-*beg, *beg);
+		std::mt19937 engine;
+		std::transform(sbuf, sbuf+slen, sbuf, [&engine,&distribution](char input)->char{return distribution(engine);});
+		compressed_dvec.clear();
+		compressed_dvec.reserve(slen/2);
+		
+		boost::iostreams::filtering_stream<io::output, char> ostream;
+		boost::iostreams::back_insert_device<decltype(compressed_dvec)> back_inserter(compressed_dvec);
+		ostream.push(boost::iostreams::zlib_compressor());
+		ostream.push(back_inserter);
+		
+		// TODO: Use a zlib target to write the file
+		boost::iostreams::basic_array_source<char>	source(sbuf, sbuf + slen);
+		boost::iostreams::copy(source, ostream);
+		
+		BOOST_REQUIRE(compressed_dvec.size());
+		
+		std::cerr << "Compression Ratio = " << (double)compressed_dvec.size() / (double)slen << std::endl;
+		
+		file_creator f(sbuf, sbuf+slen, "compression");
+		assert(boost::filesystem::is_regular_file(f.file()));
+		
+		
+		// READ FILE BACK
+		zlib_source zsource(manager);
+		for (int x = 0; x < 2; ++x) {
+			BOOST_CHECK(!zsource.is_open());
+			BOOST_CHECK(zsource.eof());		// its not yet open
+			
+			zsource.open(f.file());
+			BOOST_REQUIRE(zsource.is_open());
+			
+			char*const dbuf = new char[slen];			// destination for result of decompression
+			BOOST_REQUIRE(std::memcmp(dbuf, sbuf, slen) != 0);
+			boost::scoped_array<char> dbuf_manager(dbuf);
+			boost::iostreams::basic_array_sink<char> array_dest(dbuf, dbuf+slen);
+			
+			boost::iostreams::copy(zsource, array_dest);
+			BOOST_CHECK(!zsource.eof());
+			BOOST_CHECK(zsource.is_open());
+			BOOST_REQUIRE(std::memcmp(dbuf, sbuf, slen) == 0);
+			
+			zsource.close();
+		}
+		
+		
+	}// for each randomness value
 	
 }
 

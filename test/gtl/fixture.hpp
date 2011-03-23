@@ -107,14 +107,39 @@ public:
 };
 
 
-/** \brief utilty to create a temporary file filled with relatively random memory contents
+/** \brief simple type which manages a file's lifetime. The file can be created by any means
   */
-class file_creator : public fixture_file_base
+class file_manager : public fixture_file_base
 {
 protected:
 	fs::path m_file;
 	size_t m_size;
 	
+public:
+	//! Create a temporary file with the given size in bytes and prefix
+	file_manager()
+		: m_size(0)
+	{}
+	
+	~file_manager()
+	{
+		remove_path(m_file);
+	}
+	
+public:
+	const fs::path& file() const {
+		return m_file;
+	}
+	
+	size_t size() const {
+		return m_size;
+	}
+};
+
+/** \brief utilty to create a temporary file filled with relatively random memory contents
+  */
+class file_creator : public file_manager
+{
 public:
 	//! Create a temporary file with the given size in bytes and prefix
 	file_creator(size_t size, const char* prefix = nullptr)
@@ -137,18 +162,20 @@ public:
 		assert(boost::filesystem::file_size(m_file) == size);
 	}
 	
-	~file_creator()
+	//! Create a temporary file from the given initialized memory
+	template <class Iterator>
+	file_creator(Iterator beg, Iterator end, const char* prefix = nullptr)
 	{
-		remove_path(m_file);
-	}
-	
-public:
-	const fs::path& file() const {
-		return m_file;
-	}
-	
-	size_t size() const {
-		return m_size;
+		m_file = temp_file(prefix);
+		std::ofstream of;
+		of.open(m_file.string().c_str(), std::ios::out|std::ios::binary|std::ios::trunc);
+		
+		for (;beg != end; ++beg) {
+			of << *beg;
+		}
+		
+		of.close();
+		m_size = file_size(m_file);
 	}
 };
 
