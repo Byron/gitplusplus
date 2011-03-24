@@ -204,6 +204,7 @@ template <class Type>
 class stack_heap_managed : public stack_heap<Type>
 {
 public:
+	typedef stack_heap_managed<Type>	this_type;
 	typedef stack_heap<Type>			parent_type;
 	
 protected:
@@ -220,7 +221,47 @@ public:
 		}
 	}
 	
+	// byte-copy occupied instances over into ours
+	stack_heap_managed(this_type&& rhs)
+	{
+		_occupied = rhs._occupied;
+		if (_occupied) {
+			std::memcpy(this->_inst_buf, rhs._inst_buf, parent_type::type_size);
+			rhs._occupied = false;
+		}
+	}
+	
+	// copy constructor which allows initialization of one stack heap with another
+	// If rhs is not initialized, we won't be either
+	// It requires a copy constructor on the parent type
+	stack_heap_managed(const this_type& rhs) 
+		: _occupied(rhs._occupied) 
+	{
+		if (occupied()) {
+			new (*this) typename parent_type::type(*rhs);
+		}
+	}
+	
+	// assign ourselves to have the value rhs value. If rhs is not occupied, we 
+	// will not be either
+	this_type& operator = (const this_type& rhs) {
+		if (occupied()) {
+			if (rhs.occupied()) {
+				**this = *rhs;
+			} else {
+				destroy();
+			}
+		} else {
+			if (rhs.occupied()){
+				new (*this) typename parent_type::type(*rhs);
+			}
+		}
+		return *this;
+	}
+	
 public:
+	
+	//! @{ Interface
 	
 	//! In a boolean context, we are true if occupied
 	operator bool() const {
@@ -242,8 +283,18 @@ public:
 		return _occupied;
 	}
 	
+	//! Destroy this instance only if we are occupied. Does not change the object's state otherwise
+	inline void destroy_safely() {
+		if (!occupied()) {
+			return;
+		}
+		destroy();
+	}
+	
+	//! @} end interface
+	
 	//! Destroy the instance contained in our stack heap memory.
-	void destroy() {
+	inline void destroy() {
 		assert(_occupied);
 		parent_type::destroy();
 		_occupied = false;

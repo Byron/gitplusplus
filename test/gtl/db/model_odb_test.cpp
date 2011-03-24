@@ -179,6 +179,7 @@ BOOST_AUTO_TEST_CASE(test_zlib_device)
 BOOST_AUTO_TEST_CASE(util)
 {
 	typedef stack_heap<DT> stack_heap_type;
+	typedef stack_heap_managed<DT> managed_stack_heap_type;
 	stack_heap_type sh;
 	new (sh) DT;
 	BOOST_REQUIRE(sh->destroyed == false);
@@ -198,6 +199,30 @@ BOOST_AUTO_TEST_CASE(util)
 	
 	BOOST_REQUIRE(*csh == *sh);
 	BOOST_REQUIRE(sh->destroyed == true);
+	
+	// MANAGED STACK TYPE
+	//////////////////////
+	{// does nothing on detruction if empty
+		managed_stack_heap_type msh;
+		BOOST_REQUIRE(!msh.occupied());
+	}
+	
+	managed_stack_heap_type msh;
+	managed_stack_heap_type mshcp;
+	msh = mshcp;
+	BOOST_REQUIRE(!msh.occupied() && !mshcp);
+	new (msh) DT;
+	BOOST_REQUIRE(msh.occupied());
+	msh->incr();
+	managed_stack_heap_type msh2(msh);
+	BOOST_REQUIRE(msh2.occupied() && *msh2 == *msh);
+	msh2->incr();
+	
+	mshcp = msh2;		// unoccupied = occupied
+	BOOST_REQUIRE(mshcp.occupied() && *mshcp == *msh2);
+	msh = msh2;			// occupied = occupied
+	BOOST_REQUIRE(!!msh && *mshcp == *msh);
+	
 }
 
 BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
