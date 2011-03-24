@@ -22,10 +22,11 @@ void temppath(PathType& path, const char* prefix = 0)
 {
 #ifndef WIN32
 		char* res = tempnam(nullptr, prefix);
-		if (std::strlen(res) == 0) {
+		if (!res || std::strlen(res) == 0) {
 			throw boost::filesystem::filesystem_error("mktemp failed", boost::system::error_code());
 		}
 		path = PathType(res);
+		free(res);					// we are responsible for deallocating the string
 #else
 		error "to be done: mktemp on windows, GetTmpFile or something";
 #endif
