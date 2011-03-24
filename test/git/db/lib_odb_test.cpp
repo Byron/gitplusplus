@@ -591,7 +591,14 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 	BOOST_REQUIRE(podb.count() == obj_count);
 	
 	
-	BOOST_CHECK(false); // verify iterators in empty pack databases
+	// verify iterators in empty pack databases
+	gtl::directory_creator dcreator;
+	PackODB podb_empty(dcreator.directory(), manager);
+	BOOST_REQUIRE(podb_empty.count() == 0);
+	BOOST_REQUIRE(podb_empty.packs().size() == 0);
+	
+	BOOST_REQUIRE(podb_empty.begin() == podb_empty.end());
+	
 	
 	// TODO: Verify invalid pack reading/handling
 }

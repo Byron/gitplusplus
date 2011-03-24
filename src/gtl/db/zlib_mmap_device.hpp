@@ -177,12 +177,15 @@ public:
 	}
 	
 	//! Reset the stream to allow a now compression/decompression operation
-	inline void reset() {
+	//! \return zlib error code informing about success or failure
+	inline int reset() {
+		int stat;
 		switch(m_mode){
-		case Mode::Compress: deflateReset(this); break;
-		case Mode::Decompress: inflateReset(this); break;
-		case Mode::None: break;
+		case Mode::Compress: stat = deflateReset(this); break;
+		case Mode::Decompress: stat = inflateReset(this); break;
+		case Mode::None: stat = Z_OK; break;
 		}
+		return stat;
 	}
 	
 	//! Perform a compression step and return the error code
@@ -293,6 +296,17 @@ public:
 		if (m_stream.mode() != zlib_stream::Mode::Decompress) {
 			m_stream.set_mode(zlib_stream::Mode::Decompress);
 		}
+		m_stat = Z_OK;
+	}
+	
+	//! Keep the current cursor, but change the underlying pointers to the given offset and length
+	//! so that the next decompression will occur at the given window.
+	//! This keeps underlying stuctures intact as much as possible, which is good for performance.
+	//! \note this requires the instance to be open, behaviour is undefined otherwise
+	void set_window(size_type length = file_parent_type::max_length, stream_offset offset = 0) {
+		assert(is_open());
+		this->prepare_cursor(length, offset);
+		m_stream.reset();
 		m_stat = Z_OK;
 	}
 	

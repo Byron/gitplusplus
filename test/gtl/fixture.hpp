@@ -149,7 +149,7 @@ class file_creator : public path_manager_base
 {
 public:
 	//! Create a temporary file with the given size in bytes and prefix
-	file_creator(size_t size, const char* prefix = nullptr)
+	file_creator(size_t size, const char* prefix = "")
 	{
 		const uint32 buflen = 65536;
 		char buf[buflen];
@@ -171,7 +171,7 @@ public:
 	
 	//! Create a temporary file from the given initialized memory
 	template <class Iterator>
-	file_creator(Iterator beg, Iterator end, const char* prefix = nullptr)
+	file_creator(Iterator beg, Iterator end, const char* prefix = "")
 	{
 		m_path = temp_file(prefix);
 		std::ofstream of;
@@ -192,7 +192,7 @@ public:
 class directory_creator : public path_manager_base
 {
 public:
-	directory_creator(const char* prefix = nullptr) {
+	directory_creator(const char* prefix = "") {
 		m_path = temp_file(prefix);
 		fs::create_directory(m_path);
 		

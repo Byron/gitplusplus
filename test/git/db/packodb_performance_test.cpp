@@ -77,7 +77,7 @@ BOOST_AUTO_TEST_CASE(read_pack)
 			size_t br;
 			do {
 				pstream->read(buf, bufsize);
-				size_t br = static_cast<size_t>(pstream->gcount());
+				br = static_cast<size_t>(pstream->gcount());
 				tbc += br;
 			} while (br == bufsize);
 			pstream.destroy();

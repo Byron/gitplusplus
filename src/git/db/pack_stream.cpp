@@ -10,28 +10,28 @@ GIT_NAMESPACE_BEGIN
 
 //! @{ Utilties
 
-//! Decompress all bytes from the cursor (it must be set to the correct first byte)
-//! and continue decompression until the end of the stream or until our destination buffer
-//! is full.
-//! \param cur cursor whose offset is pointing to the start of the stream we should decompress
-//! \param max_input_chunk_size if not 0, the amount of bytes we should put in per iteration. Use this if you only have a few
-//! input bytes  and don't want it to decompress more than necessary
-static void decompress_some(PackDevice::cursor_type& cur, PackDevice::char_type* dest, uint64 nb, size_t max_input_chunk_size = 0)
+
+void PackDevice::decompress_some(cursor_type& cur, char_type* dest, uint64 nb, size_t max_input_chunk_size)
 {
 	assert(cur.is_valid());
+	if(m_stream.mode() != gtl::zlib_stream::Mode::Decompress) {
+		m_stream.set_mode(gtl::zlib_stream::Mode::Decompress);
+	} else {
+		this->m_stream.reset();
+	}
 	
-	int status = Z_OK;
-	gtl::zlib_stream z(gtl::zlib_stream::Mode::Decompress);
+	this->m_stat = Z_OK;
+	
 	stream_offset ofs = cur.ofs_begin();
 	
 	// As zip can only take 32 bit numbers, we must chop up the operation
 	const uint64 chunk_size = 1024*1024*16;
-	static_assert(chunk_size <= std::numeric_limits<decltype(z.avail_out)>::max(), "chunk too large");
+	static_assert(chunk_size <= std::numeric_limits<decltype(this->m_stream.avail_out)>::max(), "chunk too large");
 	
-	for (uint64 bd = 0; status != Z_STREAM_END && bd < nb; bd += chunk_size)
+	for (uint64 bd = 0; this->m_stat != Z_STREAM_END && bd < nb; bd += chunk_size)
 	{
-		z.next_out = reinterpret_cast<uchar*>(dest + std::min(bd, nb));
-		z.avail_out = static_cast<uint>(std::min(chunk_size, nb));
+		this->m_stream.next_out = reinterpret_cast<uchar*>(dest + std::min(bd, nb));
+		this->m_stream.avail_out = static_cast<uint>(std::min(chunk_size, nb));
 		do {
 			cur.use_region(ofs, chunk_size / 2);
 			if (!cur.is_valid()) {
@@ -39,13 +39,13 @@ static void decompress_some(PackDevice::cursor_type& cur, PackDevice::char_type*
 				err.stream() << "Failed to map pack at offset " << ofs;
 				throw err;
 			}
-			z.next_in = const_cast<uchar*>(reinterpret_cast<const uchar*>(cur.begin()));
-			z.avail_in = max_input_chunk_size ? std::min(cur.size(), max_input_chunk_size) : cur.size();
-			status = z.decompress(true);
-			ofs += z.next_in - reinterpret_cast<const uchar*>(cur.begin());
-		} while ((status == Z_OK || status == Z_BUF_ERROR) && z.avail_out);
+			this->m_stream.next_in = const_cast<uchar*>(reinterpret_cast<const uchar*>(cur.begin()));
+			this->m_stream.avail_in = max_input_chunk_size ? std::min(cur.size(), max_input_chunk_size) : cur.size();
+			this->m_stat = this->m_stream.decompress(true);
+			ofs += this->m_stream.next_in - reinterpret_cast<const uchar*>(cur.begin());
+		} while ((this->m_stat == Z_OK || this->m_stat == Z_BUF_ERROR) && this->m_stream.avail_out);
 		
-		switch(status) 
+		switch(this->m_stat) 
 		{
 			case Z_ERRNO:
 			case Z_STREAM_ERROR:
@@ -53,15 +53,15 @@ static void decompress_some(PackDevice::cursor_type& cur, PackDevice::char_type*
 			case Z_MEM_ERROR:
 			case Z_VERSION_ERROR:
 			{
-				throw gtl::zlib_error(status, "ZLib stream error");
+				throw gtl::zlib_error(this->m_stat, "ZLib stream error");
 			}
 		}// end switch
 	}// for each chunk
 	
 	// Most importantly, we produce the amount of bytes we wanted. BUF ERRORs occour
 	// if there is not enough output (or input)
-	if (z.total_out != nb && (status != Z_STREAM_END && status != Z_BUF_ERROR)) {
-		throw gtl::zlib_error(status, "Failed to produce enough bytes during decompression");
+	if (this->m_stream.total_out != nb && (this->m_stat != Z_STREAM_END && this->m_stat != Z_BUF_ERROR)) {
+		throw gtl::zlib_error(this->m_stat, "Failed to produce enough bytes during decompression");
 	}
 }
 
@@ -199,7 +199,9 @@ void PackDevice::assure_object_info(bool size_only) const
 		}// handle object type
 		
 		if (!has_delta_size) {
-			delta_size(cur, info.ofs + info.rofs,
+			// delta size uses our zstream, which is why it is non-const. The stream though is an internal
+			// detail that we take care of
+			const_cast<PackDevice*>(this)->delta_size(cur, info.ofs + info.rofs,
 			           const_cast<PackDevice*>(this)->m_size, 
 			           const_cast<PackDevice*>(this)->m_size);	 // target size assigned last
 			has_delta_size = true;
@@ -252,7 +254,7 @@ void PackDevice::apply_delta(const char_type* base, char_type* dest, const char_
 	
 }
 
-char_type* PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo& info, uint64& out_size) const
+char_type* PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo& info, uint64& out_size)
 {
 	assert(info.type != PackedObjectType::Bad);
 	typedef boost::scoped_array<char_type> pchar_type;
@@ -341,12 +343,18 @@ std::streamsize PackDevice::read(char_type* s, std::streamsize n)
 		info.ofs = m_pack.index().offset(m_entry);
 		info_at_offset(cur, info);
 		
+		// need an initialized zlib stream. In delta mode, we use the base-classes zlib stream for our own 
+		// purposes and keep it initialized
+		if (!parent_type::is_open()) {
+			parent_type::open(cur, parent_type::max_length, info.ofs+info.rofs);
+		}
+		
 		// if we have deltas, there is no other way than extracting it into memory, one way or another.
 		if (info.is_delta()) {
 			m_data.reset(unpack_object_recursive(cur, info, m_size));
 			this->m_nb = this->m_size;
 		} else {
-			parent_type::open(cur, parent_type::max_length, info.ofs+info.rofs);
+			this->set_window(parent_type::max_length, info.ofs+info.rofs);
 		}
 	} // end initialize data
 	
@@ -361,7 +369,7 @@ std::streamsize PackDevice::read(char_type* s, std::streamsize n)
 	}
 }
 
-uint PackDevice::delta_size(cursor_type& cur, uint64 ofs, uint64& base_size, uint64& target_size) const
+uint PackDevice::delta_size(cursor_type& cur, uint64 ofs, uint64& base_size, uint64& target_size)
 {
 	char_type delta_header[20];	// can handle two 64 bit numbers
 	cur.use_region(ofs, 20);

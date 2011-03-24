@@ -111,7 +111,7 @@ protected:
 	//! for deallocation, using delete []
 	//! \param out_size amount of bytes allocated in the returned buffer
 	//! \throw std::bad_alloc() or ParseError
-	char_type* unpack_object_recursive(cursor_type& cur, const PackInfo& info, uint64& out_size) const;
+	char_type* unpack_object_recursive(cursor_type& cur, const PackInfo& info, uint64& out_size);
 	
 	//! Apply the encoded delta stream using the base buffer and write the result into the target buffer
 	//! The base buffer is assumed to be able to serve all requests from the delta stream, the destination
@@ -131,8 +131,15 @@ protected:
 	//! \param ofs absolute offset of the delta's entry into the pack, to where the zstream starts
 	//! \return number of bytes read from the data at offset
 	//! \note this partly decompresses the stream
-	uint delta_size(cursor_type& cur, uint64 ofs, uint64& base_size, uint64& target_size) const;
+	uint delta_size(cursor_type& cur, uint64 ofs, uint64& base_size, uint64& target_size);
 	
+	//! Decompress all bytes from the cursor (it must be set to the correct first byte)
+	//! and continue decompression until the end of the stream or until our destination buffer
+	//! is full.
+	//! \param cur cursor whose offset is pointing to the start of the stream we should decompress
+	//! \param max_input_chunk_size if not 0, the amount of bytes we should put in per iteration. Use this if you only have a few
+	//! input bytes  and don't want it to decompress more than necessary
+	void decompress_some(cursor_type& cur, char_type* dest, uint64 nb, size_t max_input_chunk_size = 0);
 	
 protected:
 	const PackFile&			m_pack;				//!< pack that contains this object

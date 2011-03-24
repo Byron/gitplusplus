@@ -149,7 +149,11 @@ protected:
 	cursor_type				m_cur;			//!< memory manager cursor
 	
 protected:
-	inline void setup_counters(size_type length, stream_offset offset) {
+	inline void prepare_cursor(size_type length, stream_offset offset) {
+		m_cur.use_region(offset, length);
+		if (!m_cur.is_valid()) {
+			throw std::ios_base::failure("Could not map given file region");
+		}
 		// Compute our own size
 		this->m_nb = std::min(m_cur.file_size() - static_cast<size_type>(offset), length - static_cast<size_type>(offset));
 		this->m_size = this->m_nb;
@@ -199,11 +203,7 @@ public:
 		}
 		
 		m_cur = cursor;
-		m_cur.use_region(offset, length);
-		if (!m_cur.is_valid()) {
-			throw std::ios_base::failure("Could not map given file region");
-		}
-		setup_counters(length, offset);
+		prepare_cursor(length, offset);
 	}
 	
 	
