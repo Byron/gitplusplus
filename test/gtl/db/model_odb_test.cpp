@@ -91,6 +91,10 @@ BOOST_AUTO_TEST_CASE(test_zlib_device)
 	typedef zlib_file_source<man_type>	zlib_source;
 	man_type manager;
 	
+	// ZLIB STREAM
+	///////////////
+	
+	
 	// produce sample data
 	const size_t slen = 1024*1024*2 +5238;
 	char*const sbuf = new char[slen];			// source buffer with uninitialized memory
@@ -127,16 +131,17 @@ BOOST_AUTO_TEST_CASE(test_zlib_device)
 		
 		
 		// READ FILE BACK
-		zlib_source zsource(manager);
+		zlib_source zsource;
+		auto cur = manager.make_cursor(f.file());
 		boost::timer t;
 		for (int cause_error = 0; cause_error < 2; ++cause_error) {
 			BOOST_CHECK(!zsource.is_open());
 			BOOST_CHECK(zsource.eof());		// its not yet open
 			
 			if (!cause_error) {
-				zsource.open(f.file());
+				zsource.open(cur);
 			} else {
-				zsource.open(f.file(), f.size() - 50);	// cause stream to end prematurely
+				zsource.open(cur, f.size() - 50);	// cause stream to end prematurely
 			}
 			BOOST_REQUIRE(zsource.is_open());
 			
@@ -306,8 +311,7 @@ BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 	// SLIDING DEVICE TEST
 	//////////////////////
 	typedef managed_mapped_file_source<man_type> managed_file_source;
-	managed_file_source source(manager);
-	BOOST_CHECK(&source.manager() == &manager);
+	managed_file_source source;
 	BOOST_CHECK(!source.is_open());
 	// can query things without open file
 	BOOST_CHECK(source.file_size() == 0);
@@ -317,7 +321,7 @@ BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 	BOOST_REQUIRE_THROW(source.seek(1, std::ios::beg), std::ios_base::failure);	// seek closed device
 	
 	size_t offset = 5000;
-	source.open(f.file(), managed_file_source::max_length, offset);
+	source.open(manager.make_cursor(f.file()), managed_file_source::max_length, offset);
 	BOOST_CHECK(source.bytes_left() == f.size() - offset);
 	BOOST_CHECK(source.size() == source.bytes_left());
 	BOOST_CHECK(source.file_size() == f.size());
@@ -356,7 +360,7 @@ BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 	
 	// re-opening is fine, this time with smaller size and no offset
 	size_t ssize = 5000;
-	source.open(f.file(), ssize);
+	source.open(manager.make_cursor(f.file()), ssize);
 	BOOST_REQUIRE(source.is_open());
 	BOOST_CHECK(source.bytes_left() == ssize);
 	BOOST_CHECK(source.file_size() == f.size());
@@ -382,7 +386,12 @@ BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
 	managed_file_source source_too(source);
 	
 	// open right during instantiation with existing cursor
-	managed_file_source source_three(manager, &source.cursor(), managed_file_source::max_length, 500);
+	managed_file_source source_three(&source.cursor(), managed_file_source::max_length, 500);
+	
+	// use cursor open version
+	source_too.open(source.cursor(), 1000, 500);
+	
+	BOOST_REQUIRE_THROW(source.open(man_type::cursor()), std::ios_base::failure);
 }
 
 

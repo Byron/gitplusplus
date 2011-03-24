@@ -40,16 +40,21 @@ struct zlib_error :		public std::exception,
 };
 
 
-/** Simple stream wrapper to facilitate using the stream structure, to initialize and deinitialize it
+/** Simple stream wrapper to facilitate using the stream structure, to initialize, deinitialize and copy it
+  * A stream instance is in one of 3 modes: either setup  for compression, decompression or not set.
+  * It may only be used if it is set to a mode which is not None. In all other cases it will fail in debug mode.
   * \note Althogh zlib_params include the crc32 check, this flags is not currently supported
   * \note for now we only support the default allocation methods
+  * \note we could get rid of the mode variable (1 byte) by templating this class, so we would loose the runtime
+  * adjutability of the compression mode. For now, we keep it as it shouldn't make any difference.	
   */
 class zlib_stream : public z_stream
 {
 public:
 	enum class Mode : uchar {
 		Compress, 
-		Decompress
+		Decompress, 
+		None
 	};
 	
 protected:
@@ -60,6 +65,9 @@ protected:
 		zalloc = nullptr;
 		zfree = nullptr;
 		opaque = nullptr;
+		// init doesn't null the next_out and avail_out, so we do it not to confuse anybody
+		next_out = next_in = nullptr;
+		avail_out = avail_in = 0;
 		m_mode = mode;
 		                 
 		int err;
@@ -75,36 +83,48 @@ protected:
 		check(err);
 	}
 	
+	//! a custom copy constructor
+	inline void clone_from(const zlib_stream& rhs) {
+		m_mode = rhs.m_mode;
+		
+		switch(m_mode){
+		case Mode::Compress: deflateCopy(this, const_cast<zlib_stream*>(&rhs)); break;
+		case Mode::Decompress: inflateCopy(this, const_cast<zlib_stream*>(&rhs)); break;
+		case Mode::None: break;
+		}
+	}
+	
 private:
 	zlib_stream(zlib_stream&&);
 	
 public:
-	zlib_stream(Mode mode, const zlib_params& params = io::zlib::default_compression) {
-		init(mode, params);
+	//! Initialize the stream. If the mode is not None, the params become effective.
+	//! otherwise initialize your stream later using set_mode(...)
+	zlib_stream(Mode mode = Mode::None, const zlib_params& params = io::zlib::default_compression)
+	{
+		if (mode != Mode::None) {
+			init(mode, params);
+		} else {
+			m_mode = mode;
+		}
 	}
 	
 	zlib_stream(const zlib_stream& rhs) {
-		if (m_mode == Mode::Compress) {
-			deflateEnd(this);
-		} else {
-			inflateEnd(this);
-		}
-		
-		m_mode = rhs.m_mode;
-		
-		if (m_mode == Mode::Compress) {
-			deflateCopy(this, const_cast<zlib_stream*>(&rhs));
-		} else {
-			inflateCopy(this, const_cast<zlib_stream*>(&rhs));
-		}
+		this->clone_from(rhs);
 	}
 	
 	~zlib_stream() {
-		if (m_mode == Mode::Compress) {
-			deflateEnd(this);
-		} else {
-			inflateEnd(this);
+		switch(m_mode){
+		case Mode::Compress: deflateEnd(this); break;
+		case Mode::Decompress: inflateEnd(this); break;
+		case Mode::None: break;
 		}
+	}
+	
+	zlib_stream& operator = (const zlib_stream& rhs) {
+		this->~zlib_stream();
+		this->clone_from(rhs);
+		return *this;
 	}
 	
 public:
@@ -124,6 +144,7 @@ public:
 	//! Prepare the stream for the next input or output operation by setting the respective source 
 	//! and destination memory areas
 	inline int prepare(const char* src_begin, const char* src_end, char* dest_begin, char* dest_end) {
+		assert(m_mode != Mode::None);
 		assert(src_end - src_begin <= std::numeric_limits<uint32>::max());
 		assert(dest_end - dest_begin <= std::numeric_limits<uint32>::max());
 		
@@ -135,12 +156,19 @@ public:
 	
 	//! Change the mode of the stream to the given one. Does nothing if we are at the mode already, 
 	//! and deinitializes the existing stream as required.
+	//! if the Mode is none, the stream will be deinitialized and frees its allocated memory
 	inline void set_mode(Mode new_mode, const zlib_params& params = io::zlib::default_compression) {
 		if (new_mode == m_mode) {
 			return;
 		}
+		
 		this->~zlib_stream();
-		init(new_mode, params);
+		
+		if (new_mode != Mode::None) {
+			init(new_mode, params);
+		} else {
+			m_mode = new_mode;	// None
+		}
 	}
 	
 	//! \return mode
@@ -150,10 +178,10 @@ public:
 	
 	//! Reset the stream to allow a now compression/decompression operation
 	inline void reset() {
-		if (m_mode == Mode::Compress) {
-			deflateReset(this);
-		} else {
-			inflateReset(this);
+		switch(m_mode){
+		case Mode::Compress: deflateReset(this); break;
+		case Mode::Decompress: inflateReset(this); break;
+		case Mode::None: break;
 		}
 	}
 	
@@ -170,32 +198,6 @@ public:
 	}
 };
 
-/** Base class with common initialization routines and members to be used by both input and output devices
-  * \todo implementation
-  */
-template <class ManagerType>
-class zlib_device_base
-{
-public:
-	typedef ManagerType													memory_manager_type;
-	typedef typename memory_manager_type::mapped_file_source::char_type	char_type;
-	typedef typename memory_manager_type::size_type						size_type;
-	
-protected:
-	struct category_base : 
-	        public io::device_tag,
-	        public io::closable_tag
-	{};
-
-protected:
-	zlib_stream		m_stream;
-	
-protected:
-	zlib_device_base(zlib_stream::Mode mode, const zlib_params& params = io::zlib::default_compression)
-		: m_stream(mode, params)
-	{}
-	
-};
 
 
 /** \brief Implements a memory mapped device which reads or writes a stream using zlib.
@@ -205,16 +207,13 @@ protected:
   * \todo implementation - this could be useful for the loose object database
   */
 template <class ManagerType>
-class zlib_file_source :	public zlib_device_base<ManagerType>,
-							protected managed_mapped_file_source<ManagerType>
+class zlib_file_source : protected managed_mapped_file_source<ManagerType>
 {
 public:
 	typedef ManagerType													memory_manager_type;
 	typedef typename memory_manager_type::cursor						cursor_type;
 	typedef zlib_file_source<memory_manager_type>						this_type;
-	typedef zlib_device_base<memory_manager_type>						zlib_parent_type;
 	typedef managed_mapped_file_source<ManagerType>						file_parent_type;
-	
 	typedef typename memory_manager_type::mapped_file_source::char_type	char_type;
 	typedef typename memory_manager_type::size_type						size_type;
 	
@@ -222,7 +221,8 @@ public:
 
 public:
 	
-	struct category :	public zlib_parent_type::category_base,
+	struct category :	public io::device_tag,
+						public io::closable_tag,
 				        public io::input
 	{};
 	
@@ -230,19 +230,16 @@ protected:
 	
 	
 	int										m_stat;			//!< last zlib status
+	zlib_stream								m_stream;		//!< inflate stream
 	char_type								m_buf[buf_size];
-	zlib_file_source(this_type&& source);
 	
+protected:
+	zlib_file_source(this_type&& source);	// disabled
 	
 	
 	//! \return first byte of the input buffer
 	inline uchar* ibegin() {
 		return reinterpret_cast<uchar*>(m_buf);
-	}
-	
-	//! \return remaining amount of bytes in input buffer
-	inline size_t iremain() const {
-		return this->m_stream.avail_in;
 	}
 	
 	//! size of the input buffer
@@ -253,20 +250,22 @@ protected:
 	
 public:
 	
-	//! Initialize this instance with a manager and zlib configuration paramters
-	//! \note only a fraction of the params are useful in decompression mode
-	zlib_file_source(memory_manager_type& manager,
-	                 const zlib_params& params = io::zlib::default_compression)
-		: zlib_parent_type(zlib_stream::Mode::Decompress, params)
-	    , file_parent_type(manager)
-	    , m_stat(Z_STREAM_END)
-	{}
+	//! Initialize this instance, optionally open the given region right away
+	zlib_file_source(const cursor_type* cursor = nullptr, size_type length=file_parent_type::max_length, stream_offset offset = 0)
+	    : m_stat(Z_STREAM_END)
+	    
+	{
+		if (cursor) {
+			open(*cursor, length, offset);
+		}
+	}
 	
 	//! required by boost 
 	zlib_file_source(const this_type& rhs)
-		: zlib_parent_type(rhs)
-	    , file_parent_type(rhs)
-	    , m_stat(rhs.m_stat)
+	    : file_parent_type(rhs)
+		, m_stat(rhs.m_stat)
+		, m_stream(rhs.m_stream)
+	    
 	{
 		std::memcpy(m_buf, rhs.m_buf, buf_size);
 	}
@@ -287,10 +286,13 @@ public:
 	//! \param length amount of compressed bytes to map
 	//! \param offset offset into the file at which the compressed stream starts.
 	//! \throw system error
-	template <typename Path>
-	void open(const Path& path, size_type length = file_parent_type::max_length, stream_offset offset = 0)
+	void open(const cursor_type& cursor, 
+	          size_type length = file_parent_type::max_length, stream_offset offset = 0)
 	{
-		file_parent_type::open(path, length, offset);
+		file_parent_type::open(cursor, length, offset);
+		if (m_stream.mode() != zlib_stream::Mode::Decompress) {
+			m_stream.set_mode(zlib_stream::Mode::Decompress);
+		}
 		m_stat = Z_OK;
 	}
 	
@@ -325,7 +327,7 @@ public:
 	
 	void close() {
 		if (is_open()) {
-			this->m_stream.reset();	// just reset, as we cannot re-init it
+			m_stream.set_mode(zlib_stream::Mode::None);
 			m_stat = Z_STREAM_END;
 			file_parent_type::close();
 		}
@@ -343,14 +345,14 @@ public:
 		}
 		
 		// fill output buffer
-		assert(this->m_stream.avail_out == 0);
-		this->m_stream.avail_out = static_cast<uint32>(n);
-		this->m_stream.next_out = reinterpret_cast<uchar*>(s);
+		assert(m_stream.avail_out == 0);
+		m_stream.avail_out = static_cast<uint32>(n);
+		m_stream.next_out = reinterpret_cast<uchar*>(s);
 		
 		
-		while (m_stat != Z_STREAM_END && this->m_stream.avail_out) {
+		while (m_stat != Z_STREAM_END && m_stream.avail_out) {
 			// Is there still space in the input buffer ? If not, replenish it
-			if (iremain() == 0) {
+			if (m_stream.avail_in == 0) {
 				// read n bytes, assuming worst case compression ration. This honors the desired amount of 
 				// output bytes, but also assures we don't try sizes which are too small for zip
 				std::streamsize ibr = file_parent_type::read(reinterpret_cast<char_type*>(ibegin()), 
@@ -363,22 +365,22 @@ public:
 					assert(!is_open());
 					throw zlib_error(Z_BUF_ERROR, "Zlib source buffer depleted before stream end");
 				}
-				this->m_stream.next_in = ibegin();
-				this->m_stream.avail_in = static_cast<uint32>(ibr);
+				m_stream.next_in = ibegin();
+				m_stream.avail_in = static_cast<uint32>(ibr);
 			}
 			
-			m_stat = this->m_stream.decompress(true);
+			m_stat = m_stream.decompress(true);
 			
 			switch(m_stat) {
 			case Z_OK:				// fallthrough
 			case Z_STREAM_END:		// fallthrough
 			case Z_BUF_ERROR:
 				break;
-			default: throw zlib_error(m_stat, this->m_stream.msg);
+			default: throw zlib_error(m_stat, m_stream.msg);
 			}
 		}// read-loop
 		
-		return n - static_cast<std::streamsize>(this->m_stream.avail_out);
+		return n - static_cast<std::streamsize>(m_stream.avail_out);
 	}
 	//! @} end device interface
 };

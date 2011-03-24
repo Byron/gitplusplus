@@ -49,8 +49,10 @@ typedef gtl_pack_traits::mapped_memory_manager_type		mapped_memory_manager_type;
   * The memory peaks during buffer reconstruction, when the base and destination buffers need to be 
   * allocated at once, as well as the delta stream which contains instruction on how the base buffer
   * needs to be processed to create the destination buffer.
+  * If there are no delta's to be reconstructed, the stream is decompressed directly without memory overhead.
+  * For this to work, the stream either uses its zlib device base directly, or just the inherited stream
   */
-class PackDevice : public gtl::seekable_memory_device_mixin<mapped_memory_manager_type>
+class PackDevice : protected gtl::zlib_file_source<mapped_memory_manager_type>
 {
 public:
 	typedef git_object_traits_base::key_type			key_type;
@@ -59,10 +61,10 @@ public:
 	typedef std::pair<char_type*, char_type*>			char_range;
 	typedef git_object_traits_base::object_type			object_type;
 	typedef typename mapped_memory_manager_type::cursor	cursor_type;
-	typedef gtl::seekable_memory_device_mixin<mapped_memory_manager_type> parent_type;
+	typedef gtl::zlib_file_source<mapped_memory_manager_type> parent_type;
 	
 	struct category : 
-	        public io::input_seekable,
+	        public io::input,
 	        public io::device_tag
 	{};
 	
@@ -81,7 +83,7 @@ protected:
 			key_type		key;	//!< key to the delta base object in our pack
 			uint64			ofs;	//!< interpreted as negative offset from the current delta's offset.
 		};
-		Additional			delta;	//! additional delta information
+		Additional			delta;	//!< additional delta information
 		
 		PackInfo()
 		    : type(PackedObjectType::Bad)
@@ -92,8 +94,6 @@ protected:
 			return (type == PackedObjectType::OfsDelta) | (type == PackedObjectType::RefDelta);
 		}
 	};
-	
-	// struct 
 	
 
 protected:	
@@ -158,6 +158,7 @@ public:
 	uint32& entry() {
 		m_type = ObjectType::None;	// reset our cache
 		m_data.reset(nullptr);
+		parent_type::close();
 		return m_entry;
 	}
 	
@@ -192,7 +193,9 @@ public:
 };
 
 //!< Main type to allow using the delta as a stream
-//! \todo maybe make this a class and assure the stream is unbuffered
+//! \todo maybe make this a class and assure the stream is unbuffered. Actually, we have to write an
+//! own stream buffer which uses a device directly. The PackDevice is 48 bytes in size, with the stream 
+//! wrapper it uses 400 bytes more !!! A stream buffer still takes 120 bytes for itself
 typedef boost::iostreams::stream<PackDevice> PackStream;
 
 

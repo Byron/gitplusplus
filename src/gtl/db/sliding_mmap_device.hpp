@@ -114,9 +114,8 @@ public:
 	
 };
 
-/** Defines a device which uses a memory manager to obtain mapped regions and make their memory
-  * available using internal array source devices. This non-consecutive region of memory can be 
-  * read and seeked as if it was consecutive.
+/** Defines a device which uses a cursor to define mapped regions and make their memory avaible 
+  * through a device interface. This non-consecutive region of memory can be read and seeked as if it was consecutive.
   * Whenever a region is depleted, we request a new window, until the actual end-of-file is reached.
   * This device can be copy-constructed, which allows for easy duplication of a file with minimal overhead.
   */
@@ -140,7 +139,6 @@ public:
 	{};
 	
 protected:
-	memory_manager_type&	m_man;			//!< memory manager to obtain cursors
 	cursor_type				m_cur;			//!< memory manager cursor
 	
 private:
@@ -148,21 +146,16 @@ private:
 	
 public:
 	
-	/** Initialize this instance with a memory manager.
+	/** Initialize this instance with an optional cursor
 	  * \param cursor this optional paramenter assures the file is already opened at the location
 	  * of the cursor. The cursor must be associated, otherwise undefined behaviour occurs.
 	  * \param length of bytes to map if cursor is given
 	  * \param offset into the file if cursor is given
 	  */ 
-	managed_mapped_file_source(memory_manager_type& manager, 
-	                           const cursor_type* cursor = nullptr, size_type length=parent_type::max_length, stream_offset offset = 0)
-		: m_man(manager)
-	    
+	managed_mapped_file_source(const cursor_type* cursor = nullptr, size_type length=parent_type::max_length, stream_offset offset = 0)
 	{
 		if (cursor) {
-			assert(cursor->is_associated());
-			m_cur = *cursor;
-			open(cursor->path(), length, offset);
+			open(*cursor, length, offset);
 		}
 	}
 	
@@ -176,21 +169,21 @@ public:
 		return m_cur.is_valid();
 	}
 	
-	//! Open the file at the given path and create a read-only memory mapped region from it
-	//! \param path to file to open
-	//! \param length amount of bytes to map
-	//! \param offset offset into the file. Internally, the offset is adjusted to be divisable by the system's
-	//! page size.
-	//! \throw system error
-	template <typename Path>
-	void open(const Path& path, size_type length = parent_type::max_length, stream_offset offset = 0)
+	//! Special version allowing to quickly open a file from a cursor
+	//! \param cursor cursor initialized to a path
+	//! \throw ios_base::failure if cursor is not associated
+	//! \note see first open version for additional argument descriptions
+	void open(const typename memory_manager_type::cursor& cursor, size_type length = parent_type::max_length, stream_offset offset = 0)
 	{
+		if (!cursor.is_associated()) {
+			throw std::ios_base::failure("cannot open from an un-initialized cursor");
+		}
+		
 		if (is_open()) {
 			close();
 		}
-		if (!m_cur.is_associated() || m_cur.path() != path) {
-			m_cur = m_man.make_cursor(path);
-		}
+		
+		m_cur = cursor;
 		m_cur.use_region(offset, length);
 		if (!m_cur.is_valid()) {
 			throw std::ios_base::failure("Could not map given file region");
@@ -213,12 +206,6 @@ public:
 	//! \return the system's page size
 	static int alignment() {
 		return memory_manager_type::page_size();
-	}
-	
-	//! \return reference to our memory manager
-	//! \note we are const as the manager cannot interfere with our constness at all
-	ManagerType& manager() const {
-		return const_cast<ManagerType&>(m_man);
 	}
 	
 	//! \return our cursor initialized to point to our file

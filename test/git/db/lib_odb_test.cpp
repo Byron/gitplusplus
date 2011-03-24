@@ -10,9 +10,12 @@
 #include <git/db/sha1_gen.h>
 #include <git/obj/blob.h>
 #include <gtl/util.hpp>
-#include <boost/iostreams/filtering_stream.hpp>
-#include <utility>
 
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/device/back_inserter.hpp>
+#include <boost/iostreams/operations.hpp>
+
+#include <utility>
 #include <iostream>
 #include <sstream>
 #include <stdio.h>
@@ -555,16 +558,25 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 	BOOST_REQUIRE(begin == begin);
 	BOOST_REQUIRE(end == end);
 	BOOST_REQUIRE(begin != end);
+	std::vector<char>	dbuf;	// destination buffer for object streams
+	
 	for (; begin != end; ++begin, ++obj_count) {
 		BOOST_REQUIRE(podb.has_object(begin.key()));
 		BOOST_REQUIRE(podb.object(begin.key()) == *begin);
+		
 		std::cerr << obj_count << ": " << begin.key() << std::endl;
+		
  		BOOST_REQUIRE(begin->size() > 0);
 		BOOST_REQUIRE(begin->type() != ObjectType::None);
 		
+		// copy stream, verify size
 		begin->stream(stream);
 		BOOST_REQUIRE(stream->is_open());
+		dbuf.clear();
+		boost::iostreams::back_insert_device<decltype(dbuf)> dstream(dbuf);
+		boost::iostreams::copy(*stream, dstream);
 		stream.destroy();
+		BOOST_REQUIRE(dbuf.size() == begin->size());
 		
 		BOOST_REQUIRE(mobj.type == ObjectType::None);
 		begin->deserialize(mobj);
