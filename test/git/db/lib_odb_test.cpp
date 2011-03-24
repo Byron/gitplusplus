@@ -382,6 +382,8 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 	const size_t buflen = 512;
 	char_type buf[buflen];
 	
+	std::cerr << sizeof(LooseODB::output_stream_type) << " == loose ouptut stream type" << " - " << sizeof(LooseODB::output_object_type) << " == output object type" << std::endl;
+	
 	auto end = lodb.end();
 	uint count=0;
 	for (auto it=lodb.begin(); it != end; ++it, ++count) {
@@ -564,7 +566,7 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 		BOOST_REQUIRE(podb.has_object(begin.key()));
 		BOOST_REQUIRE(podb.object(begin.key()) == *begin);
 		
-		std::cerr << obj_count << ": " << begin.key() << std::endl;
+		std::cerr << obj_count << ": " << begin.key() << " -- entry == " << begin->entry() << std::endl;
 		
  		BOOST_REQUIRE(begin->size() > 0);
 		BOOST_REQUIRE(begin->type() != ObjectType::None);
