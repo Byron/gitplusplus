@@ -212,18 +212,21 @@ public:
 class PackOutputObject
 {
 public:
-	typedef PackStream				stream_type;
+	typedef PackStream								stream_type;
+	typedef gtl::stack_heap_managed<stream_type>	heap_type;
 	
 protected:
-	const PackFile* m_ppack;			//!< pack that contains this object
-	uint32			m_entry;			//!< pack entry we refer to
-	mutable std::unique_ptr<stream_type>		m_pstream;	//!< on-demand pointer
+	const PackFile*			m_ppack;	//!< pack that contains this object
+	uint32					m_entry;	//!< pack entry we refer to
+	mutable heap_type		m_pstream;	//!< on-demand pointer
 	
 	inline void assure_stream() const {
 		if (!m_pstream) {
 			assert(m_ppack);
-			m_pstream.reset(new stream_type(*m_ppack, m_entry));
+			new (m_pstream) stream_type(*m_ppack, m_entry);
+			m_pstream.set_occupied();
 		}
+		
 		// have to make it const explicitly, otherwise it uses the lvalue version of entry !
 		if (static_cast<const PackDevice&>(**m_pstream).entry() != m_entry) {
 			(*m_pstream)->entry() = m_entry;
@@ -242,6 +245,17 @@ public:
 	    : m_ppack(rhs.m_ppack)
 	    , m_entry(rhs.m_entry)
 	{}
+	
+	PackOutputObject(PackOutputObject&&) = default;
+	
+	PackOutputObject& operator = (const PackOutputObject& rhs) {
+		m_ppack = rhs.m_ppack;
+		m_entry = rhs.m_entry;
+		// if the other side is occupied or not, we can't copy the Device currently because
+		// of the boost::stream limitation, hence we will recreate it on demand.
+		m_pstream.destroy_safely();
+		return *this;
+	}	
 	
 	bool operator == (const PackOutputObject& rhs) const {
 		return (m_ppack == rhs.m_ppack) & (m_entry == rhs.m_entry);

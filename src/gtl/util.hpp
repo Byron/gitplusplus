@@ -132,6 +132,7 @@ protected:
 	
 	stack_heap(const this_type&);
 	stack_heap(this_type&&);
+	this_type& operator = (const this_type&);
 
 protected:
 	type* get() {
