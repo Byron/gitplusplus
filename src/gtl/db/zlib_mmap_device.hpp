@@ -65,6 +65,9 @@ protected:
 		zalloc = nullptr;
 		zfree = nullptr;
 		opaque = nullptr;
+		// init doesn't null the next_out and avail_out, so we do it not to confuse anybody
+		next_out = next_in = nullptr;
+		avail_out = avail_in = 0;
 		m_mode = mode;
 		                 
 		int err;
@@ -78,6 +81,17 @@ protected:
 			err = inflateInit2(this, window_bits);
 		}
 		check(err);
+	}
+	
+	//! a custom copy constructor
+	inline void clone_from(const zlib_stream& rhs) {
+		m_mode = rhs.m_mode;
+		
+		switch(m_mode){
+		case Mode::Compress: deflateCopy(this, const_cast<zlib_stream*>(&rhs)); break;
+		case Mode::Decompress: inflateCopy(this, const_cast<zlib_stream*>(&rhs)); break;
+		case Mode::None: break;
+		}
 	}
 	
 private:
@@ -96,15 +110,7 @@ public:
 	}
 	
 	zlib_stream(const zlib_stream& rhs) {
-		this->~zlib_stream();
-		
-		m_mode = rhs.m_mode;
-		
-		switch(m_mode){
-		case Mode::Compress: deflateCopy(this, const_cast<zlib_stream*>(&rhs)); break;
-		case Mode::Decompress: inflateCopy(this, const_cast<zlib_stream*>(&rhs)); break;
-		case Mode::None: break;
-		}
+		this->clone_from(rhs);
 	}
 	
 	~zlib_stream() {
@@ -113,6 +119,12 @@ public:
 		case Mode::Decompress: inflateEnd(this); break;
 		case Mode::None: break;
 		}
+	}
+	
+	zlib_stream& operator = (const zlib_stream& rhs) {
+		this->~zlib_stream();
+		this->clone_from(rhs);
+		return *this;
 	}
 	
 public:
@@ -230,11 +242,6 @@ protected:
 		return reinterpret_cast<uchar*>(m_buf);
 	}
 	
-	//! \return remaining amount of bytes in input buffer
-	inline size_t iremain() const {
-		return m_stream.avail_in;
-	}
-	
 	//! size of the input buffer
 	static std::streamsize ilen() {
 		return static_cast<std::streamsize>(buf_size);
@@ -345,7 +352,7 @@ public:
 		
 		while (m_stat != Z_STREAM_END && m_stream.avail_out) {
 			// Is there still space in the input buffer ? If not, replenish it
-			if (iremain() == 0) {
+			if (m_stream.avail_in == 0) {
 				// read n bytes, assuming worst case compression ration. This honors the desired amount of 
 				// output bytes, but also assures we don't try sizes which are too small for zip
 				std::streamsize ibr = file_parent_type::read(reinterpret_cast<char_type*>(ibegin()), 

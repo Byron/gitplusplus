@@ -91,6 +91,10 @@ BOOST_AUTO_TEST_CASE(test_zlib_device)
 	typedef zlib_file_source<man_type>	zlib_source;
 	man_type manager;
 	
+	// ZLIB STREAM
+	///////////////
+	
+	
 	// produce sample data
 	const size_t slen = 1024*1024*2 +5238;
 	char*const sbuf = new char[slen];			// source buffer with uninitialized memory
