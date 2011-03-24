@@ -63,6 +63,13 @@ public:
 		return m_nb;
 	}
 	
+	//! reset the internal state to zero
+	inline void reset() {
+		m_ofs = 0;
+		m_nb = 0;
+		m_size = 0;
+	}
+	
 	//! \return true if we reached the end of our mapping
 	bool eof() const {
 		return m_nb == 0;
@@ -141,6 +148,14 @@ public:
 protected:
 	cursor_type				m_cur;			//!< memory manager cursor
 	
+protected:
+	inline void setup_counters(size_type length, stream_offset offset) {
+		// Compute our own size
+		this->m_nb = std::min(m_cur.file_size() - static_cast<size_type>(offset), length - static_cast<size_type>(offset));
+		this->m_size = this->m_nb;
+		this->m_ofs = offset;
+	}
+	
 private:
 	managed_mapped_file_source(managed_mapped_file_source&& source);
 	
@@ -188,10 +203,7 @@ public:
 		if (!m_cur.is_valid()) {
 			throw std::ios_base::failure("Could not map given file region");
 		}
-		// Compute our own size
-		this->m_nb = std::min(m_cur.file_size() - static_cast<size_type>(offset), length - static_cast<size_type>(offset));
-		this->m_size = this->m_nb;
-		this->m_ofs = offset;
+		setup_counters(length, offset);
 	}
 	
 	
@@ -222,9 +234,7 @@ public:
 	void close() {
 		if (is_open()) {
 			m_cur.unuse_region();
-			this->m_ofs = 0;
-			this->m_nb = 0;
-			this->m_size = 0;
+			this->reset();
 		}
 	}
 	

@@ -5,7 +5,7 @@
 #include <gtl/db/mapped_memory_manager.hpp>
 
 #include <boost/timer.hpp>
-#include <boost/shared_array.hpp>
+#include <boost/scoped_array.hpp>
 #include <boost/iostreams/device/array.hpp>
 #include <boost/iostreams/device/null.hpp>
 #include <boost/iostreams/copy.hpp>
@@ -31,7 +31,7 @@ BOOST_FIXTURE_TEST_CASE(read_and_write, GitLooseODBFixture)
 	 const size_t nbf = 8192;	// number of bytes per file
 	 io::basic_null_sink<LooseODB::char_type> null;
 	 {
-		boost::shared_array<char> data(new char[dlen]);
+		boost::scoped_array<char> data(new char[dlen]);
 		BOOST_REQUIRE(data);
 		
 		io::stream<io::basic_array_source<char> > istream(data.get(), dlen);
@@ -57,7 +57,7 @@ BOOST_FIXTURE_TEST_CASE(read_and_write, GitLooseODBFixture)
 	 // MANY SMALL FILES
 	 // Here the filesystem is expected to be the limiting factor
 	 {
-		boost::shared_array<char> data(new char[nsf * nbf]);		// every file is a few kb
+		boost::scoped_array<char> data(new char[nsf * nbf]);		// every file is a few kb
 		char* id = data.get();		// data iterator
 		
 		boost::timer t;

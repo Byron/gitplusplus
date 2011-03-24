@@ -312,6 +312,7 @@ public:
 	//! set and change the path on demand, which results in an opened file.
 	//! \param path empty or non-empty path
 	//! \todo make a default file buffer part of our own class, to prevent the smartpointer used in boost file buffers
+	//! What we really needed is a custom stream buffer which can be used in any istream or ostream.
 	void set_path(const path_type& path) {
 		if (!path.empty()) {
 			// rebuild ourselves, chain elements cannot be reused

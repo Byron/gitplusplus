@@ -82,7 +82,8 @@ PackDevice::PackDevice(const PackDevice &rhs)
     , m_type(rhs.m_type)
     
 {
-	std::cerr << "PACK DEVICE: " << "INVOKED COPY CONSTRUCTOR" << std::endl;
+	// Copy constructor is called a lot (3 times ) by iostreams::copy which is quite terrible, 
+	// std::cerr << "PACK DEVICE: " << "INVOKED COPY CONSTRUCTOR" << std::endl;
 	// don't copy the data, it will be recreated when it is first needed
 }
 

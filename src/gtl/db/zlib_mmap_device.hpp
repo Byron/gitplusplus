@@ -143,7 +143,7 @@ public:
 	
 	//! Prepare the stream for the next input or output operation by setting the respective source 
 	//! and destination memory areas
-	inline int prepare(const char* src_begin, const char* src_end, char* dest_begin, char* dest_end) {
+	inline void prepare(const char* src_begin, const char* src_end, char* dest_begin, char* dest_end) {
 		assert(m_mode != Mode::None);
 		assert(src_end - src_begin <= std::numeric_limits<uint32>::max());
 		assert(dest_end - dest_begin <= std::numeric_limits<uint32>::max());
@@ -217,7 +217,7 @@ public:
 	typedef typename memory_manager_type::mapped_file_source::char_type	char_type;
 	typedef typename memory_manager_type::size_type						size_type;
 	
-	static const size_t buf_size = 4096;		//!< internal static buffer size
+	static const size_t buf_size = 1024;				//!< internal static buffer size
 
 public:
 	

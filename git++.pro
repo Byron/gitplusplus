@@ -94,4 +94,5 @@ SOURCES += \
     test/git/db/looseodb_performance_test.cpp \
     src/git/db/odb_pack.cpp \
     src/git/db/pack_file.cpp \
-    src/git/db/pack_stream.cpp
+    src/git/db/pack_stream.cpp \
+    test/git/db/packodb_performance_test.cpp
