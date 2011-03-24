@@ -206,6 +206,7 @@ class stack_heap_managed : public stack_heap<Type>
 public:
 	typedef stack_heap_managed<Type>	this_type;
 	typedef stack_heap<Type>			parent_type;
+	typedef Type						type;
 	
 protected:
 	bool _occupied;
@@ -216,9 +217,7 @@ public:
 	{}
 	
 	~stack_heap_managed() {
-		if (occupied()) {
-			parent_type::destroy();
-		}
+		destroy_safely();
 	}
 	
 	// byte-copy occupied instances over into ours
@@ -238,7 +237,7 @@ public:
 		: _occupied(rhs._occupied) 
 	{
 		if (occupied()) {
-			new (*this) typename parent_type::type(*rhs);
+			new (*this) type(*rhs);
 		}
 	}
 	
@@ -253,7 +252,8 @@ public:
 			}
 		} else {
 			if (rhs.occupied()){
-				new (*this) typename parent_type::type(*rhs);
+				new (*this) type(*rhs);
+				_occupied = true;
 			}
 		}
 		return *this;
@@ -285,10 +285,20 @@ public:
 	
 	//! Destroy this instance only if we are occupied. Does not change the object's state otherwise
 	inline void destroy_safely() {
-		if (!occupied()) {
-			return;
+		if (occupied()) {
+			destroy();
 		}
-		destroy();
+	}
+	
+	//! Occupies this instance with a default constructed version of our type.
+	//! Use this method to assure you do not forget to set this instance occupied
+	//! \note may only be used if the instance is not yet occupied, otherwise you leak memory
+	//! \return pointer to our newly created instance which now occupies our memory
+	inline type* occupy() {
+		assert(!occupied());
+		type* res = new (*this) type;
+		_occupied = true;
+		return res;
 	}
 	
 	//! @} end interface

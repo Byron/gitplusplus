@@ -316,7 +316,9 @@ public:
 		if (!path.empty()) {
 			// rebuild ourselves, chain elements cannot be reused
 			this->reset();		// empty ourselves - this should close the file too
-			m_is.close();		// just in case it is still open
+			if (m_is.is_open()) {
+				m_is.close();
+			}
 			this->push(header_filter_type());
 			this->push(typename db_traits_type::decompression_filter_type());
 			m_is.open(path.string().c_str(), std::ifstream::in|std::ifstream::binary);
@@ -433,24 +435,25 @@ public:
 	typedef typename obj_traits_type::size_type				size_type;
 	typedef typename obj_traits_type::object_type			object_type;
 	typedef odb_loose_output_object							this_type;
+	typedef gtl::stack_heap_managed<stream_type>			heap_type;
 	
 private:
 	//! Initialize our stream for reading, basically read-in the header information
 	//! and keep the stream available for actual data reading
 	void init() const {
-		if (m_pstream.get() == nullptr) {
-			m_pstream.reset(new stream_type);
+		if (!m_pstream) {
+			m_pstream.occupy();
 		}
 		m_pstream->set_path(m_path);
 	}
 	
 	bool is_initialized() const {
-		return m_pstream.get() != nullptr;
+		return m_pstream.occupied();
 	}
 	
 protected:
 	path_type								m_path;
-	mutable std::unique_ptr<stream_type>	m_pstream;		//!< use of unique ptr as it is movable
+	mutable heap_type						m_pstream;		//!< use of unique ptr as it is movable
 	
 public:
 	
@@ -483,11 +486,6 @@ public:
 	}
 	
 	stream_type* new_stream() const {
-		// release our own one, otherwise create a new one
-		// It will be at zero position as we don't use it except for initial header parsing
-		if (m_pstream.get() != nullptr) {
-			return m_pstream.release();
-		}
 		stream_type* stream = new stream_type;
 		stream->set_path(m_path);
 		return stream;

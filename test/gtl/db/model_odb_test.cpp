@@ -212,17 +212,23 @@ BOOST_AUTO_TEST_CASE(util)
 	msh = mshcp;
 	BOOST_REQUIRE(!msh.occupied() && !mshcp);
 	new (msh) DT;
+	msh.set_occupied();
 	BOOST_REQUIRE(msh.occupied());
 	msh->incr();
 	managed_stack_heap_type msh2(msh);
 	BOOST_REQUIRE(msh2.occupied() && *msh2 == *msh);
 	msh2->incr();
 	
+	BOOST_REQUIRE(!mshcp.occupied());
 	mshcp = msh2;		// unoccupied = occupied
-	BOOST_REQUIRE(mshcp.occupied() && *mshcp == *msh2);
+	BOOST_REQUIRE(mshcp.occupied());
+	BOOST_REQUIRE(*mshcp == *msh2);
 	msh = msh2;			// occupied = occupied
 	BOOST_REQUIRE(!!msh && *mshcp == *msh);
 	
+	managed_stack_heap_type msh3;
+	BOOST_REQUIRE(!(*(msh3.occupy()) == *msh));
+	BOOST_REQUIRE(msh3.occupied());
 }
 
 BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
