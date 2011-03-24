@@ -2,6 +2,7 @@
 #define GTL_ODB_STREAM_HPP
 
 #include <gtl/config.h>
+#include <gtl/util.hpp>
 #include <gtl/db/hash_generator_filter.hpp>
 
 #include <boost/filesystem.hpp>
@@ -11,6 +12,7 @@
 #include <exception>
 #include <iostream>
 #include <type_traits>
+#include <memory>
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
@@ -331,26 +333,19 @@ public:
 	typedef typename output_object_type::stream_type stream_type;
 	typedef typename output_object_type::obj_traits_type obj_traits_type;
 	typedef typename output_object_type::obj_traits_type::key_type key_type;
+	typedef stack_heap_managed<stream_type>			stacked_stream_type;
 	
 private:
-	const_output_object_ref_type m_obj;
-	const key_type& m_key;
-	stream_type* m_stream;
+	const_output_object_ref_type	m_obj;
+	const key_type&					m_key;
+	stacked_stream_type				m_pstream;
 	
 public:
 	odb_output_object_adapter(const_output_object_ref_type obj,
 							  const key_type& key)
 		: m_obj(obj)
 		, m_key(key)
-		, m_stream(nullptr)
 	{}
-	
-	~odb_output_object_adapter() {
-		if (m_stream) {
-			delete m_stream;
-			m_stream = nullptr;
-		}
-	}
 	
 	const key_type* key_pointer() const {
 		return &m_key;
@@ -365,10 +360,11 @@ public:
 	}
 	
 	 stream_type& stream() {
-		if (m_stream == nullptr) {
-			 m_stream = m_obj.new_stream();
+		if (!m_pstream) {
+			 m_obj.stream(m_pstream);
+			 m_pstream.set_occupied();
 		}
-		return *m_stream;
+		return *m_pstream;
 	}
 };
 		

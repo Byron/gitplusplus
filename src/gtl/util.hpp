@@ -116,17 +116,22 @@ protected:
   * The management of new and delete is entirely in the hands of the caller.
   * Use it to create memory for objects which have to be constructed later, but should still be part of the own type,
   * yet don't have a copy constructor.
+  * \tparam Type the type we should provide memory for
   * \note currently, no copy constructor or move constructor is supported. This could be implemented though
   */
 template <class Type>
 class stack_heap
 {
 public:
-	typedef Type			type;
-	static const size_t		type_size = sizeof(Type);	//!< length of the internal buffer to store the object
+	typedef stack_heap<Type>	this_type;	
+	typedef Type				type;
+	static const size_t			type_size = sizeof(Type);	//!< length of the internal buffer to store the object
 	
 protected:
 	char _inst_buf[type_size];
+	
+	stack_heap(const this_type&);
+	stack_heap(this_type&&);
 
 protected:
 	type* get() {
@@ -138,6 +143,7 @@ protected:
 	}
 	
 public:
+	stack_heap() {};
 	
 	operator type*() {
 		return get();
@@ -176,6 +182,74 @@ public:
 	}
 };
 
+/** \brief Same as stack_heap, but destroys itself unconditionally during its own destruction
+  * \tparam auto_destruct if true, we will unconditionally destroy ourselves in our destructor. Use this only
+  * if you unconditionally initialize an instance exactly once.
+  */
+template <class Type>
+struct stack_heap_autodestruct : public stack_heap<Type>
+{
+	~stack_heap_autodestruct() {
+		this->destroy();
+	}
+};
+
+
+/** \brief Heap which, as opposed to the stack_heap_autodestruct, allows you to set a flag to enable or disable
+  * whether it should auto-destroy itself. After each destruction, it will reset its flag to allow it to be filled
+  * (and destroyed) once again
+  */
+
+template <class Type>
+class stack_heap_managed : public stack_heap<Type>
+{
+public:
+	typedef stack_heap<Type>			parent_type;
+	
+protected:
+	bool _occupied;
+	
+public:
+	stack_heap_managed()
+	    : _occupied(false)
+	{}
+	
+	~stack_heap_managed() {
+		if (occupied()) {
+			parent_type::destroy();
+		}
+	}
+	
+public:
+	
+	//! In a boolean context, we are true if occupied
+	operator bool() const {
+		return _occupied;
+	}
+	
+	bool operator!() const {
+		return !_occupied;
+	}
+	
+	//! indicate that our memory is currently occupied by an actual instance
+	//! \note may only be called once after our memory was filled using new
+	inline void set_occupied() {
+		assert(!_occupied);
+		_occupied = true;
+	}
+	
+	inline bool occupied() const {
+		return _occupied;
+	}
+	
+	//! Destroy the instance contained in our stack heap memory.
+	void destroy() {
+		assert(_occupied);
+		parent_type::destroy();
+		_occupied = false;
+	}
+	
+};
 
 /** Class representing two ascii characters in the range of 0-F
   * \note currently represented directly as baked character values, in fact it could 

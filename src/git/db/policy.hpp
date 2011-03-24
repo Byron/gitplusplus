@@ -4,6 +4,7 @@
 #include <git/config.h>
 #include <git/db/traits.hpp>
 #include <git/obj/multiobj.h>
+#include <gtl/util.hpp>
 
 #include <memory>
 
@@ -60,7 +61,9 @@ struct git_object_policy : public gtl::odb_object_policy<TraitsType>
 	template <class ODBObjectType>
 	void deserialize(typename TraitsType::output_reference_type out, const ODBObjectType& object)
 	{
-		std::unique_ptr<typename ODBObjectType::stream_type> pstream(object.new_stream());
+		// auto-destruct heap
+		gtl::stack_heap_autodestruct<typename ODBObjectType::stream_type> pstream;
+		object.stream(pstream);
 		switch(object.type())
 		{
 			case Object::Type::Blob: 
