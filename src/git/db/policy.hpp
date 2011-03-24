@@ -64,25 +64,32 @@ struct git_object_policy : public gtl::odb_object_policy<TraitsType>
 		// auto-destruct heap
 		gtl::stack_heap_autodestruct<typename ODBObjectType::stream_type> pstream;
 		object.stream(pstream);
-		switch(object.type())
-		{
-			case Object::Type::Blob: 
+		try {
+			switch(object.type())
 			{
-				new (&out.blob) Blob; 
-				out.blob.data().reserve(object.size()); 
-				*pstream >> out.blob; 
-				break; 
-			}
-			case Object::Type::Commit: { new (&out.commit) Commit; *pstream >> out.commit; break; }
-			case Object::Type::Tree: { new (&out.tree) Tree; *pstream >> out.tree; break; }
-		case Object::Type::Tag: { new (&out.tag) Tag; *pstream >> out.tag; break; }
-			default:
-			{
-				DeserializationError err;
-				err.stream() << "invalid object type given for deserialization: " << (typename TraitsType::char_type)object.type() << std::flush;
-				throw err;
-			}
-		}// end type switch
+				case Object::Type::Blob: 
+				{
+					new (&out.blob) Blob; 
+					out.blob.data().reserve(object.size()); 
+					*pstream >> out.blob; 
+					break; 
+				}
+				case Object::Type::Commit: { new (&out.commit) Commit; *pstream >> out.commit; break; }
+				case Object::Type::Tree: { new (&out.tree) Tree; *pstream >> out.tree; break; }
+			case Object::Type::Tag: { new (&out.tag) Tag; *pstream >> out.tag; break; }
+				default:
+				{
+					DeserializationError err;
+					err.stream() << "invalid object type given for deserialization: " << (typename TraitsType::char_type)object.type() << std::flush;
+					throw err;
+				}
+			}// end type switch
+		} catch (...) {
+			// assure we don't change the output state if the object fails. In debug mode it might 
+			// be useful to have it though.
+			out.destroy();
+			throw;
+		}
 	}
 };
 

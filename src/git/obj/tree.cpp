@@ -74,11 +74,14 @@ git_basic_istream& operator >> (git_basic_istream& stream, Tree& inst)
 		inst.elements().insert(Tree::map_type::value_type(name, std::move(elm)));
 	}// while stream is available
 	
-	if (inst.elements().size() == 0) {
+	// NOTE: Empty trees are possible and allowed - one of them exists in the
+	// git base repository - probably its a legacy item that shouldn't be there
+	// Have to deal with it anyway, so we don't say a word
+	/*if (inst.elements().size() == 0) {
 		DeserializationError err;
 		err.stream() << "Couldn't deserialize any tree element";
 		throw err;
-	}
+	}*/
 	
 	return stream;
 }

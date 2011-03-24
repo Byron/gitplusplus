@@ -63,6 +63,46 @@ BOOST_AUTO_TEST_CASE(read_pack)
 		query_elapsed = t.elapsed();
 		std::cerr << "Iterated and queried type+size of " << no  << " objects in " << query_elapsed << " s (" << no / query_elapsed << " queries/s)" << std::endl;
 	}
+	
+	double deserialization_elapsed = 0.;
+	{// deserialize data
+		PackODB::forward_iterator beg = podb.begin();
+		MultiObject	mobj;
+		std::vector<ObjectType> types = {ObjectType::Tag, ObjectType::Commit, ObjectType::Tree, ObjectType::Blob};	
+		size_t sno = 0;	// successful deserializations
+		
+		for (auto type = types.begin(); type != types.end(); ++type) {
+			size_t no = 0;	// num objects
+			size_t failures = 0;
+			double elapsed = 0.0;
+			timer t;
+			for (PackODB::forward_iterator beg = podb.begin(); beg != end; ++beg) {
+				if (beg->type() != *type) continue;
+				BOOST_REQUIRE(beg->type() != ObjectType::None);
+				try {
+					beg->deserialize(mobj);
+				} catch (const std::exception& err) {
+					std::cerr << beg.key() << " failed: " << err.what() << std::endl;
+					++failures;
+					BOOST_REQUIRE(mobj.type == ObjectType::None);
+					continue;
+				}
+				++no;
+				mobj.destroy();
+			}// for each pack object
+			elapsed = t.elapsed();
+			deserialization_elapsed += elapsed;
+			sno += no;
+			
+			if (failures) {
+				std::cerr << "Failed to deserialized " << failures << " " << *type << " objects" << std::endl;
+			}
+			std::cerr << "Deserialized " << no << " " << *type << " objects in " << elapsed << " s (" << no / elapsed<< " objects/s)" << std::endl;
+			BOOST_REQUIRE(no != 0);
+		}// end for each object type
+		
+		std::cerr << "Deserialized " << sno << " of " << no << " objects in " << deserialization_elapsed << " s (" << sno / deserialization_elapsed << " objects/s)" << std::endl;
+	}
 
 	const size_t bufsize = 4096;
 	PackODB::char_type buf[bufsize];
@@ -86,9 +126,4 @@ BOOST_AUTO_TEST_CASE(read_pack)
 		const double tmb = tbc / mb;
 		std::cerr << "Streamed " << no  << " objects totalling " << tmb <<  " MB in " << streaming_elapsed << " s (" << no / streaming_elapsed<< " streams/s & " << tmb / streaming_elapsed  << " MB/s)" << std::endl;
 	}
-	
-	{ // deserialize data
-		
-	}
-		
 }
