@@ -316,7 +316,7 @@ public:
 		if (!path.empty()) {
 			// rebuild ourselves, chain elements cannot be reused
 			this->reset();		// empty ourselves - this should close the file too
-			assert(!m_is.is_open());
+			m_is.close();		// just in case it is still open
 			this->push(header_filter_type());
 			this->push(typename db_traits_type::decompression_filter_type());
 			m_is.open(path.string().c_str(), std::ifstream::in|std::ifstream::binary);
@@ -484,8 +484,8 @@ public:
 	
 	stream_type* new_stream() const {
 		// release our own one, otherwise create a new one
+		// It will be at zero position as we don't use it except for initial header parsing
 		if (m_pstream.get() != nullptr) {
-			//m_pstream->seek(0, std::ios::beg); cannot seek our own stream :(
 			return m_pstream.release();
 		}
 		stream_type* stream = new stream_type;
@@ -530,9 +530,12 @@ public:
 	}
 	
 	//! modifyable version of our internal path
-	path_type& path() {
-		m_pstream = nullptr;
-		return m_path;
+	void set_path(const path_type& path) {
+		if (m_path == path) {
+			return;
+		}
+		m_path = path;
+		init();	// creates a stream if necessary and updates the path
 	}
 	
 	//! @}
@@ -582,7 +585,7 @@ protected:
 				if (path.filename().size()/2 == key_type::hash_len - db_traits_type::num_prefix_characters &&
 				    (*(--(--path.end()))).size()/2 == db_traits_type::num_prefix_characters)
 				{
-					this->m_obj.path() = path;
+					this->m_obj.set_path(path);
 					break;
 				}
 			}

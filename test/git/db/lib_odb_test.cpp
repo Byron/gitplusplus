@@ -382,6 +382,8 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 	const size_t buflen = 512;
 	char_type buf[buflen];
 	
+	std::cerr << sizeof(LooseODB::output_stream_type) << " == loose ouptut stream type" << " - " << sizeof(LooseODB::output_object_type) << " == output object type" << std::endl;
+	
 	auto end = lodb.end();
 	uint count=0;
 	for (auto it=lodb.begin(); it != end; ++it, ++count) {
