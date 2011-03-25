@@ -375,32 +375,46 @@ class PackCache
 {
 protected:
 	struct CacheInfo {
-		CacheInfo(uint32 usage_count = 0, const char_type* data = nullptr)
+		CacheInfo(uint32 usage_count = 0, size_t size = 0, const char_type* data = nullptr)
 		    : usage_count(usage_count)
+		    , size(0)
 		    , pdata(data)
 		{}
 		
 		CacheInfo(CacheInfo&&) = default;
 		
 		uint32								usage_count;	//! amount of time we have been required/used
+		size_t								size;			//! amount of bytes we store
 		std::unique_ptr<const char_type>	pdata;			//! stored inflated data
 	};
 	
 	typedef std::vector<uint64>						vec_ofs;
 	typedef std::vector<CacheInfo>					vec_info;
 	
-	static size_t gMemoryLimit;
+	static size_t									gMemoryLimit;
+	static size_t									gMemory;		// current used memory
+	
 	
 protected:
 	vec_ofs		m_ofs;
 	vec_info	m_info;
+	mutable size_t		m_mem;			//!< current memory allocation in bytes
+	
+#ifdef DEBUG
+	mutable uint32		m_hits;			// amount of overall cache hits
+	mutable uint32		m_calls;		// amount of calls, which is hits + misses
+	uint32				m_noccupied;	// amount of occupied entries
+#endif
 	
 protected:
 	//! convert an offset into an entry. Entry is hash_error if the offset wasn't found, but this shouldn't happen
 	inline uint32 offset_to_entry(uint64 offset) const;
 	
+	//! sets data, handling our memory counter correctly
+	inline void set_data(CacheInfo& info, size_t size, const char_type* data);
+	
 public:
-	PackCache() {};
+	PackCache();
 	
 public:
 	static size_t memory_limit() {
@@ -432,6 +446,11 @@ public:
 	//! If the cache is initialized, it does nothing
 	void initialize(const PackIndexFile& index);
 	
+	//! \return amount of used memory in bytes
+	size_t memory() const {
+		return m_mem;
+	}
+	
 	//! \return data pointer to the decompressed cache matching the given offset, or 0
 	//! if there is no such cache entry
 	//! \note behaviour undefined if !is_available()
@@ -439,12 +458,40 @@ public:
 	
 	//! provide cache information for the given offset
 	//! \param offset at which the data should be set
-	//! \param data to be taken into the cache. Should not be 0, but has no negative effects if it is 0.
-	//! The data will be owned by the cache, you must not deallocate it !
+	//! \param size of the data to be set
+	//! \param data to be taken into the cache. If 0, the cache will be deleted if it exists
+	//! The data will be owned by the cache, you must not deallocate it ! If 0 is passed in, 
+	//! size must be null as well.
 	//! \note has no effect if the cache entry is already set
 	//! \return true if the data is used by the cache and false if it was rejected as a memory limit was hit
 	//! if the cache was rejected, you remain responsible for your data
-	bool set_cache_at(uint64 offset, const char_type* data);
+	bool set_cache_at(uint64 offset, size_t size, const char_type* data);
+	
+#ifdef DEBUG
+	uint32 hits() const {
+		return m_hits;
+	}
+	
+	uint32 misses() const {
+		return m_calls - m_hits;
+	}
+	
+	uint32 requests() const {
+		return m_calls;
+	}
+	
+	uint32 num_occupied() const {
+		return m_noccupied;
+	}
+	
+	size_t struct_mem() const {
+		return sizeof(PackCache)
+		        + sizeof(vec_info::value_type)	*	m_info.size()
+		        + sizeof(vec_ofs::value_type)	*	m_ofs.size();
+	}
+	
+	void cache_info(std::ostream& out) const;
+#endif
 };
 
 /** \brief implementation of the gtl::odb_pack_file interface with support for git packs version 1 and 2

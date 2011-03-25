@@ -112,6 +112,9 @@ BOOST_AUTO_TEST_CASE(read_pack)
 				}
 				tbc = tbc / mb;
 				std::cerr << "Deserialized " << no << " " << *type << " objects totalling " << tbc <<   " MB in " << elapsed << " s (" << no / elapsed<< " objects/s and " << tbc / elapsed << " mb/s)" << std::endl;
+#ifdef DEBUG
+				std::for_each(podb.packs().begin(), podb.packs().end(), [](const PackODB::vector_pack_readers::value_type& p){p.get()->cache().cache_info(std::cerr);});
+#endif
 			}// end for each object type
 			
 			std::cerr << "Deserialized " << sno << " of " << no << " objects in " << deserialization_elapsed << " s (" << sno / deserialization_elapsed << " objects/s)" << std::endl;

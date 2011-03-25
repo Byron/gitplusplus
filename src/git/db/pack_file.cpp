@@ -6,20 +6,47 @@
 GIT_NAMESPACE_BEGIN
 
 size_t PackCache::gMemoryLimit = 0;
+size_t PackCache::gMemory = 0;
+
+PackCache::PackCache()
+    : m_mem(0)
+#ifdef DEBUG
+    , m_hits(0)
+    , m_calls(0)
+    , m_noccupied(0)
+#endif
+{}
 
 
 void PackCache::clear() 
 {
 	m_info.clear();
 	m_ofs.clear();
+	gMemory -= m_mem;
+	m_mem = 0;
+	
+#ifdef DEBUG
+	m_hits = 0;
+	m_calls = 0;
+	m_noccupied = 0;
+#endif
 }
+
+#ifdef DEBUG
+void PackCache::cache_info(std::ostream &out) const {
+	out << "###-> Pack " << this << " memory = " << m_mem  / 1000 << "kb, structure_mem[kb] = " << struct_mem() / 1000 << "kb, entries = " << m_ofs.size() << ", queries = " << m_calls;
+	out << ", hits = " << hits() << ", misses " << misses() << ", hit-ratio = " << (m_calls ? m_hits / (float)m_calls : 0.f);
+	out << std::endl;
+}
+
+#endif
 
 void PackCache::initialize(const PackIndexFile &index)
 {
 	if (is_available()){
 		return;
 	}
-	
+
 	const uint32 ne = index.num_entries();
 	m_ofs.reserve(ne);
 	m_info.resize(ne);
@@ -69,14 +96,31 @@ const char_type* PackCache::cache_at(uint64 offset) const
 	const CacheInfo& info = m_info[entry];
 	const_cast<CacheInfo&>(info).usage_count += 1;
 	
+#ifdef DEBUG
+	m_calls += 1;
+	m_hits += !!info.pdata;
+#endif
+	
 	return info.pdata.get();
 }
 
-bool PackCache::set_cache_at(uint64 offset, const char_type* data) 
+void PackCache::set_data(CacheInfo& info, size_t size, const char_type* data)
 {
-	CacheInfo& info = m_info[offset_to_entry(offset)];
+	gMemory -= m_mem;
+	m_mem -= info.size;
+	m_mem += size;
+	gMemory += m_mem;
 	info.pdata.reset(data);
-	// todo: handle memory limit
+	info.size = size;
+}
+
+bool PackCache::set_cache_at(uint64 offset, size_t size, const char_type* data) 
+{
+	if (size + m_mem > gMemoryLimit) {
+		// quick clean run ... 
+		return false;
+	}
+	set_data(m_info[offset_to_entry(offset)], size, data);
 	return true;
 }
 

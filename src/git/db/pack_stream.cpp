@@ -326,7 +326,7 @@ PackDevice::managed_const_char_ptr_array PackDevice::obtain_data(cursor_type& cu
 	decompress_some(cur, ofs+rofs, ddata, nb);
 	
 	return managed_const_char_ptr_array(cache.is_available() 
-	                                    ? !cache.set_cache_at(ofs, ddata)
+	                                    ? !cache.set_cache_at(ofs, nb, ddata)
 	                                    : true, ddata);
 }
 
