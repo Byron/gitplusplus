@@ -19,16 +19,65 @@ void PackCache::initialize(const PackIndexFile &index)
 	if (is_available()){
 		return;
 	}
+	
+	const uint32 ne = index.num_entries();
+	m_ofs.reserve(ne);
+	m_info.resize(ne);
+	
+	for (uint32 i = 0; i < ne; ++i) {
+		m_ofs.push_back(index.offset(i));
+	}
+	std::sort(m_ofs.begin(), m_ofs.end());
+}
+
+uint32 PackCache::offset_to_entry(uint64 offset) const
+{
+	assert(is_available());
+	
+	vec_ofs::const_iterator lo = m_ofs.begin();
+	vec_ofs::const_iterator hi = m_ofs.end();
+	vec_ofs::const_iterator mi;
+	
+	while (lo < hi) {
+	    mi = lo + (std::distance(lo, hi) / 2);
+	    
+	    if (*mi > offset) {
+		    hi = mi;
+	    } else if (*mi==offset) {
+		    return std::distance(m_ofs.begin(), mi);
+		} else {
+		    lo = mi + 1;
+		}
+	}
+	
+	assert(false);
+	return PackIndexFile::hash_unknown;
+	
+	// todo: test std implementation performance	
+	/*std::iterator_traits<vec_ofs::iterator>::distance_type count, step;
+	std::lower_boundvec_ofs::const_iterator first = m_ofs.begin();
+	vec_ofs::const_iterator end = m_ofs.end();
+	
+	std::lower_bound(first, end, offset);*/
 }
 
 const char_type* PackCache::cache_at(uint64 offset) const 
 {
-	return nullptr;
+	uint32 entry = offset_to_entry(offset);
+	
+	// increment its importance, no matter whether we have it or not
+	const CacheInfo& info = m_info[entry];
+	const_cast<CacheInfo&>(info).usage_count += 1;
+	
+	return info.pdata.get();
 }
 
 bool PackCache::set_cache_at(uint64 offset, const char_type* data) 
 {
-	return false;
+	CacheInfo& info = m_info[offset_to_entry(offset)];
+	info.pdata.reset(data);
+	// todo: handle memory limit
+	return true;
 }
 
 PackIndexFile::PackIndexFile()

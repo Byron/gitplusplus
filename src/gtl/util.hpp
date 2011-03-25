@@ -224,7 +224,10 @@ public:
 	    : managed_(rhs.managed_) 
 	    , p_(rhs.p_)
 	{
-		rhs.p_ = nullptr;	// we now own the data, in case rhs was managed
+		// we now own the data, in case rhs was managed
+		// could also unmanage it, but setting the pointer makes it clear
+		// that the rhs instance is not supposed to be used anymore.
+		rhs.p_ = nullptr;
 	}
 	
 	

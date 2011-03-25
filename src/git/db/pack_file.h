@@ -14,6 +14,8 @@
 #include <git/db/policy.hpp>
 #include <gtl/db/sliding_mmap_device.hpp>
 
+#include <memory>
+
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
 
@@ -255,7 +257,7 @@ public:
 		// of the boost::stream limitation, hence we will recreate it on demand.
 		m_pstream.destroy_safely();
 		return *this;
-	}	
+	}
 	
 	bool operator == (const PackOutputObject& rhs) const {
 		return (m_ppack == rhs.m_ppack) & (m_entry == rhs.m_entry);
@@ -375,11 +377,13 @@ protected:
 	struct CacheInfo {
 		CacheInfo(uint32 usage_count = 0, const char_type* data = nullptr)
 		    : usage_count(usage_count)
-		    , data(data)
+		    , pdata(data)
 		{}
 		
-		uint32				usage_count;	//! amount of time we have been required/used
-		const char_type*	data;			//! stored inflated data
+		CacheInfo(CacheInfo&&) = default;
+		
+		uint32								usage_count;	//! amount of time we have been required/used
+		std::unique_ptr<const char_type>	pdata;			//! stored inflated data
 	};
 	
 	typedef std::vector<uint64>						vec_ofs;
@@ -390,6 +394,10 @@ protected:
 protected:
 	vec_ofs		m_ofs;
 	vec_info	m_info;
+	
+protected:
+	//! convert an offset into an entry. Entry is hash_error if the offset wasn't found, but this shouldn't happen
+	inline uint32 offset_to_entry(uint64 offset) const;
 	
 public:
 	PackCache() {};

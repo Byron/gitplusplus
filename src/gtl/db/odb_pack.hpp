@@ -137,7 +137,7 @@ private:
 	
 protected:
 	typename vector_pack_readers::const_iterator		m_ipack;
-	const typename vector_pack_readers::const_iterator	m_ipack_end;
+	typename vector_pack_readers::const_iterator		m_ipack_end;
 	
 	bidirectional_iterator								m_ientry;
 	bidirectional_iterator								m_ientry_last;
