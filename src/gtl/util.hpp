@@ -196,6 +196,87 @@ struct stack_heap_autodestruct : public stack_heap<Type>
 };
 
 
+/** \brief scoped_ptr like type which allows the user to determine whether he wants to auto-delete the associated
+  * memory or not.
+  * The given pointer must be an array so it can be deleted with delete [] accordingly
+  */
+template <class T>
+class managed_ptr_array : public boost::noncopyable
+{
+protected:
+	bool managed_;
+	T* p_;
+	
+public:
+	typedef managed_ptr_array<T>	this_type;
+	typedef T						element_type;
+	
+	//! Initialize the instance with a pointer. If managed is true, the pointer will be deleted upon our destruction
+	managed_ptr_array(bool managed = false, T* p = nullptr)
+	    : managed_(managed)
+	    , p_(p) {}
+	
+	~managed_ptr_array() {
+		reset();
+	}
+	
+	managed_ptr_array(this_type&& rhs) 
+	    : managed_(rhs.managed_) 
+	    , p_(rhs.p_)
+	{
+		rhs.p_ = nullptr;	// we now own the data, in case rhs was managed
+	}
+	
+	
+public:
+	//! possibly delete the contained pointer and store the given pointer instead
+	void reset(T* p = 0) {
+		if (managed_ && p_ != nullptr) {
+			delete [] p_;
+		}
+		p_ = p;
+	}
+	
+	//! \return stored pointer and stop managing it
+	T* release() {
+		T* tmp = p_;
+		p_ = nullptr;
+		return tmp;
+	}
+	
+	//! \return stored pointer, and stop managing its lifetime. The pointer will remain within this instance though
+	T* unmanage() {
+		managed_ = false;
+		return p_;
+	}
+	
+	//! Take the pointer from rhs and copy its management state, while unmanaging the pointer on rhs.
+	void take_ownership(this_type& rhs) {
+		bool rhs_managed = rhs.is_managed();
+		reset(rhs.unmanage());
+		managed_ = rhs_managed;
+	}
+	
+	//! \return true if this instance manages the associated data, hence it deletes it upon destruction
+	bool is_managed() const {
+		return managed_;
+	}
+	
+	//! \return our managed pointer
+	T* get() const {
+		return const_cast<this_type*>(this)->p_;
+	}
+	
+	T& operator[] (ptrdiff_t i) const {
+		return const_cast<this_type*>(this)->p_[i];
+	}
+	
+	//! \return true if our pointer is not a nullptr
+	operator bool () const {
+		return p_ != nullptr;
+	}
+};
+
 /** \brief Heap which, as opposed to the stack_heap_autodestruct, allows you to set a flag to enable or disable
   * whether it should auto-destroy itself. After each destruction, it will reset its flag to allow it to be filled
   * (and destroyed) once again
