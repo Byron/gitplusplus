@@ -18,7 +18,7 @@ using namespace git;
 namespace io = boost::iostreams;
 using boost::timer;
 
-const size_t mb = 1024*1024;
+const size_t mb = 1000*1000;
 
 gtl::mapped_memory_manager<> manager;
 
@@ -73,6 +73,7 @@ BOOST_AUTO_TEST_CASE(read_pack)
 		
 		for (auto type = types.begin(); type != types.end(); ++type) {
 			size_t no = 0;	// num objects
+			size_t tbc = 0;	// total size of each object type
 			size_t failures = 0;
 			double elapsed = 0.0;
 			timer t;
@@ -81,6 +82,7 @@ BOOST_AUTO_TEST_CASE(read_pack)
 				BOOST_REQUIRE(beg->type() != ObjectType::None);
 				try {
 					beg->deserialize(mobj);
+					tbc += beg->size();
 				} catch (const std::exception& err) {
 					std::cerr << beg.key() << " failed: " << err.what() << std::endl;
 					++failures;
@@ -97,8 +99,8 @@ BOOST_AUTO_TEST_CASE(read_pack)
 			if (failures) {
 				std::cerr << "Failed to deserialized " << failures << " " << *type << " objects" << std::endl;
 			}
-			std::cerr << "Deserialized " << no << " " << *type << " objects in " << elapsed << " s (" << no / elapsed<< " objects/s)" << std::endl;
-			BOOST_REQUIRE(no != 0);
+			tbc = tbc / mb;
+			std::cerr << "Deserialized " << no << " " << *type << " objects totalling " << tbc <<   " MB in " << elapsed << " s (" << no / elapsed<< " objects/s and " << tbc / elapsed << " mb/s)" << std::endl;
 		}// end for each object type
 		
 		std::cerr << "Deserialized " << sno << " of " << no << " objects in " << deserialization_elapsed << " s (" << sno / deserialization_elapsed << " objects/s)" << std::endl;
@@ -124,6 +126,6 @@ BOOST_AUTO_TEST_CASE(read_pack)
 		}
 		streaming_elapsed = t.elapsed();
 		const double tmb = tbc / mb;
-		std::cerr << "Streamed " << no  << " objects totalling " << tmb <<  " MB in " << streaming_elapsed << " s (" << no / streaming_elapsed<< " streams/s & " << tmb / streaming_elapsed  << " MB/s)" << std::endl;
+		std::cerr << "Streamed " << no  << " objects totalling " << tmb <<  " mb in " << streaming_elapsed << " s (" << no / streaming_elapsed<< " streams/s & " << tmb / streaming_elapsed  << " mb/s)" << std::endl;
 	}
 }

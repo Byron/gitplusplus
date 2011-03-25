@@ -7,6 +7,32 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY lib)
 
+# add the profiling configuration. Its essentially the release config, but
+# compiles with profiling instructions, enabling gprof
+if(CMAKE_CONFIGURATION_TYPES)
+	list(APPEND CMAKE_CONFIGURATION_TYPES Profile)
+	list(REMOVE_DUPLICATES CMAKE_CONFIGURATION_TYPES)
+	set(CMAKE_CONFIGURATION_TYPES "${CMAKE_CONFIGURATION_TYPES}" CACHE STRING
+		"Add the configurations that we need"
+		FORCE)
+endif()
+
+SET( CMAKE_CXX_FLAGS_PROFILE "-O3 -DNDEBUG -pg" CACHE STRING
+    "Flags used by the C++ compiler during PROFILE builds."
+    FORCE )
+SET( CMAKE_EXE_LINKER_FLAGS_PROFILE
+    "-pg" CACHE STRING
+    "Flags used for linking binaries during PROFILE builds."
+    FORCE )
+SET( CMAKE_SHARED_LINKER_FLAGS_PROFILE
+    "-pg" CACHE STRING
+    "Flags used by the shared libraries linker during PROFILE builds."
+    FORCE )
+MARK_AS_ADVANCED(
+    CMAKE_CXX_FLAGS_PROFILE
+    CMAKE_EXE_LINKER_FLAGS_PROFILE
+    CMAKE_SHARED_LINKER_FLAGS_PROFILE )
+
 #CMAKE SETUP AND CONFIGURATION
 ###############################
 # setup modules

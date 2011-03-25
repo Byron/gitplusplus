@@ -62,12 +62,12 @@ public:
 public:
 	
 	//! \return map with our elements for modification
-	map_type& elements() {
+	inline map_type& elements() {
 		return m_cache;
 	}
 	
 	//! \return read-only elements
-	const map_type& elements() const {
+	inline const map_type& elements() const {
 		return m_cache;
 	}
 };

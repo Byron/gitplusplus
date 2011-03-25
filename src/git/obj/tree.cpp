@@ -40,6 +40,7 @@ git_basic_istream& operator >> (git_basic_istream& stream, Tree& inst)
 	char_type c;
 	string name;		// reuse possibly reserved memory
 	name.reserve(64);	// optimize allocation
+	auto& elements = inst.elements();
 	
 	while (stream.good())
 	{
@@ -71,7 +72,11 @@ git_basic_istream& operator >> (git_basic_istream& stream, Tree& inst)
 		stream.read(elm.key.bytes(), Tree::key_type::hash_len);
 		
 		// add new element
-		inst.elements().insert(Tree::map_type::value_type(name, std::move(elm)));
+		// NOTE: using the insertion position version is a bit faster in our case, as we have sorted entries already
+		// PERF NOTE: Not inserting any element boosts speed from 18.5MB/s to 25 MB/s. Inserting it into a vector instead
+		// brings it to 22.5MB/s. It could be okay to use a union, first put it into a vector, but convert it into a 
+		// map on first access. This would speed up reading
+		elements.insert(elements.size() ? --elements.end() : elements.begin(), Tree::map_type::value_type(name, std::move(elm)));
 	}// while stream is available
 	
 	// NOTE: Empty trees are possible and allowed - one of them exists in the
