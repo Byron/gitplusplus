@@ -24,5 +24,9 @@ size_t PackODB::cache_memory_limit() const
 	return PackCache::memory_limit();
 }
 
+size_t PackODB::cache_memory() const {
+	return PackCache::total_memory();
+}
+
 
 GIT_NAMESPACE_END 

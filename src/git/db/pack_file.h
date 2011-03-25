@@ -378,15 +378,15 @@ public:
 	
 protected:
 	struct CacheInfo {
-		CacheInfo(uint32 usage_count = 0, size_t size = 0, const char_type* data = nullptr)
-		    : usage_count(usage_count)
+		CacheInfo(uint32 importance = 0, size_type size = 0, const char_type* data = nullptr)
+		    : importance(importance)
 		    , size(0)
 		    , pdata(data)
 		{}
 		
 		CacheInfo(CacheInfo&&) = default;
 		
-		uint32								usage_count;	//! amount of time we have been required/used
+		uint32								importance;	//! amount of time we have been required/used
 		size_type							size;			//! amount of bytes we store
 		std::unique_ptr<const char_type>	pdata;			//! stored inflated data
 	};
@@ -394,19 +394,23 @@ protected:
 	typedef std::vector<uint64>						vec_ofs;
 	typedef std::vector<CacheInfo>					vec_info;
 	
-	static size_type									gMemoryLimit;
-	static size_type									gMemory;		// current used memory
+	static size_t									gMemoryLimit;
+	static size_t									gMemory;		// current used memory
 	
 	
 protected:
-	vec_ofs		m_ofs;
-	vec_info	m_info;
-	mutable size_type		m_mem;			//!< current memory allocation in bytes
+	vec_ofs				m_ofs;
+	vec_info			m_info;
+	mutable size_t		m_mem;					//!< current memory allocation in bytes
+	mutable uint32		m_total_importance;		//!< importance we issued to our entries
+	
 	
 #ifdef DEBUG
 	mutable uint32		m_hits;			// amount of overall cache hits
-	mutable uint32		m_calls;		// amount of calls, which is hits + misses
-	uint32				m_noccupied;	// amount of occupied entries
+	mutable uint32		m_nrequests;	// amount of total cache requests
+	uint32				m_noccupied;	// estimated amount of occupied entries
+	uint32				m_ncollect;		// amount of collect calls
+	size_t				m_mem_collected;// amount of memory collected
 #endif
 	
 protected:
@@ -416,11 +420,15 @@ protected:
 	//! sets data, handling our memory counter correctly
 	inline void set_data(CacheInfo& info, size_type size, const char_type* data);
 	
+	//! free at least the given amount of memory. Try to be smart by keeping old objects which were useful often.
+	//! We basically remove all generations below a required minimum, to keep the runs short and effective
+	size_t collect(size_t bytes_to_free);
+	
 public:
 	PackCache();
 	
 public:
-	static size_type memory_limit() {
+	static size_t memory_limit() {
 		return gMemoryLimit;
 	}
 	
@@ -428,7 +436,7 @@ public:
 	//! \param limit if 0, the cache is effectively deactivated
 	//! \note if the limit is reduced, the collection will start when the next one tries to insert
 	//! data. If you want to clear the cache, use the clear() method and set the memory limit to 0
-	static void set_memory_limit(size_type limit) {
+	static void set_memory_limit(size_t limit) {
 		gMemoryLimit = limit;
 	}
 	
@@ -454,6 +462,11 @@ public:
 		return m_mem;
 	}
 	
+	//! \return amount of memory used in all pack caches
+	static size_t total_memory() {
+		return gMemory;
+	}
+	
 	//! \return data pointer to the decompressed cache matching the given offset, or 0
 	//! if there is no such cache entry
 	//! \note behaviour undefined if !is_available()
@@ -476,11 +489,11 @@ public:
 	}
 	
 	uint32 misses() const {
-		return m_calls - m_hits;
+		return m_total_importance - m_hits;
 	}
 	
 	uint32 requests() const {
-		return m_calls;
+		return m_total_importance;
 	}
 	
 	uint32 num_occupied() const {

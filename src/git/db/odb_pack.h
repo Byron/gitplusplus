@@ -31,6 +31,8 @@ public:
 	void set_cache_memory_limit(size_t limit) const;
 	
 	size_t cache_memory_limit() const;
+	
+	size_t cache_memory() const;
 };
 
 

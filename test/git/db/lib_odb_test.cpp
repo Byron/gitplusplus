@@ -616,6 +616,7 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 				br = stream->gcount();
 			} while (br == static_cast<std::streamsize>(buflen));
 			stream.destroy();
+			BOOST_REQUIRE(podb.cache_memory() <= *it);
 		}
 	}
 	

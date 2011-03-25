@@ -5,15 +5,19 @@
 
 GIT_NAMESPACE_BEGIN
 
-PackCache::size_type PackCache::gMemoryLimit = 0;
-PackCache::size_type PackCache::gMemory = 0;
+size_t PackCache::gMemoryLimit = 0;
+size_t PackCache::gMemory = 0;
 
 PackCache::PackCache()
     : m_mem(0)
+    , m_total_importance(0)
 #ifdef DEBUG
     , m_hits(0)
-    , m_calls(0)
+    , m_nrequests(0)
     , m_noccupied(0)
+    , m_ncollect(0)
+    , m_mem_collected(0)
+    
 #endif
 {}
 
@@ -24,21 +28,26 @@ void PackCache::clear()
 	m_ofs.clear();
 	gMemory -= m_mem;
 	m_mem = 0;
+	m_total_importance = 0;
 	
 #ifdef DEBUG
 	m_hits = 0;
-	m_calls = 0;
 	m_noccupied = 0;
+	m_ncollect = 0;
+	m_mem_collected = 0;
+	m_nrequests = 0;
 #endif
 }
 
 #ifdef DEBUG
 void PackCache::cache_info(std::ostream &out) const {
-	out << "###-> Pack " << this << " memory = " << m_mem  / 1000 << "kb, structure_mem[kb] = " << struct_mem() / 1000 << "kb, entries = " << m_ofs.size() << ", queries = " << m_calls;
-	out << ", hits = " << hits() << ", misses " << misses() << ", hit-ratio = " << (m_calls ? m_hits / (float)m_calls : 0.f);
-	out << std::endl;
+	out << "###-> Pack " << this << " memory = " << m_mem  / 1000 << "kb, structure_mem[kb] = " 
+	    << struct_mem() / 1000 << "kb, entries = " << m_ofs.size() << ", queries = " << m_nrequests
+		<< ", occupied = " << m_noccupied << ", hits = " << hits() << ", misses " << misses()
+		<< ", hit-ratio = " << (m_nrequests ? m_hits / (float)m_nrequests : 0.f)
+		<< ", collects = " << m_ncollect << ", memory collected = " << m_mem_collected / 1000 << "kb"
+		<< std::endl;
 }
-
 #endif
 
 void PackCache::initialize(const PackIndexFile &index)
@@ -88,16 +97,46 @@ uint32 PackCache::offset_to_entry(uint64 offset) const
 	std::lower_bound(first, end, offset);*/
 }
 
+size_t PackCache::collect(size_t bytes_to_free)
+{
+#ifdef DEBUG
+	m_ncollect += 1;
+#endif
+	size_t bf = 0;	// bytes freed
+	
+	// we cut away all entries with an importance less than average one.
+	// To be sure we reach our limit, we start smaller, but raise the importance 
+	// on each step until we have reached our goal.
+	// We always do full runs which means we could possibly truncate quite a lot of our data
+	const vec_info::iterator end = m_info.end();
+	for (float mult = 0.5f; bf < bytes_to_free && m_mem; mult += 0.5f){
+		uint32 avg_importance = static_cast<uint32>(mult * (m_total_importance / (float)m_ofs.size()));
+		for (vec_info::iterator beg = m_info.begin(); beg < end; ++beg) {
+			if (beg->importance < avg_importance) {
+				CacheInfo& info = *beg;
+				bf += info.size;
+				set_data(info, 0, nullptr);
+			}
+		}// for each info item
+	}// while there are bytes to free
+	
+#ifdef DEBUG
+	m_mem_collected += bf;
+#endif
+	return bf;
+}
+
 const char_type* PackCache::cache_at(uint64 offset) const 
 {
 	uint32 entry = offset_to_entry(offset);
 	
 	// increment its importance, no matter whether we have it or not
 	const CacheInfo& info = m_info[entry];
-	const_cast<CacheInfo&>(info).usage_count += 1;
+	const_cast<CacheInfo&>(info).importance += 1;
+	m_total_importance += 1;
 	
 #ifdef DEBUG
-	m_calls += 1;
+	m_nrequests += 1;
 	m_hits += !!info.pdata;
 #endif
 	
@@ -106,19 +145,27 @@ const char_type* PackCache::cache_at(uint64 offset) const
 
 void PackCache::set_data(CacheInfo& info, size_type size, const char_type* data)
 {
+	// Note: We explicitly don't remove importance if the entry is zeroed, as we currently
+	// unconditionally add importance on each request
 	gMemory -= m_mem;
 	m_mem -= info.size;
 	m_mem += size;
 	gMemory += m_mem;
 	info.pdata.reset(data);
 	info.size = size;
+	
+#ifdef DEBUG
+	m_noccupied += data ? 1 : -1;
+#endif
 }
 
 bool PackCache::set_cache_at(uint64 offset, size_type size, const char_type* data) 
 {
-	if (size + m_mem > gMemoryLimit) {
-		// quick clean run ... 
-		return false;
+	if (size + gMemory > gMemoryLimit) {
+		collect(size);
+		if (size + gMemory > gMemoryLimit) {
+			return false;
+		}
 	}
 	set_data(m_info[offset_to_entry(offset)], size, data);
 	return true;
