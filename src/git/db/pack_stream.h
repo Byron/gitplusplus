@@ -57,7 +57,10 @@ class PackDevice : protected gtl::zlib_file_source<mapped_memory_manager_type>
 {
 public:
 	typedef git_object_traits_base::key_type			key_type;
-	typedef git_object_traits_base::size_type			size_type;
+	// packs only use 32 bit max
+	typedef uint32										size_type;
+	typedef git_object_traits_base::size_type			obj_size_type;
+	
 	typedef git_object_traits_base::char_type			char_type;
 	typedef std::pair<char_type*, char_type*>			char_range;
 	typedef git_object_traits_base::object_type			object_type;
@@ -76,7 +79,7 @@ protected:
 	struct PackInfo
 	{
 		PackedObjectType	type;	//!< object type
-		size_type			size;	//!< uncompressed size in bytes
+		obj_size_type		size;	//!< uncompressed size in bytes
 		uint64				ofs;	//!< absolute offset into the pack at which this information was retrieved
 		uchar				rofs;	//!< relative offset from the type byte to the compressed stream
 	
@@ -113,12 +116,12 @@ protected:
 	//! for deallocation, using delete []
 	//! \param out_size amount of bytes allocated in the returned buffer
 	//! \throw std::bad_alloc() or ParseError
-	managed_const_char_ptr_array unpack_object_recursive(cursor_type& cur, const PackInfo& info, uint64& out_size);
+	managed_const_char_ptr_array unpack_object_recursive(cursor_type& cur, const PackInfo& info, obj_size_type& out_size);
 	
 	//! Apply the encoded delta stream using the base buffer and write the result into the target buffer
 	//! The base buffer is assumed to be able to serve all requests from the delta stream, the destination
 	//! buffer must have the correct final size.
-	void apply_delta(const char_type* base, char_type* dest, const char_type* delta, size_t deltalen) const;
+	void apply_delta(const char_type* base, char_type* dest, const char_type* delta, size_type deltalen) const;
 	
 	//! Resolve all deltas and store the result in memory
 	void assure_data() const;
@@ -133,7 +136,7 @@ protected:
 	//! \param ofs absolute offset of the delta's entry into the pack, to where the zstream starts
 	//! \return number of bytes read from the data at offset
 	//! \note this partly decompresses the stream
-	uint delta_size(cursor_type& cur, uint64 ofs, uint64& base_size, uint64& target_size);
+	uint delta_size(cursor_type& cur, uint64 ofs, size_type& base_size, size_type& target_size);
 	
 	//! Obtains the data at the given offset either from the cache or by decompressing it.
 	//! Data will be put into the cache in case we decompressed it.
@@ -143,7 +146,7 @@ protected:
 	//! \param nb amount of bytes to read. The amount is assumed to be the target size of the fully 
 	//! decompressed zstream.
 	//! \return managed_ptr_array with the data. It will deal with the deallocation of the included pointer as needed
-	inline managed_const_char_ptr_array obtain_data(cursor_type& cur, stream_offset ofs, uint32 rofs, uint64 nb);
+	inline managed_const_char_ptr_array obtain_data(cursor_type& cur, stream_offset ofs, uint32 rofs, size_type nb);
 	
 	//! Decompress all bytes from the cursor (it must be set to the correct first byte)
 	//! and continue decompression until the end of the stream or until our destination buffer
@@ -153,12 +156,13 @@ protected:
 	//! \param nb amount of bytes to decompress
 	//! \param max_input_chunk_size if not 0, the amount of bytes we should put in per iteration. Use this if you only have a few
 	//! input bytes  and don't want it to decompress more than necessary
-	void decompress_some(cursor_type& cur, stream_offset ofs, char_type* dest, uint64 nb, size_t max_input_chunk_size = 0);
+	void decompress_some(cursor_type& cur, stream_offset ofs, char_type* dest, size_type nb, size_type max_input_chunk_size = 0);
 	
 protected:
 	const PackFile&			m_pack;				//!< pack that contains this object
 	uint32					m_entry;			//!< pack entry we refer to
 	mutable object_type		m_type;				//!< type of the underlying object, None by default
+	mutable obj_size_type	m_obj_size;			//!< uncompressed size of the object
 	mutable managed_const_char_ptr_array	m_data;	//!< pointer to fully undeltified object data.
 	
 public:
@@ -190,7 +194,7 @@ public:
 	
 	size_type size() const {
 		assure_object_info();
-		return m_size;
+		return m_obj_size;
 	}
 	
 	//! \return amount of deltas required to compute this object. 0 if the object is not deltified

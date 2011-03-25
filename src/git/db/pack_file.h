@@ -373,6 +373,9 @@ public:
   */ 
 class PackCache
 {
+public:
+	typedef uint32		size_type;		// currently we only support 32 bit sizes, as the pack can 
+	
 protected:
 	struct CacheInfo {
 		CacheInfo(uint32 usage_count = 0, size_t size = 0, const char_type* data = nullptr)
@@ -384,21 +387,21 @@ protected:
 		CacheInfo(CacheInfo&&) = default;
 		
 		uint32								usage_count;	//! amount of time we have been required/used
-		size_t								size;			//! amount of bytes we store
+		size_type							size;			//! amount of bytes we store
 		std::unique_ptr<const char_type>	pdata;			//! stored inflated data
 	};
 	
 	typedef std::vector<uint64>						vec_ofs;
 	typedef std::vector<CacheInfo>					vec_info;
 	
-	static size_t									gMemoryLimit;
-	static size_t									gMemory;		// current used memory
+	static size_type									gMemoryLimit;
+	static size_type									gMemory;		// current used memory
 	
 	
 protected:
 	vec_ofs		m_ofs;
 	vec_info	m_info;
-	mutable size_t		m_mem;			//!< current memory allocation in bytes
+	mutable size_type		m_mem;			//!< current memory allocation in bytes
 	
 #ifdef DEBUG
 	mutable uint32		m_hits;			// amount of overall cache hits
@@ -411,13 +414,13 @@ protected:
 	inline uint32 offset_to_entry(uint64 offset) const;
 	
 	//! sets data, handling our memory counter correctly
-	inline void set_data(CacheInfo& info, size_t size, const char_type* data);
+	inline void set_data(CacheInfo& info, size_type size, const char_type* data);
 	
 public:
 	PackCache();
 	
 public:
-	static size_t memory_limit() {
+	static size_type memory_limit() {
 		return gMemoryLimit;
 	}
 	
@@ -425,7 +428,7 @@ public:
 	//! \param limit if 0, the cache is effectively deactivated
 	//! \note if the limit is reduced, the collection will start when the next one tries to insert
 	//! data. If you want to clear the cache, use the clear() method and set the memory limit to 0
-	static void set_memory_limit(size_t limit) {
+	static void set_memory_limit(size_type limit) {
 		gMemoryLimit = limit;
 	}
 	
@@ -447,7 +450,7 @@ public:
 	void initialize(const PackIndexFile& index);
 	
 	//! \return amount of used memory in bytes
-	size_t memory() const {
+	size_type memory() const {
 		return m_mem;
 	}
 	
@@ -465,7 +468,7 @@ public:
 	//! \note has no effect if the cache entry is already set
 	//! \return true if the data is used by the cache and false if it was rejected as a memory limit was hit
 	//! if the cache was rejected, you remain responsible for your data
-	bool set_cache_at(uint64 offset, size_t size, const char_type* data);
+	bool set_cache_at(uint64 offset, size_type size, const char_type* data);
 	
 #ifdef DEBUG
 	uint32 hits() const {
@@ -484,7 +487,7 @@ public:
 		return m_noccupied;
 	}
 	
-	size_t struct_mem() const {
+	size_type struct_mem() const {
 		return sizeof(PackCache)
 		        + sizeof(vec_info::value_type)	*	m_info.size()
 		        + sizeof(vec_ofs::value_type)	*	m_ofs.size();

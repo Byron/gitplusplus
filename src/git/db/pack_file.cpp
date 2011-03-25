@@ -5,8 +5,8 @@
 
 GIT_NAMESPACE_BEGIN
 
-size_t PackCache::gMemoryLimit = 0;
-size_t PackCache::gMemory = 0;
+PackCache::size_type PackCache::gMemoryLimit = 0;
+PackCache::size_type PackCache::gMemory = 0;
 
 PackCache::PackCache()
     : m_mem(0)
@@ -104,7 +104,7 @@ const char_type* PackCache::cache_at(uint64 offset) const
 	return info.pdata.get();
 }
 
-void PackCache::set_data(CacheInfo& info, size_t size, const char_type* data)
+void PackCache::set_data(CacheInfo& info, size_type size, const char_type* data)
 {
 	gMemory -= m_mem;
 	m_mem -= info.size;
@@ -114,7 +114,7 @@ void PackCache::set_data(CacheInfo& info, size_t size, const char_type* data)
 	info.size = size;
 }
 
-bool PackCache::set_cache_at(uint64 offset, size_t size, const char_type* data) 
+bool PackCache::set_cache_at(uint64 offset, size_type size, const char_type* data) 
 {
 	if (size + m_mem > gMemoryLimit) {
 		// quick clean run ... 
