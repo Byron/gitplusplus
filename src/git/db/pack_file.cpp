@@ -5,6 +5,31 @@
 
 GIT_NAMESPACE_BEGIN
 
+size_t PackCache::gMemoryLimit = 0;
+
+
+void PackCache::clear() 
+{
+	m_info.clear();
+	m_ofs.clear();
+}
+
+void PackCache::initialize(const PackIndexFile &index)
+{
+	if (is_available()){
+		return;
+	}
+}
+
+const char_type* PackCache::cache_at(uint64 offset) const 
+{
+	return nullptr;
+}
+
+bool PackCache::set_cache_at(uint64 offset, const char_type* data) 
+{
+	return false;
+}
 
 PackIndexFile::PackIndexFile()
 {

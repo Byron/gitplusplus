@@ -251,7 +251,7 @@ public:
 	}
 	
 	//! Take the pointer from rhs and copy its management state, while unmanaging the pointer on rhs.
-	void take_ownership(this_type& rhs) {
+	void take_ownership(this_type&& rhs) {
 		bool rhs_managed = rhs.is_managed();
 		reset(rhs.unmanage());
 		managed_ = rhs_managed;

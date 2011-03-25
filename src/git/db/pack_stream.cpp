@@ -11,7 +11,7 @@ GIT_NAMESPACE_BEGIN
 //! @{ Utilties
 
 
-void PackDevice::decompress_some(cursor_type& cur, char_type* dest, uint64 nb, size_t max_input_chunk_size)
+void PackDevice::decompress_some(cursor_type& cur, stream_offset ofs, char_type* dest, uint64 nb, size_t max_input_chunk_size)
 {
 	assert(cur.is_valid());
 	if(m_stream.mode() != gtl::zlib_stream::Mode::Decompress) {
@@ -21,8 +21,6 @@ void PackDevice::decompress_some(cursor_type& cur, char_type* dest, uint64 nb, s
 	}
 	
 	this->m_stat = Z_OK;
-	
-	stream_offset ofs = cur.ofs_begin();
 	
 	// As zip can only take 32 bit numbers, we must chop up the operation
 	const uint64 chunk_size = 1024*1024*16;
@@ -254,14 +252,11 @@ void PackDevice::apply_delta(const char_type* base, char_type* dest, const char_
 	
 }
 
-char_type* PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo& info, uint64& out_size)
+PackDevice::managed_const_char_ptr_array PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo& info, uint64& out_size)
 {
 	assert(info.type != PackedObjectType::Bad);
-	typedef boost::scoped_array<char_type> pchar_type;
 	
 	//! NOTE: We allocate the memory late to prevent excessive memory use during recursion
-	char_type* dest = nullptr;
-	
 	switch (info.type)
 	{
 	case PackedObjectType::Commit:
@@ -269,12 +264,8 @@ char_type* PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo&
 	case PackedObjectType::Blob:
 	case PackedObjectType::Tag:
 	{
-		dest = new char_type[info.size];
 		out_size = info.size;
-		// base object, just decompress the stream  and return the information
-		// Size doesn't really matter as the window will slide
-		cur.use_region(info.ofs+info.rofs, info.size/2);
-		decompress_some(cur, dest, info.size);
+		return obtain_data(cur, info.ofs, info.rofs, info.size);
 		break;
 	}
 	case PackedObjectType::OfsDelta:
@@ -291,15 +282,11 @@ char_type* PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo&
 		
 		// obtain base and decompress the delta to apply it
 		info_at_offset(cur, next_info);
-		pchar_type base_data(unpack_object_recursive(cur, next_info, out_size));	// base memory
-		
-		pchar_type ddata(new char_type[info.size]);		// delta memory
-		char_type* pddata = ddata.get();		//!< pointer to delta data
+		managed_const_char_ptr_array base_data(unpack_object_recursive(cur, next_info, out_size));	// base memory
+		managed_const_char_ptr_array ddata(obtain_data(cur, info.ofs, info.rofs, info.size));		// delta memory
 		const char_type* cpddata = ddata.get(); //!< const pointer to delta data
-		cur.use_region(info.ofs+info.rofs, info.size/2);
-		decompress_some(cur, pddata, info.size);
 		
-		auto base_size = msb_len(cpddata);
+		uint64 base_size = msb_len(cpddata);
 		if (base_size != out_size) {
 			ParseError err;
 			err.stream() << "Base buffer length didn't match the parsed information: " << out_size << " != " << base_size;
@@ -311,9 +298,9 @@ char_type* PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo&
 		out_size = msb_len(cpddata);
 		
 		// Allocate memory to keep the destination and apply delta
-		dest = new char_type[out_size];
-		apply_delta(base_data.get(), dest, cpddata, info.size - (cpddata - pddata));
-		
+		char_type* dest = new char_type[out_size];
+		apply_delta(base_data.get(), dest, cpddata, info.size - (cpddata - ddata.get()));
+		return managed_const_char_ptr_array(true, dest);
 		break;
 	}
 	default: 
@@ -322,7 +309,25 @@ char_type* PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo&
 	}
 	};// end type switch
 	
-	return dest;
+	// compiler doesn't realize that the control can't ever get here, so we give it what it wants
+	return managed_const_char_ptr_array();
+}
+
+PackDevice::managed_const_char_ptr_array PackDevice::obtain_data(cursor_type& cur, stream_offset ofs, 
+                                                                       uint32 rofs, uint64 nb) 
+{
+	PackCache& cache = m_pack.cache();
+	const char_type* cdata;
+	if (cache.is_available() && (cdata = cache.cache_at(ofs)) != nullptr) {
+		return managed_const_char_ptr_array(false, cdata);
+	}
+
+	char_type* ddata = new char_type[nb];
+	decompress_some(cur, ofs+rofs, ddata, nb);
+	
+	return managed_const_char_ptr_array(cache.is_available() 
+	                                    ? !cache.set_cache_at(cur.ofs_begin(), ddata)
+	                                    : true, ddata);
 }
 
 std::streamsize PackDevice::read(char_type* s, std::streamsize n)
@@ -351,7 +356,7 @@ std::streamsize PackDevice::read(char_type* s, std::streamsize n)
 		
 		// if we have deltas, there is no other way than extracting it into memory, one way or another.
 		if (info.is_delta()) {
-			m_data.reset(unpack_object_recursive(cur, info, m_size));
+			m_data.take_ownership(unpack_object_recursive(cur, info, m_size));
 			this->m_nb = this->m_size;
 		} else {
 			this->set_window(parent_type::max_length, info.ofs+info.rofs);
@@ -371,9 +376,9 @@ std::streamsize PackDevice::read(char_type* s, std::streamsize n)
 
 uint PackDevice::delta_size(cursor_type& cur, uint64 ofs, uint64& base_size, uint64& target_size)
 {
+	// TODO: Try to use the cache manually
 	char_type delta_header[20];	// can handle two 64 bit numbers
-	cur.use_region(ofs, 20);
-	decompress_some(cur, delta_header, 20, 128);	// should process 128 bytes in one go
+	decompress_some(cur, ofs, delta_header, 20, 128);	// should process 128 bytes in one go
 	
 	const char_type* data = delta_header;
 	base_size = msb_len(data);

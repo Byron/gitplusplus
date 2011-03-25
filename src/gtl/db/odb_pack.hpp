@@ -301,6 +301,20 @@ public:
 		return m_packs;
 	}
 	
+	//! Set the amount of bytes the implementation may use to cache decompressed streams
+	//! If set to zero, the implementation should automatically 
+	//! release all previously used memory.
+	//! \note it is up to the implementation whether the given value should be used per pack database
+	//! or globally, per application.
+	//! \note by default, the cache is disabled
+	//! \note this method is constant as the cache system is a background detail which itself does not
+	//! interfere with the constness of the database. Instead, you should be able to set it up when reading
+	//! the database according to your needs.
+	void set_cache_memory_limit(size_t limit) const {}
+		
+	//! \return the current memory limit. If 0, the cache is disabled
+	size_t cache_memory_limit() const { return 0; }
+	
 	//! @} end pack interface
 	
 	//! @{ odb interface

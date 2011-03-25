@@ -353,6 +353,92 @@ public:
 };
 
 
+/** \brief cache containing decompressed delta streams and base objects
+  * During decompression of extremely deltified packs, the actual decompression takes the most
+  * time in the process. Hence it is viable to cache decompressed deltas and bases as defined by 
+  * certain limits.
+  * The cache, once initialized, contains one entry per index entry which keeps the data and a hit
+  * count to signal importance. Also you can quickly map an offset to the respective index, as we maintain
+  * an offset-sorted list we can bisect in. The index of the offset denotes the entry at which we can find
+  * additional information.
+  * The client, before decompressing anything, queries the cache for decompressed data. If it exists, it will
+  * be used. Otherwise, it decompresses the data itself and afterwards calls the cache to take a copy of the 
+  * decompressed data so it may be found in future.
+  * The type uses a global counter to set shared (global) memory limits. If the limit is reached, we prune 
+  * out least recently used items, and advance all others to the next generation, increasing our own generation
+  * gap.
+  * By default, the cache is deactivated
+  */ 
+class PackCache
+{
+protected:
+	struct CacheInfo {
+		CacheInfo(uint32 usage_count = 0, const char_type* data = nullptr)
+		    : usage_count(usage_count)
+		    , data(data)
+		{}
+		
+		uint32				usage_count;	//! amount of time we have been required/used
+		const char_type*	data;			//! stored inflated data
+	};
+	
+	typedef std::vector<uint64>						vec_ofs;
+	typedef std::vector<CacheInfo>					vec_info;
+	
+	static size_t gMemoryLimit;
+	
+protected:
+	vec_ofs		m_ofs;
+	vec_info	m_info;
+	
+public:
+	PackCache() {};
+	
+public:
+	static size_t memory_limit() {
+		return gMemoryLimit;
+	}
+	
+	//! Set the memory limit
+	//! \param limit if 0, the cache is effectively deactivated
+	//! \note if the limit is reduced, the collection will start when the next one tries to insert
+	//! data. If you want to clear the cache, use the clear() method and set the memory limit to 0
+	static void set_memory_limit(size_t limit) {
+		gMemoryLimit = limit;
+	}
+	
+public:
+	
+	//! Empty the cache completely to reduce its memory footprint. Does nothing if the cache
+	//! is not initialized.
+	void clear();
+	
+	//! \return true if the cache is available for use. Before querying the cache
+	//! or trying to put in data, you have to query for the caches availability.
+	inline bool is_available() const {
+		return m_ofs.size() != 0;
+	}
+	
+	//! Initialize the data required to run the cache. Should only be called once to make
+	//! the cache available, so that is_available() return true.
+	//! If the cache is initialized, it does nothing
+	void initialize(const PackIndexFile& index);
+	
+	//! \return data pointer to the decompressed cache matching the given offset, or 0
+	//! if there is no such cache entry
+	//! \note behaviour undefined if !is_available()
+	const char_type* cache_at(uint64 offset) const;
+	
+	//! provide cache information for the given offset
+	//! \param offset at which the data should be set
+	//! \param data to be taken into the cache. Should not be 0, but has no negative effects if it is 0.
+	//! The data will be owned by the cache, you must not deallocate it !
+	//! \note has no effect if the cache entry is already set
+	//! \return true if the data is used by the cache and false if it was rejected as a memory limit was hit
+	//! if the cache was rejected, you remain responsible for your data
+	bool set_cache_at(uint64 offset, const char_type* data);
+};
+
 /** \brief implementation of the gtl::odb_pack_file interface with support for git packs version 1 and 2
   * 
   * For the supported formats, see http://book.git-scm.com/7_the_packfile.html
@@ -393,6 +479,8 @@ protected:
 	PackIndexFile							m_index;			//! Our index file
 	cursor_type								m_cursor;			//! cursor into our pack
 	const provider_mixin_type&				m_db;				//! reference to the database owning us
+	PackCache								m_cache;			//! cache implementation
+	
 	
 protected:
 	//! \return true if the given path appears to be a valid pack file
@@ -436,6 +524,12 @@ public:
 	
 	//! @{ \name Interface
 	//! \return our associated index file
+	
+	//! the cache is considered a mutable part of an otherwise constant pack file
+	inline PackCache& cache() const {
+		return const_cast<PackFile*>(this)->m_cache;
+	}
+	
 	inline const PackIndexFile& index() const {
 		return m_index;
 	}
@@ -451,6 +545,8 @@ public:
 	const cursor_type& cursor() const {
 		return m_cursor;
 	}
+	
+	
 	
 	//! @} end interface
 	

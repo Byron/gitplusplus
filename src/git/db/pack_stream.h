@@ -10,7 +10,6 @@
 
 #include <boost/iostreams/categories.hpp>
 #include <boost/iostreams/stream.hpp>
-#include <boost/scoped_array.hpp>
 
 #include <memory>
 
@@ -51,6 +50,8 @@ typedef gtl_pack_traits::mapped_memory_manager_type		mapped_memory_manager_type;
   * needs to be processed to create the destination buffer.
   * If there are no delta's to be reconstructed, the stream is decompressed directly without memory overhead.
   * For this to work, the stream either uses its zlib device base directly, or just the inherited stream
+  * \todo the current implementation cannot handle base files larger than 4GB in size. The git implementation
+  * is assumed to know about that, and doesn't produce deltas for files in that size.
   */
 class PackDevice : protected gtl::zlib_file_source<mapped_memory_manager_type>
 {
@@ -62,6 +63,7 @@ public:
 	typedef git_object_traits_base::object_type			object_type;
 	typedef typename mapped_memory_manager_type::cursor	cursor_type;
 	typedef gtl::zlib_file_source<mapped_memory_manager_type> parent_type;
+	typedef gtl::managed_ptr_array<const char_type>			managed_const_char_ptr_array;
 	
 	struct category : 
 	        public io::input,
@@ -111,7 +113,7 @@ protected:
 	//! for deallocation, using delete []
 	//! \param out_size amount of bytes allocated in the returned buffer
 	//! \throw std::bad_alloc() or ParseError
-	char_type* unpack_object_recursive(cursor_type& cur, const PackInfo& info, uint64& out_size);
+	managed_const_char_ptr_array unpack_object_recursive(cursor_type& cur, const PackInfo& info, uint64& out_size);
 	
 	//! Apply the encoded delta stream using the base buffer and write the result into the target buffer
 	//! The base buffer is assumed to be able to serve all requests from the delta stream, the destination
@@ -133,19 +135,31 @@ protected:
 	//! \note this partly decompresses the stream
 	uint delta_size(cursor_type& cur, uint64 ofs, uint64& base_size, uint64& target_size);
 	
+	//! Obtains the data at the given offset either from the cache or by decompressing it.
+	//! Data will be put into the cache in case we decompressed it.
+	//! \param cur cursor to use when reading pack data
+	//! \param ofs absolute offset to the beginning of this objects header
+	//! \param rofs relative offset to the absolute offset offset at which the zlib stream begins
+	//! \param nb amount of bytes to read. The amount is assumed to be the target size of the fully 
+	//! decompressed zstream.
+	//! \return managed_ptr_array with the data. It will deal with the deallocation of the included pointer as needed
+	inline managed_const_char_ptr_array obtain_data(cursor_type& cur, stream_offset ofs, uint32 rofs, uint64 nb);
+	
 	//! Decompress all bytes from the cursor (it must be set to the correct first byte)
 	//! and continue decompression until the end of the stream or until our destination buffer
 	//! is full.
-	//! \param cur cursor whose offset is pointing to the start of the stream we should decompress
+	//! \param cur cursor to use to obtain pack data
+	//! \param ofs absolute offset to the beginning of the zlib stream
+	//! \param nb amount of bytes to decompress
 	//! \param max_input_chunk_size if not 0, the amount of bytes we should put in per iteration. Use this if you only have a few
 	//! input bytes  and don't want it to decompress more than necessary
-	void decompress_some(cursor_type& cur, char_type* dest, uint64 nb, size_t max_input_chunk_size = 0);
+	void decompress_some(cursor_type& cur, stream_offset ofs, char_type* dest, uint64 nb, size_t max_input_chunk_size = 0);
 	
 protected:
 	const PackFile&			m_pack;				//!< pack that contains this object
 	uint32					m_entry;			//!< pack entry we refer to
 	mutable object_type		m_type;				//!< type of the underlying object, None by default
-	mutable boost::scoped_array<char_type>	m_data;	//!< pointer to fully undeltified object data.
+	mutable managed_const_char_ptr_array	m_data;	//!< pointer to fully undeltified object data.
 	
 public:
     PackDevice(const PackFile& pack, uint32 entry = 0);
