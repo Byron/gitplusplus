@@ -248,7 +248,7 @@ void PackDevice::apply_delta(const char_type* base, char_type* dest, const char_
 	
 }
 
-PackDevice::managed_const_char_ptr_array PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo& info, obj_size_type& out_size)
+PackDevice::counted_char_ptr_type PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo& info, obj_size_type& out_size)
 {
 	assert(info.type != PackedObjectType::Bad);
 	
@@ -278,9 +278,9 @@ PackDevice::managed_const_char_ptr_array PackDevice::unpack_object_recursive(cur
 		
 		// obtain base and decompress the delta to apply it
 		info_at_offset(cur, next_info);
-		managed_const_char_ptr_array base_data(unpack_object_recursive(cur, next_info, out_size));	// base memory
-		managed_const_char_ptr_array ddata(obtain_data(cur, info.ofs, info.rofs, info.size));		// delta memory
-		const char_type* cpddata = ddata.get(); //!< const pointer to delta data
+		counted_char_ptr_type base_data(unpack_object_recursive(cur, next_info, out_size));	// base memory
+		counted_char_ptr_type ddata(obtain_data(cur, info.ofs, info.rofs, info.size));		// delta memory
+		const char_type* cpddata = *ddata; //!< const pointer to delta data
 		
 		uint64 base_size = msb_len(cpddata);
 		if (base_size != out_size) {
@@ -294,9 +294,10 @@ PackDevice::managed_const_char_ptr_array PackDevice::unpack_object_recursive(cur
 		out_size = msb_len(cpddata);
 		
 		// Allocate memory to keep the destination and apply delta
-		char_type* dest = new char_type[out_size];
-		apply_delta(base_data.get(), dest, cpddata, info.size - (cpddata - ddata.get()));
-		return managed_const_char_ptr_array(true, dest);
+		counted_char_type* dest = new counted_char_type[out_size];
+		apply_delta(*base_data, const_cast<char_type*>(static_cast<typename counted_char_type::element_type*>(*dest)), 
+		            cpddata, info.size - (cpddata - *ddata));
+		return counted_char_ptr_type(dest);
 		break;
 	}
 	default: 
@@ -306,24 +307,25 @@ PackDevice::managed_const_char_ptr_array PackDevice::unpack_object_recursive(cur
 	};// end type switch
 	
 	// compiler doesn't realize that the control can't ever get here, so we give it what it wants
-	return managed_const_char_ptr_array();
+	return counted_char_ptr_type();
 }
 
-PackDevice::managed_const_char_ptr_array PackDevice::obtain_data(cursor_type& cur, stream_offset ofs, 
+PackDevice::counted_char_ptr_type PackDevice::obtain_data(cursor_type& cur, stream_offset ofs, 
                                                                        uint32 rofs, size_type nb) 
 {
 	PackCache& cache = m_pack.cache();
-	const char_type* cdata;
-	if (cache.is_available() && (cdata = cache.cache_at(ofs)) != nullptr) {
-		return managed_const_char_ptr_array(false, cdata);
+	counted_char_ptr_type cdata;
+	if (cache.is_available() && (cdata = cache.cache_at(ofs)).get() != nullptr) {
+		return cdata;
 	}
 
-	char_type* ddata = new char_type[nb];
-	decompress_some(cur, ofs+rofs, ddata, nb);
+	counted_char_ptr_type pddata(new counted_char_type[nb]);
+	decompress_some(cur, ofs+rofs, const_cast<char_type*>(static_cast<typename counted_char_type::element_type*>(*pddata)), nb);
 	
-	return managed_const_char_ptr_array(cache.is_available() 
-	                                    ? !cache.set_cache_at(ofs, nb, ddata)
-	                                    : true, ddata);
+	if (cache.is_available()) {
+		cache.set_cache_at(ofs, nb, pddata);
+	}
+	return pddata;
 }
 
 std::streamsize PackDevice::read(char_type* s, std::streamsize n)
@@ -352,7 +354,7 @@ std::streamsize PackDevice::read(char_type* s, std::streamsize n)
 		
 		// if we have deltas, there is no other way than extracting it into memory, one way or another.
 		if (info.is_delta()) {
-			m_data.take_ownership(unpack_object_recursive(cur, info, m_obj_size));
+			m_data = unpack_object_recursive(cur, info, m_obj_size);
 			this->m_nb = m_obj_size;
 			this->m_size = m_obj_size;
 		} else {
@@ -364,7 +366,7 @@ std::streamsize PackDevice::read(char_type* s, std::streamsize n)
 	if (!!m_data) { // uncompressed delta
 		// seekable device - have to call it directly as protected methods can only be called
 		// from directly inherited bases (this is the mapped_file_source)
-		return parent_type::parent_type::read(s, n, m_data.get());
+		return parent_type::parent_type::read(s, n, *m_data);
 	} else { // undeltified object
 		assert(parent_type::is_open());
 		return parent_type::read(s, n);	// automatic and direct decompression

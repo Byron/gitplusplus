@@ -241,15 +241,17 @@ BOOST_AUTO_TEST_CASE(util)
 	
 	
 	// Intrusive aligned data using new overload
-	BOOST_REQUIRE(sizeof(counted_char) == 1);		// empty base class optimization
-	counted_char* c = new counted_char[100];
-	BOOST_REQUIRE(c->count_() == 0);
-	
-	**c = 5;
-	char* cp = *c;	// auto-conversion
-	*cp = 0;
-	BOOST_REQUIRE(**c == 0);
-	delete [] c;
+	{
+		BOOST_REQUIRE(sizeof(counted_char) == 1);		// empty base class optimization
+		counted_char* c = new counted_char[100];
+		BOOST_REQUIRE(c->count_() == 0);
+		
+		**c = 5;
+		char* cp = *c;	// auto-conversion
+		*cp = 0;
+		BOOST_REQUIRE(**c == 0);
+		delete [] c;
+	}
 	
 	// now with intrusive ptrs
 	{
@@ -260,6 +262,9 @@ BOOST_AUTO_TEST_CASE(util)
 		}
 		BOOST_REQUIRE(pc.get()->count_() == 1);
 	}
+	
+	char* c = new (counted) char[50];
+	operator delete[](c, counted);
 }
 
 BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)

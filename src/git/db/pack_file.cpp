@@ -3,6 +3,19 @@
 
 #include <cstring>
 
+namespace boost {
+
+	void intrusive_ptr_add_ref(git::PackCache::counted_char_type* d) {
+		gtl::intrusive_ptr_add_ref_array_impl(d);
+	}
+	
+	void intrusive_ptr_release(git::PackCache::counted_char_type* d) {
+		gtl::intrusive_ptr_release_array_impl(d);
+	}
+
+}// end boost namespace
+
+
 GIT_NAMESPACE_BEGIN
 
 size_t PackCache::gMemoryLimit = 0;
@@ -49,6 +62,12 @@ void PackCache::cache_info(std::ostream &out) const {
 		<< std::endl;
 }
 #endif
+
+PackCache::CacheInfo::CacheInfo(uint32 importance, PackCache::size_type size, PackCache::counted_char_type* data)
+    : importance(importance)
+    , size(0)
+    , pdata(data)
+{}
 
 void PackCache::initialize(const PackIndexFile &index)
 {
@@ -108,6 +127,7 @@ size_t PackCache::collect(size_t bytes_to_free)
 	// To be sure we reach our limit, we start smaller, but raise the importance 
 	// on each step until we have reached our goal.
 	// We always do full runs which means we could possibly truncate quite a lot of our data
+	static const counted_char_ptr_type nullp;
 	const vec_info::iterator end = m_info.end();
 	for (float mult = 0.5f; bf < bytes_to_free && m_mem; mult += 0.5f){
 		uint32 avg_importance = static_cast<uint32>(mult * (m_total_importance / (float)m_ofs.size()));
@@ -115,7 +135,7 @@ size_t PackCache::collect(size_t bytes_to_free)
 			if (beg->importance < avg_importance) {
 				CacheInfo& info = *beg;
 				bf += info.size;
-				set_data(info, 0, nullptr);
+				set_data(info, 0, nullp);
 			}
 		}// for each info item
 	}// while there are bytes to free
@@ -126,7 +146,7 @@ size_t PackCache::collect(size_t bytes_to_free)
 	return bf;
 }
 
-const char_type* PackCache::cache_at(uint64 offset) const 
+PackCache::counted_char_ptr_type PackCache::cache_at(uint64 offset) const 
 {
 	uint32 entry = offset_to_entry(offset);
 	
@@ -140,10 +160,10 @@ const char_type* PackCache::cache_at(uint64 offset) const
 	m_hits += !!info.pdata;
 #endif
 	
-	return info.pdata.get();
+	return info.pdata;
 }
 
-void PackCache::set_data(CacheInfo& info, size_type size, const char_type* data)
+void PackCache::set_data(CacheInfo& info, size_type size, const counted_char_ptr_type& pdata)
 {
 	// Note: We explicitly don't remove importance if the entry is zeroed, as we currently
 	// unconditionally add importance on each request
@@ -151,15 +171,15 @@ void PackCache::set_data(CacheInfo& info, size_type size, const char_type* data)
 	m_mem -= info.size;
 	m_mem += size;
 	gMemory += m_mem;
-	info.pdata.reset(data);
+	info.pdata = pdata;
 	info.size = size;
 	
 #ifdef DEBUG
-	m_noccupied += data ? 1 : -1;
+	m_noccupied += pdata ? 1 : -1;
 #endif
 }
 
-bool PackCache::set_cache_at(uint64 offset, size_type size, const char_type* data) 
+bool PackCache::set_cache_at(uint64 offset, size_type size, const counted_char_ptr_type& pdata) 
 {
 	if (size + gMemory > gMemoryLimit) {
 		collect(size);
@@ -167,7 +187,7 @@ bool PackCache::set_cache_at(uint64 offset, size_type size, const char_type* dat
 			return false;
 		}
 	}
-	set_data(m_info[offset_to_entry(offset)], size, data);
+	set_data(m_info[offset_to_entry(offset)], size, pdata);
 	return true;
 }
 
