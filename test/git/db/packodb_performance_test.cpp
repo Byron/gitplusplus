@@ -64,7 +64,15 @@ BOOST_AUTO_TEST_CASE(read_pack)
 	}
 	
 	// Test cache performance
-	std::vector<size_t> cache_sizes = {mb * 10, mb*600, 0};
+	uint64 max_size = 0;
+	for (auto it = podb.packs().begin(); it < podb.packs().end(); ++it) {
+		max_size = std::max(max_size, it->get()->cursor().file_size());
+	}
+	BOOST_REQUIRE(max_size);
+	
+	size_t min_cache_size = 8*mb;
+	std::vector<size_t> cache_sizes = {std::max((size_t)(max_size * 0.25f), min_cache_size), 
+	                                   std::max(size_t(max_size * 0.7f), min_cache_size*3), 0};
 	for (auto cache_size = cache_sizes.begin(); cache_size < cache_sizes.end(); ++cache_size)
 	{
 		std::cerr << "########################################" << std::endl;
@@ -117,6 +125,9 @@ BOOST_AUTO_TEST_CASE(read_pack)
 			std::cerr << "Deserialized " << sno << " of " << no << " objects in " << deserialization_elapsed << " s (" << sno / deserialization_elapsed << " objects/s)" << std::endl;
 		}// end deserialize objects
 	
+		// This run currently benefits from the cache build during the previous runs ! Its okay
+		// as this gices us a good idea about the maximum speed we can achieve, versus the speed we
+		// get when we have to deserialize the objects
 		const size_t bufsize = 4096;
 		PackODB::char_type buf[bufsize];
 		size_t tbc;					// total byte count
@@ -139,5 +150,7 @@ BOOST_AUTO_TEST_CASE(read_pack)
 			const double tmb = tbc / mb;
 			std::cerr << "Streamed " << no  << " objects totalling " << tmb <<  " mb in " << streaming_elapsed << " s (" << no / streaming_elapsed<< " streams/s & " << tmb / streaming_elapsed  << " mb/s)" << std::endl;
 		}// stream data
+		
+		std::cerr << "--------> TOTAL CACHE SIZE == " << podb.cache_memory() / mb << " mb" << std::endl;
 	}// end cache size
 }

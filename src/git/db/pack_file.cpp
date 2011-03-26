@@ -23,13 +23,12 @@ size_t PackCache::gMemory = 0;
 
 PackCache::PackCache()
     : m_mem(0)
-    , m_total_importance(0)
 #ifdef DEBUG
     , m_hits(0)
     , m_noccupied(0)
     , m_ncollect(0)
     , m_mem_collected(0)
-    
+    , m_nrequest(0)
 #endif
 {}
 
@@ -40,23 +39,24 @@ void PackCache::clear()
 	m_ofs.clear();
 	gMemory -= m_mem;
 	m_mem = 0;
-	m_total_importance = 0;
 	
 #ifdef DEBUG
 	m_hits = 0;
 	m_noccupied = 0;
 	m_ncollect = 0;
 	m_mem_collected = 0;
+	m_nrequest = 0;
 #endif
 }
 
 
 void PackCache::cache_info(std::ostream &out) const {
 	out << "###-> Pack " << this << " memory = " << m_mem  / 1000 << "kb, structure_mem[kb] = " 
-	    << struct_mem() / 1000 << "kb, entries = " << m_ofs.size() << ", queries = " << m_total_importance
+	    << struct_mem() / 1000 << "kb, entries = " << m_ofs.size()
 #ifdef DEBUG	       
-		<< ", occupied = " << m_noccupied << ", hits = " << hits() << ", misses " << misses()
-		<< ", hit-ratio = " << (m_total_importance ? m_hits / (float)m_total_importance : 0.f)
+	    << ", queries = " << m_nrequest
+		<< ", occupied = " << m_noccupied << " (" << (m_noccupied /(float)m_ofs.size()) * 100 << "% full), hits = " << hits() << ", misses " << misses()
+		<< ", hit-ratio = " << (m_nrequest ? m_hits / (float)m_nrequest : 0.f)
 		<< ", collects = " << m_ncollect << ", memory collected = " << m_mem_collected / 1000 << "kb"
 #endif
 		<< std::endl;
@@ -126,20 +126,44 @@ size_t PackCache::collect(size_t bytes_to_free)
 	// To be sure we reach our limit, we start smaller, but raise the importance 
 	// on each step until we have reached our goal.
 	// We always do full runs which means we could possibly truncate quite a lot of our data
+	// Assure we don't do these runs too often, and drop at least a good chunk of our memory
+	bytes_to_free = std::max(bytes_to_free, (size_t)(m_mem * 0.4f));
 	const vec_info::iterator end = m_info.end();
-	for (float mult = 0.5f; bf < bytes_to_free && m_mem; mult += 0.5f){
-		uint32 avg_importance = static_cast<uint32>(mult * (m_total_importance / (float)m_ofs.size()));
+	
+	// get actual max importance
+	uint32 max_importance = 0;
+	for (vec_info::iterator beg = m_info.begin(); beg < end; ++beg) {
+		max_importance = std::max(beg->importance, max_importance);
+	}
+	
+	// In a maximum of X steps, run through the importance levels and shave of up to 90 percent of entries
+	// if required
+	const float step = 0.8f / 4.f;
+	for (float mult = step; bf < bytes_to_free && m_mem && mult < 1.0f; mult += step){
+		const uint32 avgi = static_cast<uint32>(mult*max_importance);
+		std::cerr << avgi << " | ";
 		for (vec_info::iterator beg = m_info.begin(); beg < end; ++beg) {
-			if (beg->importance < avg_importance) {
-				CacheInfo& info = *beg;
+			CacheInfo& info = *beg;
+			if (info.size && info.importance < avgi) {
 				bf += info.size;
 				set_data(info, 0, nullptr);
+				// Assure we reset importances, otherwise we get high importances
+				// even though the entry now is not needed anymore, resulting in complete 
+				// cache purges
+				info.importance = 0;
 			}
 		}// for each info item
 	}// while there are bytes to free
 	
 #ifdef DEBUG
 	m_mem_collected += bf;
+	
+	const size_t mb = 1000 * 1000;
+	const size_t min_importance = 0;
+	std::cerr << "End of collect : min/max_importance " << min_importance << "/" << max_importance
+			  << " - bytes to free " << bytes_to_free / mb << "mb - bytes freed " << bf / mb
+			  << "mb -- mem " << m_mem / mb << "mb -- occupied " << m_noccupied 
+			  << std::endl;
 #endif
 	return bf;
 }
@@ -151,9 +175,9 @@ PackCache::counted_char_ptr_const_type PackCache::cache_at(uint64 offset) const
 	// increment its importance, no matter whether we have it or not
 	const CacheInfo& info = m_info[entry];
 	const_cast<CacheInfo&>(info).importance += 1;
-	m_total_importance += 1;
 	
 #ifdef DEBUG
+	m_nrequest += 1;
 	m_hits += !!info.pdata;
 #endif
 	

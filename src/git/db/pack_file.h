@@ -401,14 +401,13 @@ protected:
 	vec_ofs				m_ofs;
 	vec_info			m_info;
 	mutable size_t		m_mem;					//!< current memory allocation in bytes
-	mutable uint32		m_total_importance;		//!< importance we issued to our entries
-	
 	
 #ifdef DEBUG
 	mutable uint32		m_hits;			// amount of overall cache hits
 	uint32				m_noccupied;	// estimated amount of occupied entries
 	uint32				m_ncollect;		// amount of collect calls
 	size_t				m_mem_collected;// amount of memory collected
+	mutable uint32		m_nrequest;		//!< importance we issued to our entries
 #endif
 	
 protected:
@@ -496,11 +495,11 @@ public:
 	}
 	
 	uint32 misses() const {
-		return m_total_importance - m_hits;
+		return m_nrequest - m_hits;
 	}
 	
 	uint32 requests() const {
-		return m_total_importance;
+		return m_nrequest;
 	}
 	
 	uint32 num_occupied() const {
