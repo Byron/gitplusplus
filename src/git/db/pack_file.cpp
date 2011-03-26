@@ -26,7 +26,6 @@ PackCache::PackCache()
     , m_total_importance(0)
 #ifdef DEBUG
     , m_hits(0)
-    , m_nrequests(0)
     , m_noccupied(0)
     , m_ncollect(0)
     , m_mem_collected(0)
@@ -48,20 +47,20 @@ void PackCache::clear()
 	m_noccupied = 0;
 	m_ncollect = 0;
 	m_mem_collected = 0;
-	m_nrequests = 0;
 #endif
 }
 
-#ifdef DEBUG
+
 void PackCache::cache_info(std::ostream &out) const {
 	out << "###-> Pack " << this << " memory = " << m_mem  / 1000 << "kb, structure_mem[kb] = " 
-	    << struct_mem() / 1000 << "kb, entries = " << m_ofs.size() << ", queries = " << m_nrequests
+	    << struct_mem() / 1000 << "kb, entries = " << m_ofs.size() << ", queries = " << m_total_importance
+#ifdef DEBUG	       
 		<< ", occupied = " << m_noccupied << ", hits = " << hits() << ", misses " << misses()
-		<< ", hit-ratio = " << (m_nrequests ? m_hits / (float)m_nrequests : 0.f)
+		<< ", hit-ratio = " << (m_total_importance ? m_hits / (float)m_total_importance : 0.f)
 		<< ", collects = " << m_ncollect << ", memory collected = " << m_mem_collected / 1000 << "kb"
+#endif
 		<< std::endl;
 }
-#endif
 
 PackCache::CacheInfo::CacheInfo(uint32 importance, PackCache::size_type size, PackCache::counted_char_const_type* data)
     : importance(importance)
@@ -155,7 +154,6 @@ PackCache::counted_char_ptr_const_type PackCache::cache_at(uint64 offset) const
 	m_total_importance += 1;
 	
 #ifdef DEBUG
-	m_nrequests += 1;
 	m_hits += !!info.pdata;
 #endif
 	

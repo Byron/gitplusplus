@@ -406,7 +406,6 @@ protected:
 	
 #ifdef DEBUG
 	mutable uint32		m_hits;			// amount of overall cache hits
-	mutable uint32		m_nrequests;	// amount of total cache requests
 	uint32				m_noccupied;	// estimated amount of occupied entries
 	uint32				m_ncollect;		// amount of collect calls
 	size_t				m_mem_collected;// amount of memory collected
@@ -466,6 +465,12 @@ public:
 		return gMemory;
 	}
 	
+	size_type struct_mem() const {
+		return sizeof(PackCache)
+		        + sizeof(vec_info::value_type)	*	m_info.size()
+		        + sizeof(vec_ofs::value_type)	*	m_ofs.size();
+	}
+	
 	//! \return data pointer to the decompressed cache matching the given offset, or 0
 	//! if there is no such cache entry
 	//! \note behaviour undefined if !is_available()
@@ -481,6 +486,9 @@ public:
 	//! \return true if the data is used by the cache and false if it was rejected as a memory limit was hit
 	//! if the cache was rejected, you remain responsible for your data
 	bool set_cache_at(uint64 offset, size_type size, counted_char_const_type* pdata);
+	
+	//! Print user-readable usage information into the given output stream
+	void cache_info(std::ostream& out) const;
 	
 #ifdef DEBUG
 	uint32 hits() const {
@@ -498,14 +506,7 @@ public:
 	uint32 num_occupied() const {
 		return m_noccupied;
 	}
-	
-	size_type struct_mem() const {
-		return sizeof(PackCache)
-		        + sizeof(vec_info::value_type)	*	m_info.size()
-		        + sizeof(vec_ofs::value_type)	*	m_ofs.size();
-	}
-	
-	void cache_info(std::ostream& out) const;
+
 #endif
 };
 

@@ -35,7 +35,6 @@ BOOST_AUTO_TEST_CASE(read_pack)
 	
 	const PackODB podb(val, manager);
 	BOOST_REQUIRE(podb.packs().size());
-	BOOST_REQUIRE(podb.count() > 10000);	// yes, make sure we have at least something
  
 	const size_t no = podb.count();			// number of objects
 	const PackODB::forward_iterator end = podb.end();
@@ -65,7 +64,7 @@ BOOST_AUTO_TEST_CASE(read_pack)
 	}
 	
 	// Test cache performance
-	std::vector<size_t> cache_sizes = {0, mb * 10, mb*600};
+	std::vector<size_t> cache_sizes = {mb * 10, mb*600, 0};
 	for (auto cache_size = cache_sizes.begin(); cache_size < cache_sizes.end(); ++cache_size)
 	{
 		std::cerr << "########################################" << std::endl;
@@ -112,9 +111,7 @@ BOOST_AUTO_TEST_CASE(read_pack)
 				}
 				tbc = tbc / mb;
 				std::cerr << "Deserialized " << no << " " << *type << " objects totalling " << tbc <<   " MB in " << elapsed << " s (" << no / elapsed<< " objects/s and " << tbc / elapsed << " mb/s)" << std::endl;
-#ifdef DEBUG
 				std::for_each(podb.packs().begin(), podb.packs().end(), [](const PackODB::vector_pack_readers::value_type& p){p.get()->cache().cache_info(std::cerr);});
-#endif
 			}// end for each object type
 			
 			std::cerr << "Deserialized " << sno << " of " << no << " objects in " << deserialization_elapsed << " s (" << sno / deserialization_elapsed << " objects/s)" << std::endl;

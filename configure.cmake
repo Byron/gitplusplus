@@ -54,9 +54,9 @@ if(UNIX)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}\ -Wall -std=c++0x -fnothrow-opt")
 endif(UNIX)
 
-if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug" OR "${CMAKE_BUILD_TYPE}" STREQUAL "Profile")
 	add_definitions(-DDEBUG)
-endif("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+endif("${CMAKE_BUILD_TYPE}" STREQUAL "Debug" OR "${CMAKE_BUILD_TYPE}" STREQUAL "Profile")
 
 if(DOXYGEN)
 	include(UseDoxygen.cmake)
