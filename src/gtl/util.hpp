@@ -2,11 +2,16 @@
 #define GTL_UTIL_HPP
 
 #include <gtl/config.h>
+
 #include <boost/filesystem/path.hpp>
+#include <boost/intrusive_ptr.hpp>
+
 #include <cctype>
 #include <sstream>
 #include <cstring>
 #include <memory>
+
+#include <iostream>		// DEBUG
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
@@ -280,6 +285,7 @@ public:
 	}
 };
 
+
 /** \brief Heap which, as opposed to the stack_heap_autodestruct, allows you to set a flag to enable or disable
   * whether it should auto-destroy itself. After each destruction, it will reset its flag to allow it to be filled
   * (and destroyed) once again
@@ -397,6 +403,105 @@ public:
 	
 };
 
+
+
+/** A facility to obtain a chunk of memory with an embedded reference count.
+  * This makes it suitable for use with intrusive pointers and saves one 
+  * memory allocation which would occour if a shared pointer is used.
+  * Derive from this type to inherit its special allocation, which makes it compatible
+  * to the boost::intrusive_ptr natively
+  */
+template <class CounterType=uint32>
+class intrusive_ptr_array_base
+{
+public:
+	typedef CounterType								counter_type;
+	typedef intrusive_ptr_array_base<counter_type>	this_type;
+	
+protected:
+	intrusive_ptr_array_base() {};
+	~intrusive_ptr_array_base() {};
+	
+public:
+	void* operator new[](size_t size)
+	{
+		char* d = reinterpret_cast<char*>(::operator new[](size+sizeof(counter_type)));
+		*reinterpret_cast<counter_type*>(d) = 0;
+		std::cerr << "operator new[]: " << size << " -- " << (void*)d <<std::endl;
+		
+		// this would possible misalign the memory ... fix this
+		return d + sizeof(counter_type);
+	}
+	
+	void operator delete [](void* d_ofs) {
+		std::cerr << "operator delete[]: " << d_ofs << std::endl;
+		::operator delete [] (reinterpret_cast<char*>(d_ofs) - sizeof(counter_type));
+	}
+	
+	counter_type count_() const {
+		return *reinterpret_cast<const counter_type*>(reinterpret_cast<const char*>(this) - sizeof(counter_type));
+	}
+	
+	counter_type& count_(){
+		return *reinterpret_cast<counter_type*>(reinterpret_cast<char*>(this) - sizeof(counter_type));
+	}
+	
+};
+
+/** \brief utility to facilitate usage of default-constructible types and their 
+  * use with the intrusive_ptr_array_base
+  */
+template <class T, class CounterType=uint32>
+class intrusive_array_type : public intrusive_ptr_array_base<CounterType>
+{
+public:
+	typedef intrusive_array_type<T, CounterType>	this_type;
+	typedef boost::intrusive_ptr<this_type>			ptr_type;
+	
+protected:
+	T item_;
+	
+public:
+	intrusive_array_type() {};
+	
+	operator T* () {
+		return &item_;
+	}
+	
+	T& operator*() {
+		return item_;
+	}
+	
+	const T& operator*() const {
+		return item_;
+	}
+	
+	T* operator->() {
+		return &item_;
+	}
+	
+	const T* operator->() const {
+		return &item_;
+	}
+};
+
+template <class IT>
+void intrusive_ptr_add_ref_array_impl(IT* d)
+{
+	static_cast<intrusive_ptr_array_base<typename IT::counter_type>*>(d)->count_() += 1;
+}
+
+template <class IT>
+void intrusive_ptr_release_array_impl(IT* d)
+{
+	auto* d_ = static_cast<intrusive_ptr_array_base<typename IT::counter_type>*>(d);
+	d_->count_() -= 1;
+	if (d_->count_() == 0) {
+		delete [] d;
+	}
+}
+
+
 /** Class representing two ascii characters in the range of 0-F
   * \note currently represented directly as baked character values, in fact it could 
   * do all conversions dynamically.
@@ -468,5 +573,6 @@ CharType fromhex(const CharType* c2)
 
 GTL_NAMESPACE_END
 GTL_HEADER_END
+
 
 #endif // GTL_UTIL_HPP
