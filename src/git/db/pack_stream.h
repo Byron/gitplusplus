@@ -66,8 +66,9 @@ public:
 	typedef git_object_traits_base::object_type			object_type;
 	typedef typename mapped_memory_manager_type::cursor	cursor_type;
 	typedef gtl::zlib_file_source<mapped_memory_manager_type> parent_type;
-	typedef gtl::intrusive_array_type<const char_type>	counted_char_type;
+	typedef gtl::intrusive_array_type<char_type>		counted_char_type;
 	typedef typename counted_char_type::ptr_type		counted_char_ptr_type;
+	typedef typename counted_char_type::ptr_const_type	counted_char_ptr_const_type;
 	
 	struct category : 
 	        public io::input,
@@ -117,7 +118,7 @@ protected:
 	//! for deallocation, using delete []
 	//! \param out_size amount of bytes allocated in the returned buffer
 	//! \throw std::bad_alloc() or ParseError
-	counted_char_ptr_type unpack_object_recursive(cursor_type& cur, const PackInfo& info, obj_size_type& out_size);
+	counted_char_ptr_const_type unpack_object_recursive(cursor_type& cur, const PackInfo& info, obj_size_type& out_size);
 	
 	//! Apply the encoded delta stream using the base buffer and write the result into the target buffer
 	//! The base buffer is assumed to be able to serve all requests from the delta stream, the destination
@@ -147,7 +148,7 @@ protected:
 	//! \param nb amount of bytes to read. The amount is assumed to be the target size of the fully 
 	//! decompressed zstream.
 	//! \return managed_ptr_array with the data. It will deal with the deallocation of the included pointer as needed
-	inline counted_char_ptr_type obtain_data(cursor_type& cur, stream_offset ofs, uint32 rofs, size_type nb);
+	inline counted_char_ptr_const_type obtain_data(cursor_type& cur, stream_offset ofs, uint32 rofs, size_type nb);
 	
 	//! Decompress all bytes from the cursor (it must be set to the correct first byte)
 	//! and continue decompression until the end of the stream or until our destination buffer
@@ -164,7 +165,7 @@ protected:
 	uint32					m_entry;			//!< pack entry we refer to
 	mutable object_type		m_type;				//!< type of the underlying object, None by default
 	mutable obj_size_type	m_obj_size;			//!< uncompressed size of the object
-	mutable counted_char_ptr_type	m_data;	//!< pointer to fully undeltified object data.
+	mutable counted_char_ptr_const_type	m_data;	//!< pointer to fully undeltified object data.
 	
 public:
     PackDevice(const PackFile& pack, uint32 entry = 0);

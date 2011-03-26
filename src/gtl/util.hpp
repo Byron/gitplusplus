@@ -11,6 +11,7 @@
 #include <cstring>
 #include <memory>
 
+
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
 
@@ -452,41 +453,34 @@ public:
   * use with the intrusive_ptr_array_base.
   * Use this type as follows:
   * \code 
-  *	typedef intrusive_array_type<char> intrusive_char;
+  *	typedef intrusive_const_array_type<char> intrusive_char;
   * // define methods intrusive_ptr_add_ref and intrusive_ptr_release calling the respective templated
   * // *_array_impl versions of these functions
   * intrusive_char::ptr_type p = new intrusive_char[100];
   * \endcode
+  * \tparam T type to use. It should be a non-const non-pointer type
   * \note see the operator new[]/delete[] overload version of this, it might be easier to use
   */
 template <class T, class CounterType=uint32>
-class intrusive_array_type : public intrusive_ptr_array_base<CounterType>
+class intrusive_const_array_type : public intrusive_ptr_array_base<CounterType>
 {
 public:
-	typedef T										element_type;
-	typedef intrusive_array_type<T, CounterType>	this_type;
-	typedef boost::intrusive_ptr<this_type>			ptr_type;
+	typedef T											element_type;
+	typedef intrusive_const_array_type<T, CounterType>	this_const_type;
+	typedef boost::intrusive_ptr<this_const_type>		ptr_const_type;
 	
 protected:
 	T item_;
 	
 public:
-	intrusive_array_type() {}
-	
-	operator T* () {
+	intrusive_const_array_type() {}
+
+	operator const T* () const {
 		return &item_;
-	}
-	
-	T& operator*() {
-		return item_;
 	}
 	
 	const T& operator*() const {
 		return item_;
-	}
-	
-	T* operator->() {
-		return &item_;
 	}
 	
 	const T* operator->() const {
@@ -494,16 +488,35 @@ public:
 	}
 };
 
-template <class T, class CT>
-void intrusive_ptr_add_ref_array_impl(intrusive_array_type<T, CT>* d)
+template <class T, class CounterType=uint32>
+struct intrusive_array_type : public intrusive_const_array_type<T, CounterType>
 {
-	static_cast<intrusive_ptr_array_base<typename intrusive_array_type<T, CT>::counter_type>*>(d)->count_() += 1;
+	typedef intrusive_array_type<T, CounterType>		this_type;
+	typedef boost::intrusive_ptr<this_type>				ptr_type;
+	
+	operator T* () {
+		return &this->item_;
+	}
+	
+	T& operator*() {
+		return this->item_;
+	}
+	
+	T* operator->() {
+		return &this->item_;
+	}
+};
+
+template <class T, class CT>
+void intrusive_ptr_add_ref_array_impl(intrusive_const_array_type<T, CT>* d)
+{
+	static_cast<intrusive_ptr_array_base<typename intrusive_const_array_type<T, CT>::counter_type>*>(d)->count_() += 1;
 }
 
 template <class T, class CT>
-void intrusive_ptr_release_array_impl(intrusive_array_type<T, CT>* d)
+void intrusive_ptr_release_array_impl(intrusive_const_array_type<T, CT>* d)
 {
-	auto* d_ = static_cast<intrusive_ptr_array_base<typename intrusive_array_type<T, CT>::counter_type>*>(d);
+	auto* d_ = static_cast<intrusive_ptr_array_base<typename intrusive_const_array_type<T, CT>::counter_type>*>(d);
 	d_->count_() -= 1;
 	if (d_->count_() == 0) {
 		delete [] d;
@@ -582,40 +595,5 @@ CharType fromhex(const CharType* c2)
 
 GTL_NAMESPACE_END
 GTL_HEADER_END
-
-struct counted_type {};	// tag indicating a type should be counted.
-counted_type counted;
-
-//! Create the given amount of array data, but prefix it with a uint32 counter
-//! \note This doesn't work with pod types as we cannot distinguish special version
-//! of the pod (array and counted) from a possible normal version which doesn't exhibit 
-//! these special treats.
-void* operator new [] (size_t size, const counted_type&) {
-	uint32* d = (uint32*)::operator new[](size + sizeof(uint32));
-	*d = 0;
-	return (void*)(d+1);
-}
-
-//! delete arrays previously allocated with operator new[] (x, counted)
-void operator delete [](void* d, const counted_type&) {
-	::operator delete []((uint32*)(d)-1);
-}
-
-//! To be called by your version of intrusive_ptr_add_ref(yourtype* d)
-template <class T>
-void intrusive_ptr_add_ref_array_general_impl(T* d) {
-	*((uint32*)(d)-1) += 1;
-}
-
-//! To be called by your version of intrusive_ptr_release(yourtype* d)
-template <class T>
-void intrusive_ptr_release_array_general_impl(T* d) {
-	uint32* d_ = (uint32*)(d)-1;
-	*d_ -= 1;
-	if (*d_ == 0) {
-		operator delete[](d, counted);
-	}
-}
-
 
 #endif // GTL_UTIL_HPP

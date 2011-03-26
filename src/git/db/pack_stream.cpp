@@ -248,7 +248,7 @@ void PackDevice::apply_delta(const char_type* base, char_type* dest, const char_
 	
 }
 
-PackDevice::counted_char_ptr_type PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo& info, obj_size_type& out_size)
+PackDevice::counted_char_ptr_const_type PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo& info, obj_size_type& out_size)
 {
 	assert(info.type != PackedObjectType::Bad);
 	
@@ -278,8 +278,8 @@ PackDevice::counted_char_ptr_type PackDevice::unpack_object_recursive(cursor_typ
 		
 		// obtain base and decompress the delta to apply it
 		info_at_offset(cur, next_info);
-		counted_char_ptr_type base_data(unpack_object_recursive(cur, next_info, out_size));	// base memory
-		counted_char_ptr_type ddata(obtain_data(cur, info.ofs, info.rofs, info.size));		// delta memory
+		counted_char_ptr_const_type base_data(unpack_object_recursive(cur, next_info, out_size));	// base memory
+		counted_char_ptr_const_type ddata(obtain_data(cur, info.ofs, info.rofs, info.size));		// delta memory
 		const char_type* cpddata = *ddata; //!< const pointer to delta data
 		
 		uint64 base_size = msb_len(cpddata);
@@ -295,9 +295,8 @@ PackDevice::counted_char_ptr_type PackDevice::unpack_object_recursive(cursor_typ
 		
 		// Allocate memory to keep the destination and apply delta
 		counted_char_type* dest = new counted_char_type[out_size];
-		apply_delta(*base_data, const_cast<char_type*>(static_cast<typename counted_char_type::element_type*>(*dest)), 
-		            cpddata, info.size - (cpddata - *ddata));
-		return counted_char_ptr_type(dest);
+		apply_delta(*base_data, *dest, cpddata, info.size - (cpddata - *ddata));
+		return counted_char_ptr_const_type(dest);
 		break;
 	}
 	default: 
@@ -310,22 +309,22 @@ PackDevice::counted_char_ptr_type PackDevice::unpack_object_recursive(cursor_typ
 	return counted_char_ptr_type();
 }
 
-PackDevice::counted_char_ptr_type PackDevice::obtain_data(cursor_type& cur, stream_offset ofs, 
+PackDevice::counted_char_ptr_const_type PackDevice::obtain_data(cursor_type& cur, stream_offset ofs, 
                                                                        uint32 rofs, size_type nb) 
 {
 	PackCache& cache = m_pack.cache();
-	counted_char_ptr_type cdata;
+	counted_char_ptr_const_type cdata;
 	if (cache.is_available() && (cdata = cache.cache_at(ofs)).get() != nullptr) {
 		return cdata;
 	}
 
-	counted_char_ptr_type pddata(new counted_char_type[nb]);
-	decompress_some(cur, ofs+rofs, const_cast<char_type*>(static_cast<typename counted_char_type::element_type*>(*pddata)), nb);
+	counted_char_type* pddata(new counted_char_type[nb]);
+	decompress_some(cur, ofs+rofs, *pddata, nb);
 	
 	if (cache.is_available()) {
 		cache.set_cache_at(ofs, nb, pddata);
 	}
-	return pddata;
+	return counted_char_ptr_const_type(pddata);
 }
 
 std::streamsize PackDevice::read(char_type* s, std::streamsize n)

@@ -375,19 +375,19 @@ public:
 class PackCache
 {
 public:
-	typedef uint32									size_type;				//!< currently we only support 32 bit sizes, as the pack can 
-	typedef gtl::intrusive_array_type<const char_type>	counted_char_type;		//!< char array with build-in counter
-	typedef typename counted_char_type::ptr_type	counted_char_ptr_type;	//!< ptr to a counted char, deallocates instance once count reaches zero
+	typedef uint32												size_type;					//!< currently we only support 32 bit sizes, as the pack can 
+	typedef gtl::intrusive_const_array_type<char_type>			counted_char_const_type;	//!< char array with build-in counter
+	typedef typename counted_char_const_type::ptr_const_type	counted_char_ptr_const_type;//!< ptr to a counted char, deallocates instance once count reaches zero
 	
 	
 protected:
 	struct CacheInfo {
-		CacheInfo(uint32 importance = 0, size_type size = 0, counted_char_type* data = nullptr);
+		CacheInfo(uint32 importance = 0, size_type size = 0, counted_char_const_type* data = nullptr);
 		CacheInfo(CacheInfo&&) = default;
 		
 		uint32								importance;	//! amount of time we have been required/used
 		size_type							size;			//! amount of bytes we store
-		counted_char_ptr_type				pdata;			//! stored inflated data
+		counted_char_ptr_const_type				pdata;			//! stored inflated data
 	};
 	
 	typedef std::vector<uint64>						vec_ofs;
@@ -417,7 +417,7 @@ protected:
 	inline uint32 offset_to_entry(uint64 offset) const;
 	
 	//! sets data, handling our memory counter correctly
-	inline void set_data(CacheInfo& info, size_type size, const counted_char_ptr_type& data);
+	inline void set_data(CacheInfo& info, size_type size, counted_char_const_type* data);
 	
 	//! free at least the given amount of memory. Try to be smart by keeping old objects which were useful often.
 	//! We basically remove all generations below a required minimum, to keep the runs short and effective
@@ -469,18 +469,18 @@ public:
 	//! \return data pointer to the decompressed cache matching the given offset, or 0
 	//! if there is no such cache entry
 	//! \note behaviour undefined if !is_available()
-	counted_char_ptr_type cache_at(uint64 offset) const;
+	counted_char_ptr_const_type cache_at(uint64 offset) const;
 	
 	//! provide cache information for the given offset
 	//! \param offset at which the data should be set
 	//! \param size of the data to be set
-	//! \param data to be taken into the cache. If 0, the cache will be deleted if it exists
+	//! \param pdata pointer to data be taken into the cache. If 0, the cache will be deleted if it exists
 	//! The data will be owned by the cache, you must not deallocate it ! If 0 is passed in, 
 	//! size must be null as well.
 	//! \note has no effect if the cache entry is already set
 	//! \return true if the data is used by the cache and false if it was rejected as a memory limit was hit
 	//! if the cache was rejected, you remain responsible for your data
-	bool set_cache_at(uint64 offset, size_type size, const counted_char_ptr_type& pdata);
+	bool set_cache_at(uint64 offset, size_type size, counted_char_const_type* pdata);
 	
 #ifdef DEBUG
 	uint32 hits() const {
@@ -616,8 +616,6 @@ public:
 		return m_cursor;
 	}
 	
-	
-	
 	//! @} end interface
 	
 };
@@ -626,8 +624,8 @@ GIT_NAMESPACE_END
 
 //! Declarations for others to use - we implement the methods in our compilation unit.
 namespace boost {
-	void intrusive_ptr_add_ref(git::PackCache::counted_char_type* d);
-	void intrusive_ptr_release(git::PackCache::counted_char_type* d);
+	void intrusive_ptr_add_ref(git::PackCache::counted_char_const_type* d);
+	void intrusive_ptr_release(git::PackCache::counted_char_const_type* d);
 }// end boost namespace
 
 GIT_HEADER_END

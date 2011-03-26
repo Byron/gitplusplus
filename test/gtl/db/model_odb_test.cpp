@@ -29,13 +29,13 @@
 using namespace gtl;
 
 typedef mapped_memory_manager<>		man_type;
-typedef intrusive_array_type<char> counted_char;
+typedef intrusive_array_type<char>	counted_char;
 
-void intrusive_ptr_add_ref(counted_char* d) {
+void intrusive_ptr_add_ref(typename counted_char::this_const_type* d) {
 	intrusive_ptr_add_ref_array_impl(d);
 }
 
-void intrusive_ptr_release(counted_char* d) {
+void intrusive_ptr_release(typename counted_char::this_const_type* d) {
 	intrusive_ptr_release_array_impl(d);
 }
 
@@ -261,10 +261,13 @@ BOOST_AUTO_TEST_CASE(util)
 			BOOST_REQUIRE(pc.get()->count_() == 2);
 		}
 		BOOST_REQUIRE(pc.get()->count_() == 1);
+		
+		// can convert into a constant version
+		counted_char::ptr_const_type cpc = pc.get();
+		BOOST_REQUIRE(pc.get()->count_() == 2);
+		cpc = pc;
+		BOOST_REQUIRE(pc.get()->count_() == 2);
 	}
-	
-	char* c = new (counted) char[50];
-	operator delete[](c, counted);
 }
 
 BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)
