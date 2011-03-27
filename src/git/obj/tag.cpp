@@ -42,7 +42,9 @@ git_basic_istream& operator >> (git_basic_istream& stream, git::Tag& tag)
 	
 	// OBJECT
 	if (tmp != t_object) {
-		throw git::TagDeserializationError();
+		git::TagDeserializationError err;
+		err.stream() << "expected " << t_object << " got " << tmp;
+		throw err;
 	}
 	
 	stream.get(c);				// space
@@ -51,17 +53,23 @@ git_basic_istream& operator >> (git_basic_istream& stream, git::Tag& tag)
 	// OBJECT TYPE
 	stream >> tmp;
 	if (tmp != t_type) {
-		throw git::TagDeserializationError();
+		git::TagDeserializationError err;
+		err.stream() << "expected " << t_type << " got " << tmp;
+		throw err;
 	}
 	stream >> tag.object_type();
 	if (tag.object_type() == git::Object::Type::None && tag.object_key() != git::Tag::key_type::null) {
-		throw git::TagDeserializationError();
+		git::TagDeserializationError err;
+		err.stream() << "expected object type for key " << tag.object_key() << " but couldn't parse type";
+		throw err;
 	}
 	
 	// TAG NAME 
 	stream >> tmp;
 	if (tmp != t_tag) {
-		throw git::TagDeserializationError();
+		git::TagDeserializationError err;
+		err.stream() << "expected " << t_tag << " got " << tmp;
+		throw err;
 	}
 	
 	stream.get(c);			// space
@@ -70,7 +78,9 @@ git_basic_istream& operator >> (git_basic_istream& stream, git::Tag& tag)
 	// TAGGER
 	stream >> tmp;
 	if (tmp != t_tagger){
-		throw git::TagDeserializationError();
+		git::TagDeserializationError err;
+		err.stream() << "expected " << t_tagger << " got " << tmp;
+		throw err;
 	}
 	stream.get(c);			// space
 	stream >> tag.actor();

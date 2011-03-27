@@ -29,7 +29,7 @@ protected:
 	//! \note if source is not a directory, we will copy a single file (for convenience
 	size_t copy_recursive(const fs::path& source, const fs::path& dest) const {
 		if (fs::is_directory(source)) {
-			size_t num_files = 0;
+			size_t num_paths = 0;
 			fs::directory_iterator end;
 			fs::directory_iterator dit(source);
 			
@@ -43,7 +43,7 @@ protected:
 					fs::copy_file(p, dest_path);
 				}// handle directory/file
 			}// for each item in directory
-			return num_files;
+			return num_paths;
 		} else {
 			fs::copy_file(source, dest);
 			return 1;
@@ -109,28 +109,35 @@ public:
 
 /** \brief simple type which manages a file's lifetime. The file can be created by any means
   */
-class file_manager : public fixture_file_base
+class path_manager_base : public fixture_file_base
 {
 protected:
-	fs::path m_file;
+	fs::path m_path;
 	size_t m_size;
 	
-public:
+protected:
 	//! Create a temporary file with the given size in bytes and prefix
-	file_manager()
+	path_manager_base()
 		: m_size(0)
 	{}
 	
-	~file_manager()
+	~path_manager_base()
 	{
-		remove_path(m_file);
+		remove_path(m_path);
 	}
 	
 public:
 	const fs::path& file() const {
-		return m_file;
+		assert(fs::is_regular_file(m_path));
+		return m_path;
 	}
 	
+	const fs::path& directory() const {
+		assert(fs::is_directory(m_path));
+		return m_path;
+	}
+	
+	//! \return size of files or amount of items in directory (depending on the implementation)
 	size_t size() const {
 		return m_size;
 	}
@@ -138,18 +145,18 @@ public:
 
 /** \brief utilty to create a temporary file filled with relatively random memory contents
   */
-class file_creator : public file_manager
+class file_creator : public path_manager_base
 {
 public:
 	//! Create a temporary file with the given size in bytes and prefix
-	file_creator(size_t size, const char* prefix = nullptr)
+	file_creator(size_t size, const char* prefix = "")
 	{
 		const uint32 buflen = 65536;
 		char buf[buflen];
-		m_file = temp_file(prefix);
+		m_path = temp_file(prefix);
 		m_size = size;
 		std::ofstream of;
-		of.open(m_file.string().c_str(), std::ios::out|std::ios::binary|std::ios::trunc);
+		of.open(m_path.string().c_str(), std::ios::out|std::ios::binary|std::ios::trunc);
 		
 		for (uint32 nb = size / buflen; nb; --nb) {
 			of.write(buf, buflen);
@@ -159,26 +166,41 @@ public:
 			of.write(buf, remainder);
 		}
 		of.close();
-		assert(boost::filesystem::file_size(m_file) == size);
+		assert(boost::filesystem::file_size(m_path) == size);
 	}
 	
 	//! Create a temporary file from the given initialized memory
 	template <class Iterator>
-	file_creator(Iterator beg, Iterator end, const char* prefix = nullptr)
+	file_creator(Iterator beg, Iterator end, const char* prefix = "")
 	{
-		m_file = temp_file(prefix);
+		m_path = temp_file(prefix);
 		std::ofstream of;
-		of.open(m_file.string().c_str(), std::ios::out|std::ios::binary|std::ios::trunc);
+		of.open(m_path.string().c_str(), std::ios::out|std::ios::binary|std::ios::trunc);
 		
 		for (;beg != end; ++beg) {
 			of << *beg;
 		}
 		
 		of.close();
-		m_size = file_size(m_file);
+		m_size = file_size(m_path);
 	}
 };
 
+
+/** \brief creates a directory and assures it gets deleted on its own destruction
+  */
+class directory_creator : public path_manager_base
+{
+public:
+	directory_creator(const char* prefix = "") {
+		m_path = temp_file(prefix);
+		fs::create_directory(m_path);
+		
+		fs::directory_iterator it(m_path);
+		fs::directory_iterator end;
+		for (; it != end; ++it, ++m_size);
+	}
+};
 
 GTL_NAMESPACE_END
 GTL_HEADER_END

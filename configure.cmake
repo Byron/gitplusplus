@@ -7,6 +7,32 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY lib)
 
+# add the profiling configuration. Its essentially the release config, but
+# compiles with profiling instructions, enabling gprof
+if(CMAKE_CONFIGURATION_TYPES)
+	list(APPEND CMAKE_CONFIGURATION_TYPES Profile)
+	list(REMOVE_DUPLICATES CMAKE_CONFIGURATION_TYPES)
+	set(CMAKE_CONFIGURATION_TYPES "${CMAKE_CONFIGURATION_TYPES}" CACHE STRING
+		"Add the configurations that we need"
+		FORCE)
+endif()
+
+SET( CMAKE_CXX_FLAGS_PROFILE "-O3 -DNDEBUG -pg" CACHE STRING
+    "Flags used by the C++ compiler during PROFILE builds."
+    FORCE )
+SET( CMAKE_EXE_LINKER_FLAGS_PROFILE
+    "-pg" CACHE STRING
+    "Flags used for linking binaries during PROFILE builds."
+    FORCE )
+SET( CMAKE_SHARED_LINKER_FLAGS_PROFILE
+    "-pg" CACHE STRING
+    "Flags used by the shared libraries linker during PROFILE builds."
+    FORCE )
+MARK_AS_ADVANCED(
+    CMAKE_CXX_FLAGS_PROFILE
+    CMAKE_EXE_LINKER_FLAGS_PROFILE
+    CMAKE_SHARED_LINKER_FLAGS_PROFILE )
+
 #CMAKE SETUP AND CONFIGURATION
 ###############################
 # setup modules
@@ -28,9 +54,9 @@ if(UNIX)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}\ -Wall -std=c++0x -fnothrow-opt")
 endif(UNIX)
 
-if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug" OR "${CMAKE_BUILD_TYPE}" STREQUAL "Profile")
 	add_definitions(-DDEBUG)
-endif("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+endif("${CMAKE_BUILD_TYPE}" STREQUAL "Debug" OR "${CMAKE_BUILD_TYPE}" STREQUAL "Profile")
 
 if(DOXYGEN)
 	include(UseDoxygen.cmake)
@@ -79,4 +105,6 @@ add_lib_test_executable(lib_sha1_performance_test lib_sha1_perf
 					test/git/db/sha1_performance_test.cpp)
 add_lib_test_executable(lib_looseodb_performance_test lib_looseodb_perf
 					test/git/db/looseodb_performance_test.cpp)
+add_lib_test_executable(lib_packodb_performance_test lib_packodb_perf
+					test/git/db/packodb_performance_test.cpp)
 

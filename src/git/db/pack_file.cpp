@@ -1,10 +1,220 @@
 #include <git/db/pack_file.h>
 #include <git/config.h>			// for doxygen
+#include <git/db/util.hpp>
+#include <gtl/db/hash_generator_filter.hpp>
 
+#include <boost/crc.hpp>
+
+#include <array>
 #include <cstring>
+
+namespace boost {
+
+	void intrusive_ptr_add_ref(git::PackCache::counted_char_const_type* d) {
+		gtl::intrusive_ptr_add_ref_array_impl(d);
+	}
+	
+	void intrusive_ptr_release(git::PackCache::counted_char_const_type* d) {
+		gtl::intrusive_ptr_release_array_impl(d);
+	}
+
+}// end boost namespace
+
 
 GIT_NAMESPACE_BEGIN
 
+size_t PackCache::gMemoryLimit = 0;
+size_t PackCache::gMemory = 0;
+
+PackCache::PackCache()
+    : m_mem(0)
+    , m_head(nullptr)
+    , m_tail(nullptr)
+#ifdef DEBUG
+    , m_hits(0)
+    , m_ncollect(0)
+    , m_mem_collected(0)
+    , m_nrequest(0)
+#endif
+{}
+
+
+void PackCache::clear() 
+{
+	m_info.clear();
+	gMemory -= m_mem;
+	m_head = m_tail = nullptr;
+	m_mem = 0;
+	
+#ifdef DEBUG
+	m_hits = 0;
+	m_ncollect = 0;
+	m_mem_collected = 0;
+	m_nrequest = 0;
+#endif
+}
+
+
+void PackCache::cache_info(std::ostream &out) const {
+	uint32 occupied = 0;
+	for (auto beg = m_info.begin(); beg < m_info.end(); ++beg) {
+		occupied += beg->size != 0;
+	}
+	
+	out << "###-> Pack " << this << " memory = " << m_mem  / 1000 << "kb, structure_mem[kb] = " 
+	    << struct_mem(m_info.size()) / 1000 << "kb, entries = " << m_info.size()
+	    << ", occupied = " << occupied << " (" << (occupied /(float)m_info.size()) * 100 << "% full)"
+#ifdef DEBUG	       
+	    << ", queries = " << m_nrequest
+	    << ", hits = " << hits() <<  ", hit-ratio = " << (m_nrequest ? m_hits / (float)m_nrequest : 0.f)
+		<< ", collects = " << m_ncollect << ", memory collected = " << m_mem_collected / 1000 << "kb"
+#endif
+		<< std::endl;
+}
+
+PackCache::CacheInfo::CacheInfo()
+    : offset(0)
+    , size(0)
+{}
+
+void PackCache::initialize(const PackIndexFile &index)
+{
+	if (is_available()){
+		return;
+	}
+
+	gMemory -= m_mem;
+	m_mem -= struct_mem(m_info.size());
+	
+	// Build a hash-map with only a reasonable amount of entries to save memory.
+	// As the cache will be more efficient if there are more entries, we try to provide
+	// plenty of them while staying within our memory range.
+	// only use 10 percent of the available cache memory at maximum, but not more than 1/3 of the maximum
+	// entries, the hash table seems to perform better if its more crowed, also considering that there
+	// will be clashes even if we have more entries due to hash collisions
+	uint32 ne = std::min(
+	            (uint32)((gMemoryLimit - gMemory) * 0.1f / (float)sizeof(CacheInfo)), 
+	            (uint32)(index.num_entries() * 0.75f));
+	ne = std::max(ne, std::min(256u, index.num_entries()));
+	m_info.resize(ne);
+	
+	if (!m_head) {
+		// initialize the doubly linked list
+		m_head = &m_info[0];
+		m_tail = &*(m_info.end()-1);
+		
+		assert(m_head != m_tail);
+		m_head->next = m_tail;
+		m_head->prev = nullptr;
+		m_tail->prev = m_head;
+		m_tail->next = nullptr;
+	}
+	
+	m_mem += struct_mem(ne);
+	gMemory += m_mem;
+}
+
+uint32 PackCache::offset_to_entry(uint64 offset) const
+{
+	assert(is_available());
+	// Protect our static head and tail from being written
+	return std::max(
+	            (offset + (offset >> 8) + (offset >> 16) + (offset >> 24) + (offset >> 32)) % (m_info.size()-1), 
+	            (uint64)1);
+}
+
+size_t PackCache::collect(size_t bytes_to_free)
+{
+	size_t bf = 0;	// bytes freed
+	bytes_to_free = std::max(bytes_to_free, (size_t)(m_mem * 0.5f));
+	
+#ifdef DEBUG
+	static const size_t mb = 1000 * 1000;
+	m_ncollect += 1;
+	std::cerr << "Have Collect: " << m_mem / mb << "mb - bytes to free " << bytes_to_free / mb << "mb";
+#endif
+	
+	for (CacheInfo* pinfo = m_head->next; bf < bytes_to_free && pinfo != m_tail; pinfo = pinfo->next) {
+		if (pinfo->size > 0) {
+			bf += pinfo->size;
+			set_data(*pinfo, 0, 0, nullptr);
+		}
+	}
+	
+#ifdef DEBUG
+	m_mem_collected += bf;
+	std::cerr << " - End of collect: " << "bytes freed " << bf / mb << "mb -- mem " << m_mem / mb << "mb"
+			  << std::endl;
+#endif
+	return bf;
+}
+
+PackCache::counted_char_ptr_const_type PackCache::cache_at(uint64 offset) const 
+{
+	static const counted_char_ptr_const_type nullp;
+	uint32 entry = offset_to_entry(offset);
+	
+#ifdef DEBUG
+	m_nrequest += 1;
+#endif
+	
+	const CacheInfo& info = m_info[entry];
+	if (info.offset != offset || info.size == 0) {
+		return nullp;
+	}
+
+#ifdef DEBUG
+	m_hits += !!info.pdata;
+#endif
+	return info.pdata;
+}
+
+void PackCache::set_data(CacheInfo& info, uint64 offset, size_type size, counted_char_const_type* pdata)
+{
+	gMemory -= m_mem;
+	m_mem -= info.size;
+	m_mem += size;
+	gMemory += m_mem;
+	bool was_set = (bool)info.size;
+	info.pdata = pdata;
+	info.size = size;
+	info.offset = offset;
+	
+	if (was_set & !size) {
+		// deletion
+		info.next->prev = info.prev;
+		info.prev->next = info.next;
+		// Must not reset pointers, on deletion we rely on the fact that the next pointer still points
+		// to the right next entry (and is not null)
+	} else if (!was_set & !!size) {
+		// first add
+		info.next = m_tail;
+		info.prev = m_tail->prev;
+		m_tail->prev->next = &info;
+		m_tail->prev = &info;
+	}
+	// Otherwise just keep the entry if the data/offset changes
+}
+
+bool PackCache::set_cache_at(uint64 offset, size_type size, counted_char_const_type* pdata) 
+{
+	// refuse to cache items which are too large !
+	if (size*2 > gMemoryLimit) {
+		return false;
+	}
+	
+	// Collect first to assure we have enough memory.
+	if (size + gMemory > gMemoryLimit) {
+		collect(size);
+		if (size + gMemory > gMemoryLimit) {
+			return false;
+		}
+	}
+	
+	// store data unconditionally
+	set_data(m_info[offset_to_entry(offset)], offset, size, pdata);
+	return true;
+}
 
 PackIndexFile::PackIndexFile()
 {
@@ -232,6 +442,91 @@ PackFile* PackFile::new_pack(const path_type& file, mapped_memory_manager_type& 
 	}
 	
 	return new PackFile(file, manager, db);
+}
+
+bool PackFile::verify(std::ostream &output) const 
+{
+	// Sort entries by offset, to help the caching !
+	struct OffsetInfo {
+		uint64 offset;			// offset into packfile
+		uint32 entry;		// entry of index file matching the offset
+	};
+
+	typedef std::vector<OffsetInfo> vec_info;
+	typedef SHA1Generator hash_gen;
+	
+	const uint32 ne = m_index.num_entries();
+	vec_info ofs;
+	ofs.reserve(ne);
+	
+	OffsetInfo info;
+	for (uint32 i = 0; i < ne; ++i) {
+		info.offset = m_index.offset(i);
+		info.entry = i;
+		ofs.push_back(info);
+	}
+	std::sort(ofs.begin(), ofs.end(), 
+	          [](const OffsetInfo& l, const OffsetInfo& r)->bool{return l.offset < r.offset;});
+	
+	bool													res = true;
+	const vec_info::const_iterator							end = ofs.end();
+	PackOutputObject										obj(this);
+	hash_gen												hgen;
+	key_type												hash;
+	boost::crc_32_type										crc;
+	std::array<char_type, 8192>								buf;
+	std::streamsize											br;		// bytes read
+	
+	for (vec_info::const_iterator it = ofs.begin(); it < end; ++it) {
+		obj.entry() = it->entry;
+		
+		// CRC
+		if (m_index.version() > PackIndexFile::Type::Legacy) {
+			uint64 len = it+1 < end 
+							? (it+1)->offset - it->offset 
+			                : m_cursor.file_size() - key_type::hash_len - it->offset;
+			uint64 ofs = it->offset;
+			do {
+				const_cast<PackFile*>(this)->m_cursor.use_region(ofs, len);
+				assert(m_cursor.is_valid());
+				size_t actual_size = m_cursor.size();
+				if (actual_size > len){
+					actual_size = static_cast<size_t>(len);
+				}
+				crc.process_bytes(m_cursor.begin(), actual_size);
+				len -= actual_size;
+			} while (len);
+			
+			if (m_index.crc(it->entry) != crc.checksum()) {
+				res = false;
+				output << "object at entry " << it->entry << " doesn't match its index crc32 " << crc.checksum() << std::endl;
+			}
+			crc.reset();
+		}// handle crc check
+
+		// SHA		
+		// put in header
+		gtl::stack_heap_managed<PackOutputObject::stream_type>	pstream;
+		obj.stream(pstream);
+		pstream.set_occupied();
+		
+		br = loose_object_header(buf.data(), obj.type(), obj.size());
+		hgen.update(buf.data(), static_cast<uint32>(br));
+		do {
+			pstream->read(buf.data(), buf.size());
+			br = pstream->gcount();
+			hgen.update(buf.data(), static_cast<uint32>(br));
+		} while(static_cast<size_t>(br) == buf.size());
+		
+		m_index.sha(it->entry, hash);
+		if (hgen.hash() != hash) {
+			res = false;
+			output << "object at entry " << it->entry << " doesn't match its index sha1 " << hash << std::endl;
+		}
+		hgen.reset();
+	}// end for each object to verify
+
+	return res;
 }
 
 

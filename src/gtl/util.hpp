@@ -2,11 +2,15 @@
 #define GTL_UTIL_HPP
 
 #include <gtl/config.h>
+
 #include <boost/filesystem/path.hpp>
+#include <boost/intrusive_ptr.hpp>
+
 #include <cctype>
 #include <sstream>
 #include <cstring>
 #include <memory>
+
 
 GTL_HEADER_BEGIN
 GTL_NAMESPACE_BEGIN
@@ -196,6 +200,91 @@ struct stack_heap_autodestruct : public stack_heap<Type>
 };
 
 
+/** \brief scoped_ptr like type which allows the user to determine whether he wants to auto-delete the associated
+  * memory or not.
+  * The given pointer must be an array so it can be deleted with delete [] accordingly
+  */
+template <class T>
+class managed_ptr_array : public boost::noncopyable
+{
+protected:
+	bool managed_;
+	T* p_;
+	
+public:
+	typedef managed_ptr_array<T>	this_type;
+	typedef T						element_type;
+	
+	//! Initialize the instance with a pointer. If managed is true, the pointer will be deleted upon our destruction
+	managed_ptr_array(bool managed = false, T* p = nullptr)
+	    : managed_(managed)
+	    , p_(p) {}
+	
+	~managed_ptr_array() {
+		reset();
+	}
+	
+	managed_ptr_array(this_type&& rhs) 
+	    : managed_(rhs.managed_) 
+	    , p_(rhs.p_)
+	{
+		// we now own the data, in case rhs was managed
+		// could also unmanage it, but setting the pointer makes it clear
+		// that the rhs instance is not supposed to be used anymore.
+		rhs.p_ = nullptr;
+	}
+	
+	
+public:
+	//! possibly delete the contained pointer and store the given pointer instead
+	void reset(T* p = 0) {
+		if (managed_ && p_ != nullptr) {
+			delete [] p_;
+		}
+		p_ = p;
+	}
+	
+	//! \return stored pointer and stop managing it
+	T* release() {
+		T* tmp = p_;
+		p_ = nullptr;
+		return tmp;
+	}
+	
+	//! \return stored pointer, and stop managing its lifetime. The pointer will remain within this instance though
+	T* unmanage() {
+		managed_ = false;
+		return p_;
+	}
+	
+	//! Take the pointer from rhs and copy its management state, while unmanaging the pointer on rhs.
+	void take_ownership(this_type&& rhs) {
+		bool rhs_managed = rhs.is_managed();
+		reset(rhs.unmanage());
+		managed_ = rhs_managed;
+	}
+	
+	//! \return true if this instance manages the associated data, hence it deletes it upon destruction
+	bool is_managed() const {
+		return managed_;
+	}
+	
+	//! \return our managed pointer
+	T* get() const {
+		return const_cast<this_type*>(this)->p_;
+	}
+	
+	T& operator[] (ptrdiff_t i) const {
+		return const_cast<this_type*>(this)->p_[i];
+	}
+	
+	//! \return true if our pointer is not a nullptr
+	operator bool () const {
+		return p_ != nullptr;
+	}
+};
+
+
 /** \brief Heap which, as opposed to the stack_heap_autodestruct, allows you to set a flag to enable or disable
   * whether it should auto-destroy itself. After each destruction, it will reset its flag to allow it to be filled
   * (and destroyed) once again
@@ -312,6 +401,128 @@ public:
 	}
 	
 };
+
+
+
+/** A facility to obtain a chunk of memory with an embedded reference count.
+  * This makes it suitable for use with intrusive pointers and saves one 
+  * memory allocation which would occour if a shared pointer is used.
+  * Derive from this type to inherit its special allocation, which makes it compatible
+  * to the boost::intrusive_ptr natively
+  */
+template <class CounterType=uint32>
+class intrusive_ptr_array_base
+{
+public:
+	typedef CounterType								counter_type;
+	typedef intrusive_ptr_array_base<counter_type>	this_type;
+	
+protected:
+	intrusive_ptr_array_base() {};
+	~intrusive_ptr_array_base() {};
+	
+public:
+	void* operator new[](size_t size)
+	{
+		char* d = reinterpret_cast<char*>(::operator new[](size+sizeof(counter_type)));
+		*reinterpret_cast<counter_type*>(d) = 0;
+		
+		// this would possible misalign the memory ... fix this
+		return d + sizeof(counter_type);
+	}
+	
+	void operator delete [](void* d_ofs) {
+		::operator delete [] (reinterpret_cast<counter_type*>(d_ofs) - 1);
+	}
+	
+	void deallocate() {
+		delete [] this;
+	}
+	
+	counter_type count_() const {
+		return *reinterpret_cast<const counter_type*>(reinterpret_cast<const counter_type*>(this) - 1);
+	}
+	
+	counter_type& count_(){
+		return *reinterpret_cast<counter_type*>(reinterpret_cast<counter_type*>(this) - 1);
+	}
+	
+};
+
+/** \brief utility to facilitate usage of default-constructible types and their 
+  * use with the intrusive_ptr_array_base.
+  * Use this type as follows:
+  * \code 
+  *	typedef intrusive_const_array_type<char> intrusive_char;
+  * // define methods intrusive_ptr_add_ref and intrusive_ptr_release calling the respective templated
+  * // *_array_impl versions of these functions
+  * intrusive_char::ptr_type p = new intrusive_char[100];
+  * \endcode
+  * \tparam T type to use. It should be a non-const non-pointer type
+  * \note see the operator new[]/delete[] overload version of this, it might be easier to use
+  */
+template <class T, class CounterType=uint32>
+class intrusive_const_array_type : public intrusive_ptr_array_base<CounterType>
+{
+public:
+	typedef T											element_type;
+	typedef intrusive_const_array_type<T, CounterType>	this_const_type;
+	typedef boost::intrusive_ptr<this_const_type>		ptr_const_type;
+	
+protected:
+	T item_;
+	
+public:
+	intrusive_const_array_type() {}
+
+	operator const T* () const {
+		return &item_;
+	}
+	
+	const T& operator*() const {
+		return item_;
+	}
+	
+	const T* operator->() const {
+		return &item_;
+	}
+};
+
+template <class T, class CounterType=uint32>
+struct intrusive_array_type : public intrusive_const_array_type<T, CounterType>
+{
+	typedef intrusive_array_type<T, CounterType>		this_type;
+	typedef boost::intrusive_ptr<this_type>				ptr_type;
+	
+	operator T* () {
+		return &this->item_;
+	}
+	
+	T& operator*() {
+		return this->item_;
+	}
+	
+	T* operator->() {
+		return &this->item_;
+	}
+};
+
+template <class T, class CT>
+void intrusive_ptr_add_ref_array_impl(intrusive_const_array_type<T, CT>* d)
+{
+	static_cast<intrusive_ptr_array_base<typename intrusive_const_array_type<T, CT>::counter_type>*>(d)->count_() += 1;
+}
+
+template <class T, class CT>
+void intrusive_ptr_release_array_impl(intrusive_const_array_type<T, CT>* d)
+{
+	auto* d_ = static_cast<intrusive_ptr_array_base<typename intrusive_const_array_type<T, CT>::counter_type>*>(d);
+	d_->count_() -= 1;
+	if (d_->count_() == 0) {
+		delete [] d;
+	}
+}
+
 
 /** Class representing two ascii characters in the range of 0-F
   * \note currently represented directly as baked character values, in fact it could 

@@ -29,6 +29,15 @@
 using namespace gtl;
 
 typedef mapped_memory_manager<>		man_type;
+typedef intrusive_array_type<char>	counted_char;
+
+void intrusive_ptr_add_ref(typename counted_char::this_const_type* d) {
+	intrusive_ptr_add_ref_array_impl(d);
+}
+
+void intrusive_ptr_release(typename counted_char::this_const_type* d) {
+	intrusive_ptr_release_array_impl(d);
+}
 
 std::ostream& operator << (std::ostream& s, const typename man_type::cursor& c) {
 	return s << (c.is_valid() ? "" : "!") << "< " << c.ofs_begin() << " - " << c.size() << " - " << c.ofs_end() << " >";
@@ -229,6 +238,36 @@ BOOST_AUTO_TEST_CASE(util)
 	managed_stack_heap_type msh3;
 	BOOST_REQUIRE(!(*(msh3.occupy()) == *msh));
 	BOOST_REQUIRE(msh3.occupied());
+	
+	
+	// Intrusive aligned data using new overload
+	{
+		BOOST_REQUIRE(sizeof(counted_char) == 1);		// empty base class optimization
+		counted_char* c = new counted_char[100];
+		BOOST_REQUIRE(c->count_() == 0);
+		
+		**c = 5;
+		char* cp = *c;	// auto-conversion
+		*cp = 0;
+		BOOST_REQUIRE(**c == 0);
+		delete [] c;
+	}
+	
+	// now with intrusive ptrs
+	{
+		counted_char::ptr_type pc = new counted_char[50];
+		{
+			counted_char::ptr_type pc2(pc);
+			BOOST_REQUIRE(pc.get()->count_() == 2);
+		}
+		BOOST_REQUIRE(pc.get()->count_() == 1);
+		
+		// can convert into a constant version
+		counted_char::ptr_const_type cpc = pc.get();
+		BOOST_REQUIRE(pc.get()->count_() == 2);
+		cpc = pc;
+		BOOST_REQUIRE(pc.get()->count_() == 2);
+	}
 }
 
 BOOST_AUTO_TEST_CASE(test_sliding_mapped_memory_device)

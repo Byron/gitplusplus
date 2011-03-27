@@ -382,8 +382,6 @@ BOOST_FIXTURE_TEST_CASE(loose_db_test, GitLooseODBFixture)
 	const size_t buflen = 512;
 	char_type buf[buflen];
 	
-	std::cerr << sizeof(LooseODB::output_stream_type) << " == loose ouptut stream type" << " - " << sizeof(LooseODB::output_object_type) << " == output object type" << std::endl;
-	
 	auto end = lodb.end();
 	uint count=0;
 	for (auto it=lodb.begin(); it != end; ++it, ++count) {
@@ -492,12 +490,14 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 	//! \todo templated base version of this implementation should go into the gtl tests
 	typedef PackODB::vector_pack_readers::const_iterator const_pack_iterator;
 	typedef gtl::stack_heap<PackOutputObject::stream_type> stack_stream_type;
-	typedef std::basic_stringstream<typename PackODB::obj_traits_type::char_type> sstream_type;
+	typedef typename PackODB::obj_traits_type::char_type char_type;
+	typedef std::basic_stringstream<char_type> sstream_type;
 	gtl::mapped_memory_manager<> manager;
 	
 	
 	const size_t pack_count = 3;
 	PackODB podb(rw_dir(), manager);
+	BOOST_REQUIRE(podb.cache_memory_limit() == 0);	// no caches enabled
 	PackODBProvider podb_provider(podb);
 	podb.set_object_provider(&podb_provider);
 	BOOST_REQUIRE(podb.packs().size() == pack_count);
@@ -515,7 +515,7 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 		const PackIndexFile& pack_index = pack->index();
 		BOOST_CHECK(pack_index.type() != PackIndexFile::Type::Undefined);
 		
-		std::cerr << pack_index.type() << " - " << pack_index.version() << " - " << pack_index.num_entries() << " == " << pack->pack_path() << std::endl;
+		BOOST_REQUIRE(pack->verify(std::cerr));
 		
 		// make a few calls
 		BOOST_REQUIRE(pack_index.num_entries() != 0);
@@ -562,11 +562,12 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 	BOOST_REQUIRE(begin != end);
 	std::vector<char>	dbuf;	// destination buffer for object streams
 	
+	PackODB::output_object_type obj = *begin;
+	obj = *begin;		// assert assignment works
+	
 	for (; begin != end; ++begin, ++obj_count) {
 		BOOST_REQUIRE(podb.has_object(begin.key()));
 		BOOST_REQUIRE(podb.object(begin.key()) == *begin);
-		
-		std::cerr << obj_count << ": " << begin.key() << " -- entry == " << begin->entry() << std::endl;
 		
  		BOOST_REQUIRE(begin->size() > 0);
 		BOOST_REQUIRE(begin->type() != ObjectType::None);
@@ -591,7 +592,39 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 	BOOST_REQUIRE(podb.count() == obj_count);
 	
 	
-	BOOST_CHECK(false); // verify iterators in empty pack databases
+	// verify iterators in empty pack databases
+	gtl::directory_creator dcreator;
+	PackODB podb_empty(dcreator.directory(), manager);
+	BOOST_REQUIRE(podb_empty.count() == 0);
+	BOOST_REQUIRE(podb_empty.packs().size() == 0);
+	
+	BOOST_REQUIRE(podb_empty.begin() == podb_empty.end());
+	
+	// Cache testing
+	// Unfortunately, we don't have too many deltas in these small packs
+	std::vector<size_t> cache_sizes = {0, 15000, 1024*1024*1};
+	for (auto it = cache_sizes.begin(); it < cache_sizes.end(); ++it) {
+		podb.set_cache_memory_limit(*it);
+		BOOST_REQUIRE(podb.cache_memory_limit() == *it);
+		
+		const size_t buflen = 2048;
+		char_type buf[buflen];
+		begin = podb.begin();
+		for (; begin != end; ++begin) {
+			begin->stream(stream);
+			std::streamsize br;
+			do {
+				stream->read(buf, buflen);
+				br = stream->gcount();
+			} while (br == static_cast<std::streamsize>(buflen));
+			stream.destroy();
+			BOOST_REQUIRE(podb.cache_memory() <= *it); // give it some head room
+		}
+	}
+	
+	// reset to 0 to disable the cache and free all memory 
+	podb.set_cache_memory_limit(0);
+	BOOST_REQUIRE(podb.cache_memory_limit() == 0);
 	
 	// TODO: Verify invalid pack reading/handling
 }

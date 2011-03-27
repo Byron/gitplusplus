@@ -44,14 +44,14 @@ protected:
 	{}
 	
 	std::streamsize read(char_type* s, std::streamsize n, const char_type* first) {
-		if (this->m_nb == 0){
+		if (m_nb == 0){
 			return -1;	// eof
 		}
 		
-		size_t bytes_to_copy =	std::min(static_cast<size_type>(n), this->m_nb);
-		std::memcpy(s, first, bytes_to_copy);
-		this->m_nb -= bytes_to_copy;
-		this->m_ofs += bytes_to_copy;
+		size_t bytes_to_copy =	std::min(static_cast<size_type>(n), m_nb);
+		std::memcpy(s, first+m_ofs, bytes_to_copy);
+		m_nb -= bytes_to_copy;
+		m_ofs += bytes_to_copy;
 		return bytes_to_copy;
 	}
 	
@@ -61,6 +61,13 @@ public:
 	//! \return amount of bytes left in the mapping
 	size_type bytes_left() const {
 		return m_nb;
+	}
+	
+	//! reset the internal state to zero
+	inline void reset() {
+		m_ofs = 0;
+		m_nb = 0;
+		m_size = 0;
 	}
 	
 	//! \return true if we reached the end of our mapping
@@ -141,6 +148,18 @@ public:
 protected:
 	cursor_type				m_cur;			//!< memory manager cursor
 	
+protected:
+	inline void prepare_cursor(size_type length, stream_offset offset) {
+		m_cur.use_region(offset, length);
+		if (!m_cur.is_valid()) {
+			throw std::ios_base::failure("Could not map given file region");
+		}
+		// Compute our own size
+		this->m_nb = std::min(m_cur.file_size() - static_cast<size_type>(offset), length - static_cast<size_type>(offset));
+		this->m_size = this->m_nb;
+		this->m_ofs = offset;
+	}
+	
 private:
 	managed_mapped_file_source(managed_mapped_file_source&& source);
 	
@@ -184,14 +203,7 @@ public:
 		}
 		
 		m_cur = cursor;
-		m_cur.use_region(offset, length);
-		if (!m_cur.is_valid()) {
-			throw std::ios_base::failure("Could not map given file region");
-		}
-		// Compute our own size
-		this->m_nb = std::min(m_cur.file_size() - static_cast<size_type>(offset), length - static_cast<size_type>(offset));
-		this->m_size = this->m_nb;
-		this->m_ofs = offset;
+		prepare_cursor(length, offset);
 	}
 	
 	
@@ -222,9 +234,7 @@ public:
 	void close() {
 		if (is_open()) {
 			m_cur.unuse_region();
-			this->m_ofs = 0;
-			this->m_nb = 0;
-			this->m_size = 0;
+			this->reset();
 		}
 	}
 	

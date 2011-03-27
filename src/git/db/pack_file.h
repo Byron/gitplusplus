@@ -14,6 +14,8 @@
 #include <git/db/policy.hpp>
 #include <gtl/db/sliding_mmap_device.hpp>
 
+#include <memory>
+
 GIT_HEADER_BEGIN
 GIT_NAMESPACE_BEGIN
 
@@ -255,7 +257,7 @@ public:
 		// of the boost::stream limitation, hence we will recreate it on demand.
 		m_pstream.destroy_safely();
 		return *this;
-	}	
+	}
 	
 	bool operator == (const PackOutputObject& rhs) const {
 		return (m_ppack == rhs.m_ppack) & (m_entry == rhs.m_entry);
@@ -353,6 +355,158 @@ public:
 };
 
 
+
+/** \brief cache containing decompressed delta streams and base objects
+  * During decompression of extremely deltified packs, the actual decompression takes the most
+  * time in the process. Hence it is viable to cache decompressed deltas and bases as defined by 
+  * certain limits.
+  * The cache, once initialized, contains one entry per index entry which keeps the data and a hit
+  * count to signal importance. Also you can quickly map an offset to the respective index, as we maintain
+  * an offset-sorted list we can bisect in. The index of the offset denotes the entry at which we can find
+  * additional information.
+  * The client, before decompressing anything, queries the cache for decompressed data. If it exists, it will
+  * be used. Otherwise, it decompresses the data itself and afterwards calls the cache to take a copy of the 
+  * decompressed data so it may be found in future.
+  * The type uses a global counter to set shared (global) memory limits. If the limit is reached, we prune 
+  * out least recently used items, and advance all others to the next generation, increasing our own generation
+  * gap.
+  * By default, the cache is deactivated
+  */ 
+class PackCache
+{
+public:
+	typedef uint32												size_type;					//!< currently we only support 32 bit sizes, as the pack can 
+	typedef gtl::intrusive_const_array_type<char_type>			counted_char_const_type;	//!< char array with build-in counter
+	typedef typename counted_char_const_type::ptr_const_type	counted_char_ptr_const_type;//!< ptr to a counted char, deallocates instance once count reaches zero
+	
+	
+protected:
+	struct CacheInfo {
+		CacheInfo();
+		CacheInfo(CacheInfo&&) = default;
+		
+		CacheInfo*							prev;			//! pointer to previusly set entry
+		CacheInfo*							next;			//! pointer to the next set entry
+		
+		uint64								offset;			//! offset at which the entry resides
+		size_type							size;			//! amount of bytes we store
+		counted_char_ptr_const_type			pdata;			//! stored inflated data
+	};
+	
+	typedef std::vector<CacheInfo>					vec_info;
+	
+	static size_t									gMemoryLimit;
+	static size_t									gMemory;		// current used memory
+	
+	
+protected:
+	vec_info			m_info;
+	mutable size_t		m_mem;					//!< current memory allocation in bytes
+	CacheInfo*			m_head;					//!< first set cache entry
+	CacheInfo*			m_tail;					//!< last set cache entry
+	
+#ifdef DEBUG
+	mutable uint32		m_hits;			// amount of overall cache hits
+	uint32				m_ncollect;		// amount of collect calls
+	size_t				m_mem_collected;// amount of memory collected
+	mutable uint32		m_nrequest;		// importance we issued to our entries
+#endif
+	
+protected:
+	//! convert an offset into an entry. Entry is hash_error if the offset wasn't found, but this shouldn't happen
+	inline uint32 offset_to_entry(uint64 offset) const;
+	
+	//! sets data, handling our memory counter correctly
+	inline void set_data(CacheInfo& info, uint64 offset, size_type size, counted_char_const_type* data);
+	
+	//! free at least the given amount of memory. Try to be smart by keeping old objects which were useful often.
+	//! We basically remove all generations below a required minimum, to keep the runs short and effective
+	size_t collect(size_t bytes_to_free);
+	
+public:
+	PackCache();
+	
+public:
+	static size_t memory_limit() {
+		return gMemoryLimit;
+	}
+	
+	//! Set the memory limit
+	//! \param limit if 0, the cache is effectively deactivated
+	//! \note if the limit is reduced, the collection will start when the next one tries to insert
+	//! data. If you want to clear the cache, use the clear() method and set the memory limit to 0
+	static void set_memory_limit(size_t limit) {
+		gMemoryLimit = limit;
+	}
+	
+public:
+	
+	//! Empty the cache completely to reduce its memory footprint. Does nothing if the cache
+	//! is not initialized.
+	void clear();
+	
+	//! \return true if the cache is available for use. Before querying the cache
+	//! or trying to put in data, you have to query for the caches availability.
+	inline bool is_available() const {
+		return m_info.size() != 0;
+	}
+	
+	//! Initialize the data required to run the cache. Should only be called once to make
+	//! the cache available, so that is_available() return true.
+	//! If the cache is initialized, it does nothing
+	void initialize(const PackIndexFile& index);
+	
+	//! \return amount of used memory in bytes
+	size_type memory() const {
+		return m_mem;
+	}
+	
+	//! \return amount of memory used in all pack caches
+	static size_t total_memory() {
+		return gMemory;
+	}
+	
+	//! \return structural memory required for the given amount of entries to be held in the cache
+	static size_type struct_mem(uint32 num_entries = ~0) {
+		return sizeof(PackCache)
+		        + sizeof(vec_info::value_type)	* num_entries;
+	}
+	
+	//! \return data pointer to the decompressed cache matching the given offset, or 0
+	//! if there is no such cache entry
+	//! \note behaviour undefined if !is_available()
+	counted_char_ptr_const_type cache_at(uint64 offset) const;
+	
+	//! provide cache information for the given offset
+	//! \param offset at which the data should be set
+	//! \param size of the data to be set
+	//! \param pdata pointer to data be taken into the cache. If 0, the cache will be deleted if it exists
+	//! The data will be owned by the cache, you must not deallocate it ! If 0 is passed in, 
+	//! size must be null as well.
+	//! \note has no effect if the cache entry is already set
+	//! \return true if the data is used by the cache and false if it was rejected as a memory limit was hit
+	//! if the cache was rejected, you remain responsible for your data
+	bool set_cache_at(uint64 offset, size_type size, counted_char_const_type* pdata);
+	
+	//! Print user-readable usage information into the given output stream
+	void cache_info(std::ostream& out) const;
+	
+#ifdef DEBUG
+	uint32 hits() const {
+		return m_hits;
+	}
+	
+	uint32 misses() const {
+		return m_nrequest - m_hits;
+	}
+	
+	uint32 requests() const {
+		return m_nrequest;
+	}
+
+#endif
+};
+
 /** \brief implementation of the gtl::odb_pack_file interface with support for git packs version 1 and 2
   * 
   * For the supported formats, see http://book.git-scm.com/7_the_packfile.html
@@ -393,6 +547,8 @@ protected:
 	PackIndexFile							m_index;			//! Our index file
 	cursor_type								m_cursor;			//! cursor into our pack
 	const provider_mixin_type&				m_db;				//! reference to the database owning us
+	PackCache								m_cache;			//! cache implementation
+	
 	
 protected:
 	//! \return true if the given path appears to be a valid pack file
@@ -432,10 +588,18 @@ public:
 		return PackOutputObject(this, index().sha_to_entry(k));
 	}
 	
+	bool verify(std::ostream& output) const;
+	
 	//! @} end packfile interface
 	
 	//! @{ \name Interface
 	//! \return our associated index file
+	
+	//! the cache is considered a mutable part of an otherwise constant pack file
+	inline PackCache& cache() const {
+		return const_cast<PackFile*>(this)->m_cache;
+	}
+	
 	inline const PackIndexFile& index() const {
 		return m_index;
 	}
@@ -457,6 +621,14 @@ public:
 };
 
 GIT_NAMESPACE_END
+
+//! Declarations for others to use - we implement the methods in our compilation unit.
+namespace boost {
+	void intrusive_ptr_add_ref(git::PackCache::counted_char_const_type* d);
+	void intrusive_ptr_release(git::PackCache::counted_char_const_type* d);
+}// end boost namespace
+
 GIT_HEADER_END
+
 
 #endif // GIT_DB_PACK_FILE_H
