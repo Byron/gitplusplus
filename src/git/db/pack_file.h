@@ -588,6 +588,8 @@ public:
 		return PackOutputObject(this, index().sha_to_entry(k));
 	}
 	
+	bool verify(std::ostream& output) const;
+	
 	//! @} end packfile interface
 	
 	//! @{ \name Interface

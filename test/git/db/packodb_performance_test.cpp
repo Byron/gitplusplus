@@ -82,6 +82,17 @@ BOOST_AUTO_TEST_CASE(read_pack)
 		podb.set_cache_memory_limit(*cache_size);
 		BOOST_CHECK(podb.cache_memory_limit() == *cache_size);
 		
+		{
+			for (auto pit = podb.packs().begin(); pit != podb.packs().end(); ++pit) {
+				timer t;
+				BOOST_REQUIRE(pit->get()->verify(std::cerr));
+				double elapsed = t.elapsed();
+				uint64 pack_size = pit->get()->cursor().file_size();
+				std::cerr << "Verified pack of " << pack_size / mb << "mb in " << elapsed << "s (" << (pack_size / mb) / elapsed << "mb / s)" << std::endl;
+			}
+		}// end verify pack
+		
+		/*
 		double deserialization_elapsed = 0.;
 		{// deserialize data
 			PackODB::forward_iterator beg = podb.begin();
@@ -150,6 +161,7 @@ BOOST_AUTO_TEST_CASE(read_pack)
 			const double tmb = tbc / mb;
 			std::cerr << "Streamed " << no  << " objects totalling " << tmb <<  " mb in " << streaming_elapsed << " s (" << no / streaming_elapsed<< " streams/s & " << tmb / streaming_elapsed  << " mb/s)" << std::endl;
 		}// stream data
+		*/
 		
 		std::cerr << "--------> TOTAL CACHE SIZE == " << podb.cache_memory() / mb << " mb" << std::endl;
 	}// end cache size

@@ -1,6 +1,11 @@
 #include <git/db/pack_file.h>
 #include <git/config.h>			// for doxygen
+#include <git/db/util.hpp>
+#include <gtl/db/hash_generator_filter.hpp>
 
+#include <boost/crc.hpp>
+
+#include <array>
 #include <cstring>
 
 namespace boost {
@@ -58,9 +63,9 @@ void PackCache::cache_info(std::ostream &out) const {
 	
 	out << "###-> Pack " << this << " memory = " << m_mem  / 1000 << "kb, structure_mem[kb] = " 
 	    << struct_mem(m_info.size()) / 1000 << "kb, entries = " << m_info.size()
+	    << ", occupied = " << occupied << " (" << (occupied /(float)m_info.size()) * 100 << "% full)"
 #ifdef DEBUG	       
 	    << ", queries = " << m_nrequest
-		<< ", occupied = " << occupied << " (" << (occupied /(float)m_info.size()) * 100 << "% full)"
 	    << ", hits = " << hits() <<  ", hit-ratio = " << (m_nrequest ? m_hits / (float)m_nrequest : 0.f)
 		<< ", collects = " << m_ncollect << ", memory collected = " << m_mem_collected / 1000 << "kb"
 #endif
@@ -111,7 +116,9 @@ uint32 PackCache::offset_to_entry(uint64 offset) const
 {
 	assert(is_available());
 	// Protect our static head and tail from being written
-	return std::max((offset + (offset >> 8) + (offset >> 16)) % (m_info.size()-1), (uint64)1);
+	return std::max(
+	            (offset + (offset >> 8) + (offset >> 16) + (offset >> 24) + (offset >> 32)) % (m_info.size()-1), 
+	            (uint64)1);
 }
 
 size_t PackCache::collect(size_t bytes_to_free)
@@ -430,6 +437,88 @@ PackFile* PackFile::new_pack(const path_type& file, mapped_memory_manager_type& 
 	}
 	
 	return new PackFile(file, manager, db);
+}
+
+bool PackFile::verify(std::ostream &output) const 
+{
+	// Sort entries by offset, to help the caching !
+	struct OffsetInfo {
+		uint64 offset;			// offset into packfile
+		uint32 entry;		// entry of index file matching the offset
+	};
+
+	typedef std::vector<OffsetInfo> vec_info;
+	typedef SHA1Generator hash_gen;
+	
+	const uint32 ne = m_index.num_entries();
+	vec_info ofs;
+	ofs.reserve(ne);
+	
+	OffsetInfo info;
+	for (uint32 i = 0; i < ne; ++i) {
+		info.offset = m_index.offset(i);
+		info.entry = i;
+		ofs.push_back(info);
+	}
+	std::sort(ofs.begin(), ofs.end(), 
+	          [](const OffsetInfo& l, const OffsetInfo& r)->bool{return l.offset < r.offset;});
+	
+	bool													res = true;
+	const vec_info::const_iterator							end = ofs.end();
+	PackOutputObject										obj(this);
+	hash_gen												hgen;
+	key_type												hash;
+	std::array<char_type, 4096>								buf;
+	std::streamsize											br;		// bytes read
+	
+	for (vec_info::const_iterator it = ofs.begin(); it < end; ++it) {
+		gtl::stack_heap_managed<PackOutputObject::stream_type>	pstream;
+		obj.entry() = it->entry;
+		obj.stream(pstream);
+		pstream.set_occupied();
+		
+		if (m_index.version() > PackIndexFile::Type::Legacy) {
+			boost::crc_32_type crc;
+			uint64 len = it+1 < end ? (it+1)->offset - it->offset : m_cursor.file_size() - key_type::hash_len;
+			uint64 ofs = it->offset;
+			do {
+				const_cast<PackFile*>(this)->m_cursor.use_region(ofs, len);
+				assert(m_cursor.is_valid());
+				size_t actual_size = m_cursor.size();
+				if (actual_size > len){
+					actual_size = static_cast<size_t>(len);
+				}
+				crc.process_bytes(m_cursor.begin(), actual_size);
+				len -= actual_size;
+			} while (len);
+			
+			if (m_index.crc(it->entry) != crc.checksum()) {
+				res = false;
+				output << "object at entry " << it->entry << " doesn't match its index crc32 " << crc.checksum() << std::endl;
+			}
+		}// handle crc check
+		
+		// put in header
+		br = loose_object_header(buf.data(), obj.type(), obj.size());
+		hgen.update(buf.data(), static_cast<uint32>(br));
+		do {
+			pstream->read(buf.data(), buf.size());
+			br = pstream->gcount();
+			hgen.update(buf.data(), static_cast<uint32>(buf.size()));
+		} while(static_cast<size_t>(br) == buf.size());
+		
+		m_index.sha(it->entry, hash);
+		if (hgen.hash() != hash) {
+			res = false;
+			output << "object at entry " << it->entry << " doesn't match its index sha1 " << hash << std::endl;
+		} else {
+			output << "one worked !!!" << std::endl;
+		}
+		hgen.reset();
+	}// end for each object to verify
+
+	
+	return res;
 }
 
 
