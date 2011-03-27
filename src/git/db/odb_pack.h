@@ -26,6 +26,13 @@ public:
     PackODB(const path_type& root, mapped_memory_manager_type& manager, provider_type* provider = nullptr)
 	    : odb_pack<git_pack_odb_traits>(root, manager, provider)
 	{}
+	
+public:
+	void set_cache_memory_limit(size_t limit) const;
+	
+	size_t cache_memory_limit() const;
+	
+	size_t cache_memory() const;
 };
 
 

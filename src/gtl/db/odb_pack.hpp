@@ -137,7 +137,7 @@ private:
 	
 protected:
 	typename vector_pack_readers::const_iterator		m_ipack;
-	const typename vector_pack_readers::const_iterator	m_ipack_end;
+	typename vector_pack_readers::const_iterator		m_ipack_end;
 	
 	bidirectional_iterator								m_ientry;
 	bidirectional_iterator								m_ientry_last;
@@ -300,6 +300,25 @@ public:
 		assure_update();
 		return m_packs;
 	}
+	
+	//! Set the amount of bytes the implementation may use to cache decompressed streams
+	//! If set to zero, the implementation should automatically 
+	//! release all previously used memory.
+	//! You should only consider setting up a cache if you plan to look deeply into the pack's historic
+	//! and thus highly deltified objects. Its not usually worth it if you are only examining recent objects
+	//! \note it is up to the implementation whether the given value should be used per pack database
+	//! or globally, per application.
+	//! \note by default, the cache is disabled
+	//! \note this method is constant as the cache system is a background detail which itself does not
+	//! interfere with the constness of the database. Instead, you should be able to set it up when reading
+	//! the database according to your needs.
+	void set_cache_memory_limit(size_t limit) const {}
+	
+	//! \return the current memory limit. If 0, the cache is disabled
+	size_t cache_memory_limit() const { return 0; }
+	
+	//! \return amount of bytes currently used by the caching system
+	size_t cache_memory() const { return 0; }
 	
 	//! @} end pack interface
 	

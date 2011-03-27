@@ -3,8 +3,206 @@
 
 #include <cstring>
 
+namespace boost {
+
+	void intrusive_ptr_add_ref(git::PackCache::counted_char_const_type* d) {
+		gtl::intrusive_ptr_add_ref_array_impl(d);
+	}
+	
+	void intrusive_ptr_release(git::PackCache::counted_char_const_type* d) {
+		gtl::intrusive_ptr_release_array_impl(d);
+	}
+
+}// end boost namespace
+
+
 GIT_NAMESPACE_BEGIN
 
+size_t PackCache::gMemoryLimit = 0;
+size_t PackCache::gMemory = 0;
+
+PackCache::PackCache()
+    : m_mem(0)
+    , m_head(nullptr)
+    , m_tail(nullptr)
+#ifdef DEBUG
+    , m_hits(0)
+    , m_ncollect(0)
+    , m_mem_collected(0)
+    , m_nrequest(0)
+#endif
+{}
+
+
+void PackCache::clear() 
+{
+	m_info.clear();
+	gMemory -= m_mem;
+	m_head = m_tail = nullptr;
+	m_mem = 0;
+	
+#ifdef DEBUG
+	m_hits = 0;
+	m_ncollect = 0;
+	m_mem_collected = 0;
+	m_nrequest = 0;
+#endif
+}
+
+
+void PackCache::cache_info(std::ostream &out) const {
+	uint32 occupied = 0;
+	for (auto beg = m_info.begin(); beg < m_info.end(); ++beg) {
+		occupied += beg->size != 0;
+	}
+	
+	out << "###-> Pack " << this << " memory = " << m_mem  / 1000 << "kb, structure_mem[kb] = " 
+	    << struct_mem(m_info.size()) / 1000 << "kb, entries = " << m_info.size()
+#ifdef DEBUG	       
+	    << ", queries = " << m_nrequest
+		<< ", occupied = " << occupied << " (" << (occupied /(float)m_info.size()) * 100 << "% full)"
+	    << ", hits = " << hits() <<  ", hit-ratio = " << (m_nrequest ? m_hits / (float)m_nrequest : 0.f)
+		<< ", collects = " << m_ncollect << ", memory collected = " << m_mem_collected / 1000 << "kb"
+#endif
+		<< std::endl;
+}
+
+PackCache::CacheInfo::CacheInfo()
+    : offset(0)
+    , size(0)
+{}
+
+void PackCache::initialize(const PackIndexFile &index)
+{
+	if (is_available()){
+		return;
+	}
+
+	gMemory -= m_mem;
+	m_mem -= struct_mem(m_info.size());
+	
+	// Build a hash-map with only a reasonable amount of entries to save memory.
+	// As the cache will be more efficient if there are more entries, we try to provide
+	// plenty of them while staying within our memory range.
+	// only use 10 percent of the available cache memory at maximum, but not more than 1/3 of the maximum
+	// entries, the hash table seems to perform better if its more crowed, also considering that there
+	// will be clashes even if we have more entries due to hash collisions
+	uint32 ne = std::min((uint32)((gMemoryLimit - gMemory) * 0.1f / (float)sizeof(CacheInfo)), (uint32)(index.num_entries() * 0.75f));
+	ne = std::max(ne, 256u);
+	m_info.resize(ne);
+	
+	if (!m_head) {
+		// initialize the doubly linked list
+		m_head = &m_info[0];
+		m_tail = &*(m_info.end()-1);
+		
+		assert(m_head != m_tail);
+		m_head->next = m_tail;
+		m_head->prev = nullptr;
+		m_tail->prev = m_head;
+		m_tail->next = nullptr;
+	}
+	
+	m_mem += struct_mem(ne);
+	gMemory += m_mem;
+}
+
+uint32 PackCache::offset_to_entry(uint64 offset) const
+{
+	assert(is_available());
+	// Protect our static head and tail from being written
+	return std::max((offset + (offset >> 8) + (offset >> 16)) % (m_info.size()-1), (uint64)1);
+}
+
+size_t PackCache::collect(size_t bytes_to_free)
+{
+	size_t bf = 0;	// bytes freed
+	bytes_to_free = std::max(bytes_to_free, (size_t)(m_mem * 0.5f));
+	
+#ifdef DEBUG
+	static const size_t mb = 1000 * 1000;
+	m_ncollect += 1;
+	std::cerr << "Have Collect: " << m_mem / mb << "mb - bytes to free " << bytes_to_free / mb << "mb";
+#endif
+	
+	for (CacheInfo* pinfo = m_head->next; bf < bytes_to_free && pinfo != m_tail; pinfo = pinfo->next) {
+		if (pinfo->size > 0) {
+			bf += pinfo->size;
+			set_data(*pinfo, 0, 0, nullptr);
+		}
+	}
+	
+#ifdef DEBUG
+	m_mem_collected += bf;
+	std::cerr << "End of collect: " << "bytes freed " << bf / mb << "mb -- mem " << m_mem / mb << "mb"
+			  << std::endl;
+#endif
+	return bf;
+}
+
+PackCache::counted_char_ptr_const_type PackCache::cache_at(uint64 offset) const 
+{
+	static const counted_char_ptr_const_type nullp;
+	uint32 entry = offset_to_entry(offset);
+	
+#ifdef DEBUG
+	m_nrequest += 1;
+#endif
+	
+	const CacheInfo& info = m_info[entry];
+	if (info.offset != offset || info.size == 0) {
+		return nullp;
+	}
+
+#ifdef DEBUG
+	m_hits += !!info.pdata;
+#endif
+	return info.pdata;
+}
+
+void PackCache::set_data(CacheInfo& info, uint64 offset, size_type size, counted_char_const_type* pdata)
+{
+	gMemory -= m_mem;
+	m_mem -= info.size;
+	m_mem += size;
+	gMemory += m_mem;
+	bool was_set = (bool)info.size;
+	info.pdata = pdata;
+	info.size = size;
+	info.offset = offset;
+	
+	if (was_set & !size) {
+		// deletion
+		info.next->prev = info.prev;
+		info.prev->next = info.next;
+		// Must not reset pointers, on deletion we rely on the fact that the next pointer still points
+		// to the right next entry (and is not null)
+	} else if (!was_set & !!size) {
+		// first add
+		info.next = m_tail;
+		info.prev = m_tail->prev;
+		m_tail->prev->next = &info;
+		m_tail->prev = &info;
+	}
+	// Otherwise just keep the entry if the data/offset changes
+}
+
+bool PackCache::set_cache_at(uint64 offset, size_type size, counted_char_const_type* pdata) 
+{
+	// refuse to cache items which are too large !
+	if (size*2 > gMemoryLimit) {
+		return false;
+	}
+	
+	// Collect first to assure we have enough memory.
+	if (size + gMemory > gMemoryLimit) {
+		collect(size);
+	}
+	
+	// store data unconditionally
+	set_data(m_info[offset_to_entry(offset)], offset, size, pdata);
+	return true;
+}
 
 PackIndexFile::PackIndexFile()
 {

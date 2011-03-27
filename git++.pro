@@ -3,6 +3,8 @@ INCLUDEPATH = /usr/local/include/ryppl-1.45.0 \
 test \
 src
 
+DEFINES += DEBUG
+
 HEADERS += \
     include/git/model/db/odb.hpp \
     include/git/global.h.in \
