@@ -472,14 +472,13 @@ bool PackFile::verify(std::ostream &output) const
 	std::streamsize											br;		// bytes read
 	
 	for (vec_info::const_iterator it = ofs.begin(); it < end; ++it) {
-		gtl::stack_heap_managed<PackOutputObject::stream_type>	pstream;
 		obj.entry() = it->entry;
-		obj.stream(pstream);
-		pstream.set_occupied();
 		
 		if (m_index.version() > PackIndexFile::Type::Legacy) {
 			boost::crc_32_type crc;
-			uint64 len = it+1 < end ? (it+1)->offset - it->offset : m_cursor.file_size() - key_type::hash_len;
+			uint64 len = it+1 < end 
+							? (it+1)->offset - it->offset 
+			                : m_cursor.file_size() - key_type::hash_len - it->offset;
 			uint64 ofs = it->offset;
 			do {
 				const_cast<PackFile*>(this)->m_cursor.use_region(ofs, len);
@@ -499,20 +498,21 @@ bool PackFile::verify(std::ostream &output) const
 		}// handle crc check
 		
 		// put in header
+		gtl::stack_heap_managed<PackOutputObject::stream_type>	pstream;
+		obj.stream(pstream);
+		pstream.set_occupied();
 		br = loose_object_header(buf.data(), obj.type(), obj.size());
 		hgen.update(buf.data(), static_cast<uint32>(br));
 		do {
 			pstream->read(buf.data(), buf.size());
 			br = pstream->gcount();
-			hgen.update(buf.data(), static_cast<uint32>(buf.size()));
+			hgen.update(buf.data(), static_cast<uint32>(br));
 		} while(static_cast<size_t>(br) == buf.size());
 		
 		m_index.sha(it->entry, hash);
 		if (hgen.hash() != hash) {
 			res = false;
 			output << "object at entry " << it->entry << " doesn't match its index sha1 " << hash << std::endl;
-		} else {
-			output << "one worked !!!" << std::endl;
 		}
 		hgen.reset();
 	}// end for each object to verify

@@ -515,6 +515,8 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 		const PackIndexFile& pack_index = pack->index();
 		BOOST_CHECK(pack_index.type() != PackIndexFile::Type::Undefined);
 		
+		BOOST_REQUIRE(pack->verify(std::cerr));
+		
 		// make a few calls
 		BOOST_REQUIRE(pack_index.num_entries() != 0);
 		obj_count += pack_index.num_entries();

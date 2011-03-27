@@ -85,10 +85,11 @@ BOOST_AUTO_TEST_CASE(read_pack)
 		{
 			for (auto pit = podb.packs().begin(); pit != podb.packs().end(); ++pit) {
 				timer t;
-				BOOST_REQUIRE(pit->get()->verify(std::cerr));
+				bool res = pit->get()->verify(std::cerr);
 				double elapsed = t.elapsed();
 				uint64 pack_size = pit->get()->cursor().file_size();
-				std::cerr << "Verified pack of " << pack_size / mb << "mb in " << elapsed << "s (" << (pack_size / mb) / elapsed << "mb / s)" << std::endl;
+				std::cerr << "Verified pack at " << pit->get()->pack_path() << " of " << pack_size / mb << "mb in " << elapsed << "s (" << (pack_size / mb) / elapsed << "mb / s)" << std::endl;
+				BOOST_REQUIRE(res);
 			}
 		}// end verify pack
 		
