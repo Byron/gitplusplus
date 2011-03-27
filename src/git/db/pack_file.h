@@ -382,15 +382,14 @@ public:
 	
 protected:
 	struct CacheInfo {
-		CacheInfo(uint32 importance = 0, size_type size = 0, counted_char_const_type* data = nullptr);
+		CacheInfo();
 		CacheInfo(CacheInfo&&) = default;
 		
-		uint32								importance;	//! amount of time we have been required/used
+		uint64								offset;			//! offset at which the entry resides
 		size_type							size;			//! amount of bytes we store
-		counted_char_ptr_const_type				pdata;			//! stored inflated data
+		counted_char_ptr_const_type			pdata;			//! stored inflated data
 	};
 	
-	typedef std::vector<uint64>						vec_ofs;
 	typedef std::vector<CacheInfo>					vec_info;
 	
 	static size_t									gMemoryLimit;
@@ -398,16 +397,14 @@ protected:
 	
 	
 protected:
-	vec_ofs				m_ofs;
 	vec_info			m_info;
 	mutable size_t		m_mem;					//!< current memory allocation in bytes
 	
 #ifdef DEBUG
 	mutable uint32		m_hits;			// amount of overall cache hits
-	uint32				m_noccupied;	// estimated amount of occupied entries
 	uint32				m_ncollect;		// amount of collect calls
 	size_t				m_mem_collected;// amount of memory collected
-	mutable uint32		m_nrequest;		//!< importance we issued to our entries
+	mutable uint32		m_nrequest;		// importance we issued to our entries
 #endif
 	
 protected:
@@ -415,7 +412,7 @@ protected:
 	inline uint32 offset_to_entry(uint64 offset) const;
 	
 	//! sets data, handling our memory counter correctly
-	inline void set_data(CacheInfo& info, size_type size, counted_char_const_type* data);
+	inline void set_data(CacheInfo& info, uint64 offset, size_type size, counted_char_const_type* data);
 	
 	//! free at least the given amount of memory. Try to be smart by keeping old objects which were useful often.
 	//! We basically remove all generations below a required minimum, to keep the runs short and effective
@@ -446,7 +443,7 @@ public:
 	//! \return true if the cache is available for use. Before querying the cache
 	//! or trying to put in data, you have to query for the caches availability.
 	inline bool is_available() const {
-		return m_ofs.size() != 0;
+		return m_info.size() != 0;
 	}
 	
 	//! Initialize the data required to run the cache. Should only be called once to make
@@ -464,10 +461,10 @@ public:
 		return gMemory;
 	}
 	
-	size_type struct_mem() const {
+	//! \return structural memory required for the given amount of entries to be held in the cache
+	static size_type struct_mem(uint32 num_entries = ~0) {
 		return sizeof(PackCache)
-		        + sizeof(vec_info::value_type)	*	m_info.size()
-		        + sizeof(vec_ofs::value_type)	*	m_ofs.size();
+		        + sizeof(vec_info::value_type)	* num_entries;
 	}
 	
 	//! \return data pointer to the decompressed cache matching the given offset, or 0
@@ -500,10 +497,6 @@ public:
 	
 	uint32 requests() const {
 		return m_nrequest;
-	}
-	
-	uint32 num_occupied() const {
-		return m_noccupied;
 	}
 
 #endif
