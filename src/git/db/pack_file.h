@@ -385,6 +385,9 @@ protected:
 		CacheInfo();
 		CacheInfo(CacheInfo&&) = default;
 		
+		CacheInfo*							prev;			//! pointer to previusly set entry
+		CacheInfo*							next;			//! pointer to the next set entry
+		
 		uint64								offset;			//! offset at which the entry resides
 		size_type							size;			//! amount of bytes we store
 		counted_char_ptr_const_type			pdata;			//! stored inflated data
@@ -399,6 +402,8 @@ protected:
 protected:
 	vec_info			m_info;
 	mutable size_t		m_mem;					//!< current memory allocation in bytes
+	CacheInfo*			m_head;					//!< first set cache entry
+	CacheInfo*			m_tail;					//!< last set cache entry
 	
 #ifdef DEBUG
 	mutable uint32		m_hits;			// amount of overall cache hits

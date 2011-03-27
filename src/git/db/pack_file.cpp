@@ -23,6 +23,8 @@ size_t PackCache::gMemory = 0;
 
 PackCache::PackCache()
     : m_mem(0)
+    , m_head(nullptr)
+    , m_tail(nullptr)
 #ifdef DEBUG
     , m_hits(0)
     , m_ncollect(0)
@@ -36,6 +38,7 @@ void PackCache::clear()
 {
 	m_info.clear();
 	gMemory -= m_mem;
+	m_head = m_tail = nullptr;
 	m_mem = 0;
 	
 #ifdef DEBUG
@@ -85,8 +88,20 @@ void PackCache::initialize(const PackIndexFile &index)
 	// entries, the hash table seems to perform better if its more crowed, also considering that there
 	// will be clashes even if we have more entries due to hash collisions
 	uint32 ne = std::min((uint32)((gMemoryLimit - gMemory) * 0.1f / (float)sizeof(CacheInfo)), (uint32)(index.num_entries() * 0.75f));
-	ne = std::max(ne, 256);
+	ne = std::max(ne, 256u);
 	m_info.resize(ne);
+	
+	if (!m_head) {
+		// initialize the doubly linked list
+		m_head = &m_info[0];
+		m_tail = &*(m_info.end()-1);
+		
+		assert(m_head != m_tail);
+		m_head->next = m_tail;
+		m_head->prev = nullptr;
+		m_tail->prev = m_head;
+		m_tail->next = nullptr;
+	}
 	
 	m_mem += struct_mem(ne);
 	gMemory += m_mem;
@@ -95,34 +110,31 @@ void PackCache::initialize(const PackIndexFile &index)
 uint32 PackCache::offset_to_entry(uint64 offset) const
 {
 	assert(is_available());
-	return (offset + (offset >> 8) + (offset >> 16)) % m_info.size();
+	// Protect our static head and tail from being written
+	return std::max((offset + (offset >> 8) + (offset >> 16)) % (m_info.size()-1), (uint64)1);
 }
 
 size_t PackCache::collect(size_t bytes_to_free)
 {
+	size_t bf = 0;	// bytes freed
+	bytes_to_free = std::max(bytes_to_free, (size_t)(m_mem * 0.5f));
+	
 #ifdef DEBUG
 	static const size_t mb = 1000 * 1000;
 	m_ncollect += 1;
-	std::cerr << "Collect: " << m_mem / mb << "mb";
+	std::cerr << "Have Collect: " << m_mem / mb << "mb - bytes to free " << bytes_to_free / mb << "mb";
 #endif
 	
-	size_t bf = 0;	// bytes freed
-	bytes_to_free = std::max(bytes_to_free, (size_t)(m_mem * 0.5f));
-	const vec_info::iterator end = m_info.end();
-	
-	// clear the whole cache - this is fastest
-	for (vec_info::iterator beg = m_info.begin(); bf < bytes_to_free && beg < end; ++beg) {
-		if (beg->size > 0) {
-			bf += beg->size;
-			set_data(*beg, 0, 0, nullptr);
+	for (CacheInfo* pinfo = m_head->next; bf < bytes_to_free && pinfo != m_tail; pinfo = pinfo->next) {
+		if (pinfo->size > 0) {
+			bf += pinfo->size;
+			set_data(*pinfo, 0, 0, nullptr);
 		}
 	}
 	
 #ifdef DEBUG
 	m_mem_collected += bf;
-	std::cerr << "End of collect: "
-			  << " - bytes to free " << bytes_to_free / mb << "mb - bytes freed " << bf / mb
-			  << "mb -- mem " << m_mem / mb << "mb"
+	std::cerr << "End of collect: " << "bytes freed " << bf / mb << "mb -- mem " << m_mem / mb << "mb"
 			  << std::endl;
 #endif
 	return bf;
@@ -154,9 +166,25 @@ void PackCache::set_data(CacheInfo& info, uint64 offset, size_type size, counted
 	m_mem -= info.size;
 	m_mem += size;
 	gMemory += m_mem;
+	bool was_set = (bool)info.size;
 	info.pdata = pdata;
 	info.size = size;
 	info.offset = offset;
+	
+	if (was_set & !size) {
+		// deletion
+		info.next->prev = info.prev;
+		info.prev->next = info.next;
+		// Must not reset pointers, on deletion we rely on the fact that the next pointer still points
+		// to the right next entry (and is not null)
+	} else if (!was_set & !!size) {
+		// first add
+		info.next = m_tail;
+		info.prev = m_tail->prev;
+		m_tail->prev->next = &info;
+		m_tail->prev = &info;
+	}
+	// Otherwise just keep the entry if the data/offset changes
 }
 
 bool PackCache::set_cache_at(uint64 offset, size_type size, counted_char_const_type* pdata) 
