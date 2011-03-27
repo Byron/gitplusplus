@@ -92,8 +92,10 @@ void PackCache::initialize(const PackIndexFile &index)
 	// only use 10 percent of the available cache memory at maximum, but not more than 1/3 of the maximum
 	// entries, the hash table seems to perform better if its more crowed, also considering that there
 	// will be clashes even if we have more entries due to hash collisions
-	uint32 ne = std::min((uint32)((gMemoryLimit - gMemory) * 0.1f / (float)sizeof(CacheInfo)), (uint32)(index.num_entries() * 0.75f));
-	ne = std::max(ne, 256u);
+	uint32 ne = std::min(
+	            (uint32)((gMemoryLimit - gMemory) * 0.1f / (float)sizeof(CacheInfo)), 
+	            (uint32)(index.num_entries() * 0.75f));
+	ne = std::max(ne, std::min(256u, index.num_entries()));
 	m_info.resize(ne);
 	
 	if (!m_head) {
@@ -141,7 +143,7 @@ size_t PackCache::collect(size_t bytes_to_free)
 	
 #ifdef DEBUG
 	m_mem_collected += bf;
-	std::cerr << "End of collect: " << "bytes freed " << bf / mb << "mb -- mem " << m_mem / mb << "mb"
+	std::cerr << " - End of collect: " << "bytes freed " << bf / mb << "mb -- mem " << m_mem / mb << "mb"
 			  << std::endl;
 #endif
 	return bf;
@@ -204,6 +206,9 @@ bool PackCache::set_cache_at(uint64 offset, size_type size, counted_char_const_t
 	// Collect first to assure we have enough memory.
 	if (size + gMemory > gMemoryLimit) {
 		collect(size);
+		if (size + gMemory > gMemoryLimit) {
+			return false;
+		}
 	}
 	
 	// store data unconditionally
@@ -468,14 +473,15 @@ bool PackFile::verify(std::ostream &output) const
 	PackOutputObject										obj(this);
 	hash_gen												hgen;
 	key_type												hash;
-	std::array<char_type, 4096>								buf;
+	boost::crc_32_type										crc;
+	std::array<char_type, 8192>								buf;
 	std::streamsize											br;		// bytes read
 	
 	for (vec_info::const_iterator it = ofs.begin(); it < end; ++it) {
 		obj.entry() = it->entry;
 		
+		// CRC
 		if (m_index.version() > PackIndexFile::Type::Legacy) {
-			boost::crc_32_type crc;
 			uint64 len = it+1 < end 
 							? (it+1)->offset - it->offset 
 			                : m_cursor.file_size() - key_type::hash_len - it->offset;
@@ -495,12 +501,15 @@ bool PackFile::verify(std::ostream &output) const
 				res = false;
 				output << "object at entry " << it->entry << " doesn't match its index crc32 " << crc.checksum() << std::endl;
 			}
+			crc.reset();
 		}// handle crc check
-		
+
+		// SHA		
 		// put in header
 		gtl::stack_heap_managed<PackOutputObject::stream_type>	pstream;
 		obj.stream(pstream);
 		pstream.set_occupied();
+		
 		br = loose_object_header(buf.data(), obj.type(), obj.size());
 		hgen.update(buf.data(), static_cast<uint32>(br));
 		do {
@@ -517,7 +526,6 @@ bool PackFile::verify(std::ostream &output) const
 		hgen.reset();
 	}// end for each object to verify
 
-	
 	return res;
 }
 
