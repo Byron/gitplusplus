@@ -97,6 +97,10 @@ public:
 	//! \return amount of entries in this pack
 	entry_size_type num_entries() const;
 	
+	//! \return true if the pack is valid, false otherwise
+	//! \param output stream to which user information should be written to
+	//! \note this process can be sped up by setting a reasonable cache value
+	bool verify(std::ostream& output) const;
 };
 
 

@@ -72,7 +72,8 @@ BOOST_AUTO_TEST_CASE(read_pack)
 	
 	size_t min_cache_size = 8*mb;
 	std::vector<size_t> cache_sizes = {std::max((size_t)(max_size * 0.25f), min_cache_size), 
-	                                   std::max(size_t(max_size * 0.7f), min_cache_size*3), 0};
+	                                   std::max(size_t(max_size * 0.7f), min_cache_size*3), 
+	                                   0};
 	for (auto cache_size = cache_sizes.begin(); cache_size < cache_sizes.end(); ++cache_size)
 	{
 		std::cerr << "########################################" << std::endl;
@@ -81,6 +82,17 @@ BOOST_AUTO_TEST_CASE(read_pack)
 		
 		podb.set_cache_memory_limit(*cache_size);
 		BOOST_CHECK(podb.cache_memory_limit() == *cache_size);
+		
+		{
+			for (auto pit = podb.packs().begin(); pit != podb.packs().end(); ++pit) {
+				timer t;
+				bool res = pit->get()->verify(std::cerr);
+				double elapsed = t.elapsed();
+				uint64 pack_size = pit->get()->cursor().file_size();
+				std::cerr << "Verified pack at " << pit->get()->pack_path() << " of " << pack_size / mb << "mb in " << elapsed << "s (" << (pack_size / mb) / elapsed << "mb / s)" << std::endl;
+				BOOST_REQUIRE(res);
+			}
+		}// end verify pack
 		
 		double deserialization_elapsed = 0.;
 		{// deserialize data

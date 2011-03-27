@@ -515,6 +515,8 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 		const PackIndexFile& pack_index = pack->index();
 		BOOST_CHECK(pack_index.type() != PackIndexFile::Type::Undefined);
 		
+		BOOST_REQUIRE(pack->verify(std::cerr));
+		
 		// make a few calls
 		BOOST_REQUIRE(pack_index.num_entries() != 0);
 		obj_count += pack_index.num_entries();
@@ -600,7 +602,7 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 	
 	// Cache testing
 	// Unfortunately, we don't have too many deltas in these small packs
-	std::vector<size_t> cache_sizes = {0, 5000, 1024*1024*1};
+	std::vector<size_t> cache_sizes = {0, 15000, 1024*1024*1};
 	for (auto it = cache_sizes.begin(); it < cache_sizes.end(); ++it) {
 		podb.set_cache_memory_limit(*it);
 		BOOST_REQUIRE(podb.cache_memory_limit() == *it);
@@ -616,7 +618,7 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 				br = stream->gcount();
 			} while (br == static_cast<std::streamsize>(buflen));
 			stream.destroy();
-			BOOST_REQUIRE(podb.cache_memory() <= *it);
+			BOOST_REQUIRE(podb.cache_memory() <= *it); // give it some head room
 		}
 	}
 	

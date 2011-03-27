@@ -44,14 +44,14 @@ protected:
 	{}
 	
 	std::streamsize read(char_type* s, std::streamsize n, const char_type* first) {
-		if (this->m_nb == 0){
+		if (m_nb == 0){
 			return -1;	// eof
 		}
 		
-		size_t bytes_to_copy =	std::min(static_cast<size_type>(n), this->m_nb);
-		std::memcpy(s, first, bytes_to_copy);
-		this->m_nb -= bytes_to_copy;
-		this->m_ofs += bytes_to_copy;
+		size_t bytes_to_copy =	std::min(static_cast<size_type>(n), m_nb);
+		std::memcpy(s, first+m_ofs, bytes_to_copy);
+		m_nb -= bytes_to_copy;
+		m_ofs += bytes_to_copy;
 		return bytes_to_copy;
 	}
 	

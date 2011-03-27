@@ -207,9 +207,6 @@ void PackDevice::assure_object_info(bool size_only) const
 		
 		info.ofs = next_ofs;
 	}// while we are not at the base
-	
-	// assure our base knows we may read (TODO: Do we really need this ?)
-	const_cast<PackDevice*>(this)->m_nb = m_obj_size;
 }
 
 void PackDevice::apply_delta(const char_type* base, char_type* dest, const char_type* delta, size_type deltalen) const
@@ -234,7 +231,6 @@ void PackDevice::apply_delta(const char_type* base, char_type* dest, const char_
 			
 			memcpy(dest, base + cp_off, cp_size); 
 			dest += cp_size;
-			
 		} else if (cmd) {
 			memcpy(dest, data, cmd);
 			dest += cmd;
@@ -245,7 +241,6 @@ void PackDevice::apply_delta(const char_type* base, char_type* dest, const char_
 			throw err;
 		}// end handle opcode
 	}// end while there are data opcodes
-	
 }
 
 PackDevice::counted_char_ptr_const_type PackDevice::unpack_object_recursive(cursor_type& cur, const PackInfo& info, obj_size_type& out_size)
@@ -354,6 +349,7 @@ std::streamsize PackDevice::read(char_type* s, std::streamsize n)
 		// if we have deltas, there is no other way than extracting it into memory, one way or another.
 		if (info.is_delta()) {
 			m_data = unpack_object_recursive(cur, info, m_obj_size);
+			this->m_ofs = stream_offset(0);
 			this->m_nb = m_obj_size;
 			this->m_size = m_obj_size;
 		} else {
