@@ -130,6 +130,14 @@ size_t PackCache::collect(size_t bytes_to_free)
 	bytes_to_free = std::max(bytes_to_free, (size_t)(m_mem * 0.4f));
 	const vec_info::iterator end = m_info.end();
 	
+	// clear the whole cache - this is fastest
+	size_t max_importance = 0;
+	for (vec_info::iterator beg = m_info.begin(); beg < end; ++beg) {
+		if (beg->size != 0) {
+			set_data(*beg, 0, nullptr);
+		}
+	}
+	/*
 	// get actual max importance
 	uint32 max_importance = 0;
 	for (vec_info::iterator beg = m_info.begin(); beg < end; ++beg) {
@@ -154,6 +162,7 @@ size_t PackCache::collect(size_t bytes_to_free)
 			}
 		}// for each info item
 	}// while there are bytes to free
+	*/
 	
 #ifdef DEBUG
 	m_mem_collected += bf;
