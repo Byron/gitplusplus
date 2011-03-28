@@ -29,6 +29,7 @@ PackCache::PackCache()
     : m_mem(0)
     , m_head(nullptr)
     , m_tail(nullptr)
+    , m_mode(gtl::cache_access_mode::unspecified)
 #ifdef DEBUG
     , m_hits(0)
     , m_ncollect(0)
@@ -76,14 +77,21 @@ PackCache::CacheInfo::CacheInfo()
     , size(0)
 {}
 
-void PackCache::initialize(const PackIndexFile &index)
+void PackCache::initialize(const PackIndexFile &index, gtl::cache_access_mode mode)
 {
 	if (is_available()){
 		return;
 	}
-
-	gMemory -= m_mem;
-	m_mem -= struct_mem(m_info.size());
+	
+	if (mode == gtl::cache_access_mode::unspecified) {
+		mode = gtl::cache_access_mode::random;
+	}
+	
+	// Make sure we reinitialize our linked list pointers correctly
+	// We could be smarter about this, but for now we aren't 
+	if (m_info.size() != 0) {
+		clear();
+	}
 	
 	// Build a hash-map with only a reasonable amount of entries to save memory.
 	// As the cache will be more efficient if there are more entries, we try to provide
@@ -96,18 +104,17 @@ void PackCache::initialize(const PackIndexFile &index)
 	            (uint32)(index.num_entries() * 0.75f));
 	ne = std::max(ne, std::min(256u, index.num_entries()));
 	m_info.resize(ne);
+	m_mode = mode;
 	
-	if (!m_head) {
-		// initialize the doubly linked list
-		m_head = &m_info[0];
-		m_tail = &*(m_info.end()-1);
-		
-		assert(m_head != m_tail);
-		m_head->next = m_tail;
-		m_head->prev = nullptr;
-		m_tail->prev = m_head;
-		m_tail->next = nullptr;
-	}
+	// initialize the doubly linked list
+	m_head = &m_info[0];
+	m_tail = &*(m_info.end()-1);
+	
+	assert(m_head != m_tail);
+	m_head->next = m_tail;
+	m_head->prev = nullptr;
+	m_tail->prev = m_head;
+	m_tail->next = nullptr;
 	
 	m_mem += struct_mem(ne);
 	gMemory += m_mem;

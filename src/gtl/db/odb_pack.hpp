@@ -224,6 +224,12 @@ struct odb_pack_traits : public odb_file_traits<typename ObjectTraits::key_type,
 
 };
 
+//! \brief a mode specifying the desired cache operation
+enum class cache_access_mode : uchar {
+	unspecified = 0,		//!< it doesn't matter which mode to take
+	random,					//!< optimize cache for random access
+	sequencial				//!< optimize cache for sequencial access
+};
 
 /** \brief Implements a database which reads objects from highly compressed packs.
   * A pack is a file with a collection of objects which are either stored as compressed object 
@@ -316,7 +322,7 @@ public:
 	//! \note this method is constant as the cache system is a background detail which itself does not
 	//! interfere with the constness of the database. Instead, you should be able to set it up when reading
 	//! the database according to your needs.
-	void set_cache_memory_limit(size_t limit) const {}
+	void set_cache_memory_limit(size_t limit, cache_access_mode mode = cache_access_mode::unspecified) const {}
 	
 	//! \return the current memory limit. If 0, the cache is disabled
 	size_t cache_memory_limit() const { return 0; }

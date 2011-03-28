@@ -28,7 +28,7 @@ public:
 	{}
 	
 public:
-	void set_cache_memory_limit(size_t limit) const;
+	void set_cache_memory_limit(size_t limit, gtl::cache_access_mode mode = gtl::cache_access_mode::unspecified) const;
 	
 	size_t cache_memory_limit() const;
 	

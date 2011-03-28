@@ -405,6 +405,7 @@ protected:
 	mutable size_t		m_mem;					//!< current memory allocation in bytes
 	CacheInfo*			m_head;					//!< first set cache entry
 	CacheInfo*			m_tail;					//!< last set cache entry
+	gtl::cache_access_mode m_mode;				//!< our caching mode for query
 	
 #ifdef DEBUG
 	mutable uint32		m_hits;			// amount of overall cache hits
@@ -455,7 +456,12 @@ public:
 	//! Initialize the data required to run the cache. Should only be called once to make
 	//! the cache available, so that is_available() return true.
 	//! If the cache is initialized, it does nothing
-	void initialize(const PackIndexFile& index);
+	void initialize(const PackIndexFile& index, gtl::cache_access_mode mode);
+	
+	//! \return our caching mode
+	gtl::cache_access_mode mode() const {
+		return m_mode;
+	}
 	
 	//! \return amount of used memory in bytes
 	size_type memory() const {

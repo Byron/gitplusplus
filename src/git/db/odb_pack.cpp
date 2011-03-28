@@ -3,7 +3,7 @@
 
 GIT_NAMESPACE_BEGIN
 
-void PackODB::set_cache_memory_limit(size_t limit) const
+void PackODB::set_cache_memory_limit(size_t limit, gtl::cache_access_mode mode) const
 {
 	PackCache::set_memory_limit(limit);
 	
@@ -15,7 +15,7 @@ void PackODB::set_cache_memory_limit(size_t limit) const
 	for (;it != end; ++it)  {
 		limit == 0
 		        ? it->get()->cache().clear()
-		        : it->get()->cache().initialize(it->get()->index());
+		        : it->get()->cache().initialize(it->get()->index(), mode);
 	}
 }
 
