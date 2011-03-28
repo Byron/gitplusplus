@@ -70,10 +70,10 @@ BOOST_AUTO_TEST_CASE(read_pack)
 	}
 	BOOST_REQUIRE(max_size);
 	
-	size_t min_cache_size = 8*mb;
-	std::vector<size_t> cache_sizes = {/*std::max((size_t)(max_size * 0.25f), min_cache_size),*/
-	                                   std::max(size_t(max_size * 0.7f), min_cache_size*3), 
-	                                   /*0*/};
+	size_t min_cache_size = 16 * mb;	// same as git, everthing else slows down sequencial mode
+	std::vector<size_t> cache_sizes = {std::max((size_t)(max_size * 0.25f), min_cache_size), 
+	                                   std::max(size_t(max_size), min_cache_size), 
+	                                   0};
 	for (auto cache_size = cache_sizes.begin(); cache_size < cache_sizes.end(); ++cache_size)
 	{
 		std::cerr << "########################################" << std::endl;
@@ -84,14 +84,22 @@ BOOST_AUTO_TEST_CASE(read_pack)
 		
 		{
 			for (auto mit = modes.begin(); mit < modes.end(); ++mit) {
-				std::cerr << "CACHING MODE: " << (int)*mit << std::endl;
+				if (*cache_size) {
+					std::cerr << "CACHING MODE: " << (int)*mit << std::endl;
+				}
+				// zero caches just once please
+				if (*cache_size == 0 && mit - modes.begin() == 1) {
+					break;
+				}
+				
+				podb.set_cache_memory_limit(*cache_size, *mit);
 				for (auto pit = podb.packs().begin(); pit != podb.packs().end(); ++pit) {
-					podb.set_cache_memory_limit(*cache_size, *mit);
 					timer t;
 					bool res = pit->get()->verify(std::cerr);
 					double elapsed = t.elapsed();
 					uint64 pack_size = pit->get()->cursor().file_size();
 					std::cerr << "Verified pack at " << pit->get()->pack_path() << " of " << pack_size / mb << "mb in " << elapsed << "s (" << (pack_size / mb) / elapsed << "mb / s)" << std::endl;
+					pit->get()->cache().cache_info(std::cerr);
 					BOOST_REQUIRE(res);
 				}
 			}

@@ -316,6 +316,7 @@ public:
 	//! release all previously used memory.
 	//! You should only consider setting up a cache if you plan to look deeply into the pack's historic
 	//! and thus highly deltified objects. Its not usually worth it if you are only examining recent objects
+	//! \param mode caching mode to help optimize the cache for certain operations
 	//! \note it is up to the implementation whether the given value should be used per pack database
 	//! or globally, per application.
 	//! \note by default, the cache is disabled

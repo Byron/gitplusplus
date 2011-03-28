@@ -455,8 +455,8 @@ public:
 	
 	//! Initialize the data required to run the cache. Should only be called once to make
 	//! the cache available, so that is_available() return true.
-	//! If the cache is initialized, it does nothing
-	void initialize(const PackIndexFile& index, gtl::cache_access_mode mode);
+	//! If the cache is initialized, it does nothing unless the mode changes
+	void initialize(const PackIndexFile& index, uint64 pack_size, gtl::cache_access_mode mode);
 	
 	//! \return our caching mode
 	gtl::cache_access_mode mode() const {
