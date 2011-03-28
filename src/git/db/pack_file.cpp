@@ -111,7 +111,7 @@ void PackCache::initialize(const PackIndexFile &index, uint64 pack_size, gtl::ca
 		// lets make a rough estimate: the more free memory we have, the more entries we can effort without
 		// collecting too often
 		const size_t avg_obj_size = std::max((size_t)1, pack_size / index.num_entries());
-		ne = std::max((size_t)256, (memavail / avg_obj_size) / 100);
+		ne = std::max((size_t)256, (memavail / avg_obj_size) / (100+40));	// make it a little smaller to reduce entries
 	} else {
 		ne = std::min(
 					  (uint32)(memavail * 0.1f / (float)sizeof(CacheInfo)), 
