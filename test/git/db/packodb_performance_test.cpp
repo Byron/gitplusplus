@@ -41,7 +41,6 @@ BOOST_AUTO_TEST_CASE(read_pack)
 	const PackODB::forward_iterator end = podb.end();
 	std::cerr << "Operating on database with " << podb.packs().size() << " packs and " << no << " objects" << std::endl;
 	
-	/*
 	double iteration_elapsed;
 	{// ITERATION - no access
 		PackODB::forward_iterator beg = podb.begin();
@@ -62,7 +61,7 @@ BOOST_AUTO_TEST_CASE(read_pack)
 		query_elapsed = t.elapsed();
 		std::cerr << "Iterated and queried type+size of " << no  << " objects in " << query_elapsed << " s (" << no / query_elapsed << " queries/s)" << std::endl;
 	}
-	*/
+	
 	// Test cache performance
 	uint64 max_size = 0;
 	for (auto it = podb.packs().begin(); it < podb.packs().end(); ++it) {
@@ -108,7 +107,7 @@ BOOST_AUTO_TEST_CASE(read_pack)
 		podb.set_cache_memory_limit(*cache_size, gtl::cache_access_mode::random);
 		BOOST_CHECK(podb.cache_memory_limit() == *cache_size);
 		
-		/*
+		
 		double deserialization_elapsed = 0.;
 		{// deserialize data
 			PackODB::forward_iterator beg = podb.begin();
@@ -178,6 +177,5 @@ BOOST_AUTO_TEST_CASE(read_pack)
 			std::cerr << "Streamed " << no  << " objects totalling " << tmb <<  " mb in " << streaming_elapsed << " s (" << no / streaming_elapsed<< " streams/s & " << tmb / streaming_elapsed  << " mb/s)" << std::endl;
 		}// stream data
 		std::cerr << "--------> TOTAL CACHE SIZE == " << podb.cache_memory() / mb << " mb" << std::endl;
-		*/
 	}// end cache size
 }
