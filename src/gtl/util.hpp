@@ -422,7 +422,7 @@ protected:
 	~intrusive_ptr_array_base() {};
 	
 public:
-	void* operator new[](size_t size)
+	inline void* operator new[](size_t size)
 	{
 		char* d = reinterpret_cast<char*>(::operator new[](size+sizeof(counter_type)));
 		*reinterpret_cast<counter_type*>(d) = 0;
@@ -431,19 +431,19 @@ public:
 		return d + sizeof(counter_type);
 	}
 	
-	void operator delete [](void* d_ofs) {
+	inline void operator delete [](void* d_ofs) {
 		::operator delete [] (reinterpret_cast<counter_type*>(d_ofs) - 1);
 	}
 	
-	void deallocate() {
+	inline void deallocate() {
 		delete [] this;
 	}
 	
-	counter_type count_() const {
+	inline counter_type count_() const {
 		return *reinterpret_cast<const counter_type*>(reinterpret_cast<const counter_type*>(this) - 1);
 	}
 	
-	counter_type& count_(){
+	inline counter_type& count_(){
 		return *reinterpret_cast<counter_type*>(reinterpret_cast<counter_type*>(this) - 1);
 	}
 	

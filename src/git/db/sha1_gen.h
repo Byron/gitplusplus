@@ -92,7 +92,7 @@ class SHA1Generator : public gtl::hash_generator<SHA1, char, uint32>
 	private:
 		
 		// Private SHA-1 transformation
-		inline void transform(const char* pBuffer);
+		inline void transform(const char* pBuffer) noexcept;
 		
 		uint32 m_state[5];
 		uint32 m_count[2];

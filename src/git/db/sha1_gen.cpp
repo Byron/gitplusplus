@@ -4,6 +4,8 @@
 #include "memory.h"
 
 GIT_NAMESPACE_BEGIN
+
+BadSHA1GenState	bad_state;		// global instance to assure we don't call constructors ... 
 		
 #ifndef ROL32
 #ifdef _MSC_VER
@@ -68,7 +70,7 @@ void SHA1Generator::reset() noexcept
 	memset(m_digest, 0, 20);
 }
 
-void SHA1Generator::transform(const char* pBuffer)
+void SHA1Generator::transform(const char* pBuffer) noexcept
 {
 	uint32 a = m_state[0], b = m_state[1], c = m_state[2], d = m_state[3], e = m_state[4];
 	memcpy(m_block, pBuffer, 64);
@@ -107,7 +109,7 @@ void SHA1Generator::transform(const char* pBuffer)
 void SHA1Generator::update(const char* pbData, uint32 uLen)
 {
 	if (m_finalized){
-		throw BadSHA1GenState();
+		throw bad_state;
 	}
 	m_update_called = 1;
 	
@@ -140,7 +142,7 @@ void SHA1Generator::update(const char* pbData, uint32 uLen)
 void SHA1Generator::finalize()
 {
 	if (m_finalized){
-		throw BadSHA1GenState();
+		throw bad_state;
 	}
 	
 	uint32 i;

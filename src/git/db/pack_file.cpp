@@ -151,7 +151,7 @@ size_t PackCache::collect(size_t bytes_to_free)
 PackCache::counted_char_ptr_const_type PackCache::cache_at(uint64 offset) const 
 {
 	static const counted_char_ptr_const_type nullp;
-	uint32 entry = offset_to_entry(offset);
+	const uint32 entry = offset_to_entry(offset);
 	
 #ifdef DEBUG
 	m_nrequest += 1;
@@ -468,15 +468,13 @@ bool PackFile::verify(std::ostream &output) const
 	
 	bool													res = true;
 	const vec_info::const_iterator							end = ofs.end();
-	PackOutputObject										obj(this);
 	key_type												hash;
 	boost::crc_32_type										crc;
 	PackDevice::hash_generator_type							hgen;
+	PackDevice												pd(*this);
 	
 	
 	for (vec_info::const_iterator it = ofs.begin(); it < end; ++it) {
-		obj.entry() = it->entry;
-		
 		// CRC
 		if (m_index.version() > PackIndexFile::Type::Legacy) {
 			uint64 len = it+1 < end 
@@ -502,14 +500,9 @@ bool PackFile::verify(std::ostream &output) const
 		}// handle crc check
 
 		// SHA		
-		// put in header
-		gtl::stack_heap_managed<PackOutputObject::stream_type>	pstream;
-		obj.stream(pstream);
-		pstream.set_occupied();
-		
-		
+		pd.entry() = it->entry;
 		m_index.sha(it->entry, hash);
-		if (!(**pstream).verify_hash(hash, hgen)) {
+		if (!pd.verify_hash(hash, hgen)) {
 			res = false;
 			output << "object at entry " << it->entry << " doesn't match its index sha1 " << hash << std::endl;
 		}
