@@ -41,7 +41,7 @@ BOOST_AUTO_TEST_CASE(read_pack)
 	std::cerr << "Operating on database with " << podb.packs().size() << " packs and " << no << " objects" << std::endl;
 	
 	
-	
+	/*
 	double iteration_elapsed;
 	{// ITERATION - no access
 		PackODB::forward_iterator beg = podb.begin();
@@ -61,7 +61,7 @@ BOOST_AUTO_TEST_CASE(read_pack)
 		}
 		query_elapsed = t.elapsed();
 		std::cerr << "Iterated and queried type+size of " << no  << " objects in " << query_elapsed << " s (" << no / query_elapsed << " queries/s)" << std::endl;
-	}
+	}*/
 	
 	// Test cache performance
 	uint64 max_size = 0;
@@ -71,9 +71,9 @@ BOOST_AUTO_TEST_CASE(read_pack)
 	BOOST_REQUIRE(max_size);
 	
 	size_t min_cache_size = 8*mb;
-	std::vector<size_t> cache_sizes = {std::max((size_t)(max_size * 0.25f), min_cache_size), 
+	std::vector<size_t> cache_sizes = {/*std::max((size_t)(max_size * 0.25f), min_cache_size),*/ 
 	                                   std::max(size_t(max_size * 0.7f), min_cache_size*3), 
-	                                   0};
+	                                   /*0*/};
 	for (auto cache_size = cache_sizes.begin(); cache_size < cache_sizes.end(); ++cache_size)
 	{
 		std::cerr << "########################################" << std::endl;
@@ -93,7 +93,7 @@ BOOST_AUTO_TEST_CASE(read_pack)
 				BOOST_REQUIRE(res);
 			}
 		}// end verify pack
-		
+		/*
 		double deserialization_elapsed = 0.;
 		{// deserialize data
 			PackODB::forward_iterator beg = podb.begin();
@@ -162,7 +162,7 @@ BOOST_AUTO_TEST_CASE(read_pack)
 			const double tmb = tbc / mb;
 			std::cerr << "Streamed " << no  << " objects totalling " << tmb <<  " mb in " << streaming_elapsed << " s (" << no / streaming_elapsed<< " streams/s & " << tmb / streaming_elapsed  << " mb/s)" << std::endl;
 		}// stream data
-		
+		*/
 		std::cerr << "--------> TOTAL CACHE SIZE == " << podb.cache_memory() / mb << " mb" << std::endl;
 	}// end cache size
 }

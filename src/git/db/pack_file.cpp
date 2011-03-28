@@ -5,7 +5,6 @@
 
 #include <boost/crc.hpp>
 
-#include <array>
 #include <cstring>
 
 namespace boost {
@@ -453,7 +452,6 @@ bool PackFile::verify(std::ostream &output) const
 	};
 
 	typedef std::vector<OffsetInfo> vec_info;
-	typedef SHA1Generator hash_gen;
 	
 	const uint32 ne = m_index.num_entries();
 	vec_info ofs;
@@ -471,11 +469,10 @@ bool PackFile::verify(std::ostream &output) const
 	bool													res = true;
 	const vec_info::const_iterator							end = ofs.end();
 	PackOutputObject										obj(this);
-	hash_gen												hgen;
 	key_type												hash;
 	boost::crc_32_type										crc;
-	std::array<char_type, 8192>								buf;
-	std::streamsize											br;		// bytes read
+	PackDevice::hash_generator_type							hgen;
+	
 	
 	for (vec_info::const_iterator it = ofs.begin(); it < end; ++it) {
 		obj.entry() = it->entry;
@@ -510,16 +507,9 @@ bool PackFile::verify(std::ostream &output) const
 		obj.stream(pstream);
 		pstream.set_occupied();
 		
-		br = loose_object_header(buf.data(), obj.type(), obj.size());
-		hgen.update(buf.data(), static_cast<uint32>(br));
-		do {
-			pstream->read(buf.data(), buf.size());
-			br = pstream->gcount();
-			hgen.update(buf.data(), static_cast<uint32>(br));
-		} while(static_cast<size_t>(br) == buf.size());
 		
 		m_index.sha(it->entry, hash);
-		if (hgen.hash() != hash) {
+		if (!(**pstream).verify_hash(hash, hgen)) {
 			res = false;
 			output << "object at entry " << it->entry << " doesn't match its index sha1 " << hash << std::endl;
 		}

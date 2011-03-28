@@ -62,6 +62,7 @@ public:
 	typedef git_object_traits_base::size_type			obj_size_type;
 	
 	typedef git_object_traits_base::char_type			char_type;
+	typedef git_object_traits::hash_generator_type		hash_generator_type;
 	typedef std::pair<char_type*, char_type*>			char_range;
 	typedef git_object_traits_base::object_type			object_type;
 	typedef typename mapped_memory_manager_type::cursor	cursor_type;
@@ -160,6 +161,9 @@ protected:
 	//! input bytes  and don't want it to decompress more than necessary
 	void decompress_some(cursor_type& cur, stream_offset ofs, char_type* dest, size_type nb, size_type max_input_chunk_size = 0);
 	
+	//! Decompress our object data into memory and update our state to allow us to be read
+	inline void unpack_data(cursor_type& cur, const PackInfo& info);
+	
 protected:
 	const PackFile&			m_pack;				//!< pack that contains this object
 	uint32					m_entry;			//!< pack entry we refer to
@@ -202,6 +206,10 @@ public:
 	//! \return amount of deltas required to compute this object. 0 if the object is not deltified
 	//! \todo implementation. This method should be used to analyse a big pack like git-verify-pack
 	uint32 chain_length() const;
+	
+	
+	//! \return true if the hash of the object stream matches the given one
+	bool verify_hash(const key_type& hash, hash_generator_type& hgen);
 	
 	//! @} end interface
 	

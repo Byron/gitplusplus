@@ -1,9 +1,10 @@
 #include <git/db/pack_stream.h>
 #include <git/config.h>
-
 #include <git/db/pack_file.h>
+
 #include <iostream>
 #include <cstring>
+#include <array>
 
 GIT_NAMESPACE_BEGIN
 
@@ -256,6 +257,7 @@ PackDevice::counted_char_ptr_const_type PackDevice::unpack_object_recursive(curs
 	case PackedObjectType::Tag:
 	{
 		out_size = info.size;
+		m_type = static_cast<ObjectType>(info.type);		// cache our type right away
 		return obtain_data(cur, info.ofs, info.rofs, info.size);
 		break;
 	}
@@ -322,6 +324,14 @@ PackDevice::counted_char_ptr_const_type PackDevice::obtain_data(cursor_type& cur
 	return counted_char_ptr_const_type(pddata);
 }
 
+void PackDevice::unpack_data(cursor_type& cur, const PackInfo& info)
+{
+	m_data = unpack_object_recursive(cur, info, m_obj_size);
+	this->m_ofs = stream_offset(0);
+	this->m_nb = m_obj_size;
+	this->m_size = m_obj_size;
+}
+
 std::streamsize PackDevice::read(char_type* s, std::streamsize n)
 {
 	if (!m_data && this->m_stream.mode() == gtl::zlib_stream::Mode::None) {
@@ -348,10 +358,7 @@ std::streamsize PackDevice::read(char_type* s, std::streamsize n)
 		
 		// if we have deltas, there is no other way than extracting it into memory, one way or another.
 		if (info.is_delta()) {
-			m_data = unpack_object_recursive(cur, info, m_obj_size);
-			this->m_ofs = stream_offset(0);
-			this->m_nb = m_obj_size;
-			this->m_size = m_obj_size;
+			unpack_data(cur, info);
 		} else {
 			this->set_window(parent_type::max_length, info.ofs+info.rofs);
 		}
@@ -366,6 +373,42 @@ std::streamsize PackDevice::read(char_type* s, std::streamsize n)
 		assert(parent_type::is_open());
 		return parent_type::read(s, n);	// automatic and direct decompression
 	}
+}
+
+bool PackDevice::verify_hash(const key_type& hash, hash_generator_type& hgen) {
+	cursor_type cur = m_pack.cursor();
+	PackInfo info;
+	info.ofs = m_pack.index().offset(m_entry);
+	info_at_offset(cur, info);
+	
+	if (!parent_type::is_open()) {
+		parent_type::open(cur, parent_type::max_length, info.ofs+info.rofs);
+	}
+	
+	std::streamsize											br;		// bytes read
+	std::array<char_type, 8192>								buf;
+	
+	if (info.is_delta()) {
+		unpack_data(cur, info);
+		assert(m_type != ObjectType::None);
+		br = loose_object_header(buf.data(), m_type, m_obj_size);
+		hgen.update(buf.data(), static_cast<uint32>(br));
+		hgen.update(*m_data, static_cast<uint32>(m_obj_size));
+	} else {
+		this->set_window(parent_type::max_length, info.ofs+info.rofs);
+		br = loose_object_header(buf.data(), static_cast<ObjectType>(info.type), info.size);
+		hgen.update(buf.data(), br);
+		
+		do {
+			br = parent_type::read(buf.data(), buf.size());
+			if (br > -1) {
+				hgen.update(buf.data(), static_cast<uint32>(br));
+			}
+		} while(static_cast<size_t>(br) == buf.size());
+		return true;
+	}
+	
+	return hgen.hash() == hash;
 }
 
 uint PackDevice::delta_size(cursor_type& cur, uint64 ofs, size_type& base_size, size_type& target_size)
