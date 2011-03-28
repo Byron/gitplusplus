@@ -11,6 +11,7 @@
 #include <boost/iostreams/copy.hpp>
 
 #include <cstring>
+#include <array>
 #include <cstdlib>
 
 using namespace std;
@@ -40,7 +41,6 @@ BOOST_AUTO_TEST_CASE(read_pack)
 	const PackODB::forward_iterator end = podb.end();
 	std::cerr << "Operating on database with " << podb.packs().size() << " packs and " << no << " objects" << std::endl;
 	
-	
 	double iteration_elapsed;
 	{// ITERATION - no access
 		PackODB::forward_iterator beg = podb.begin();
@@ -69,9 +69,9 @@ BOOST_AUTO_TEST_CASE(read_pack)
 	}
 	BOOST_REQUIRE(max_size);
 	
-	size_t min_cache_size = 8*mb;
-	std::vector<size_t> cache_sizes = {std::max((size_t)(max_size * 0.25f), min_cache_size),
-	                                   std::max(size_t(max_size * 0.7f), min_cache_size*3), 
+	size_t min_cache_size = 16 * mb;	// same as git, everthing else slows down sequencial mode
+	std::vector<size_t> cache_sizes = {std::max((size_t)(max_size * 0.25f), min_cache_size), 
+	                                   std::max(size_t(max_size), min_cache_size), 
 	                                   0};
 	for (auto cache_size = cache_sizes.begin(); cache_size < cache_sizes.end(); ++cache_size)
 	{
@@ -79,19 +79,34 @@ BOOST_AUTO_TEST_CASE(read_pack)
 		std::cerr << "CACHE SIZE == " << *cache_size / mb << " mb" << std::endl;
 		std::cerr << "########################################" << std::endl;
 		
-		podb.set_cache_memory_limit(*cache_size);
-		BOOST_CHECK(podb.cache_memory_limit() == *cache_size);
+		static const std::array<gtl::cache_access_mode, 2> modes = {{gtl::cache_access_mode::sequencial, gtl::cache_access_mode::random}};
 		
 		{
-			for (auto pit = podb.packs().begin(); pit != podb.packs().end(); ++pit) {
-				timer t;
-				bool res = pit->get()->verify(std::cerr);
-				double elapsed = t.elapsed();
-				uint64 pack_size = pit->get()->cursor().file_size();
-				std::cerr << "Verified pack at " << pit->get()->pack_path() << " of " << pack_size / mb << "mb in " << elapsed << "s (" << (pack_size / mb) / elapsed << "mb / s)" << std::endl;
-				BOOST_REQUIRE(res);
+			for (auto mit = modes.begin(); mit < modes.end(); ++mit) {
+				if (*cache_size) {
+					std::cerr << "CACHING MODE: " << (int)*mit << std::endl;
+				}
+				// zero caches just once please
+				if (*cache_size == 0 && mit - modes.begin() == 1) {
+					break;
+				}
+				
+				podb.set_cache_memory_limit(*cache_size, *mit);
+				for (auto pit = podb.packs().begin(); pit != podb.packs().end(); ++pit) {
+					timer t;
+					bool res = pit->get()->verify(std::cerr);
+					double elapsed = t.elapsed();
+					uint64 pack_size = pit->get()->cursor().file_size();
+					std::cerr << "Verified pack at " << pit->get()->pack_path() << " of " << pack_size / mb << "mb in " << elapsed << "s (" << (pack_size / mb) / elapsed << "mb / s)" << std::endl;
+					pit->get()->cache().cache_info(std::cerr);
+					BOOST_REQUIRE(res);
+				}
 			}
 		}// end verify pack
+		
+		podb.set_cache_memory_limit(*cache_size, gtl::cache_access_mode::random);
+		BOOST_CHECK(podb.cache_memory_limit() == *cache_size);
+		
 		
 		double deserialization_elapsed = 0.;
 		{// deserialize data
