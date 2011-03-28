@@ -258,12 +258,26 @@ PackDevice::counted_char_ptr_const_type PackDevice::unpack_object_recursive(curs
 	{
 		out_size = info.size;
 		m_type = static_cast<ObjectType>(info.type);		// cache our type right away
-		return obtain_data(cur, info.ofs, info.rofs, info.size);
+		return obtain_data(cur, info, true);
 		break;
 	}
 	case PackedObjectType::OfsDelta:
 	case PackedObjectType::RefDelta:
 	{
+		// see if we have our final object already
+		counted_char_ptr_const_type base_data;
+		PackCache::size_type tmp_size;
+		PackedObjectType tmp_type;
+		PackCache& cache = m_pack.cache();
+		if (cache.is_available() && (base_data = cache.cache_at(info.ofs, &tmp_type, &tmp_size)).get() != nullptr) {
+			assert(tmp_type != PackedObjectType::Bad 
+			       && tmp_type != PackedObjectType::RefDelta 
+			       && tmp_type != PackedObjectType::OfsDelta);
+			out_size = static_cast<size_type>(tmp_size);
+			m_type = static_cast<ObjectType>(tmp_type);
+			return base_data;
+		}
+		
 		PackInfo next_info;
 		if (info.type == PackedObjectType::OfsDelta) {
 			next_info.ofs = info.ofs - info.delta.ofs;
@@ -275,8 +289,9 @@ PackDevice::counted_char_ptr_const_type PackDevice::unpack_object_recursive(curs
 		
 		// obtain base and decompress the delta to apply it
 		info_at_offset(cur, next_info);
-		counted_char_ptr_const_type base_data(unpack_object_recursive(cur, next_info, out_size));	// base memory
-		counted_char_ptr_const_type ddata(obtain_data(cur, info.ofs, info.rofs, info.size));		// delta memory
+		// See if we have the full base stored already
+		base_data = unpack_object_recursive(cur, next_info, out_size);
+		counted_char_ptr_const_type ddata(obtain_data(cur, info, false));		// delta memory
 		const char_type* cpddata = *ddata; //!< const pointer to delta data
 		
 		uint64 base_size = msb_len(cpddata);
@@ -293,6 +308,7 @@ PackDevice::counted_char_ptr_const_type PackDevice::unpack_object_recursive(curs
 		// Allocate memory to keep the destination and apply delta
 		counted_char_type* dest = new counted_char_type[out_size];
 		apply_delta(*base_data, *dest, cpddata, info.size - (cpddata - *ddata));
+		cache.set_cache_at(info.ofs, static_cast<PackedObjectType>(m_type), out_size, dest);
 		return counted_char_ptr_const_type(dest);
 		break;
 	}
@@ -306,22 +322,27 @@ PackDevice::counted_char_ptr_const_type PackDevice::unpack_object_recursive(curs
 	return counted_char_ptr_type();
 }
 
-PackDevice::counted_char_ptr_const_type PackDevice::obtain_data(cursor_type& cur, stream_offset ofs, 
-                                                                       uint32 rofs, size_type nb) 
+PackDevice::counted_char_ptr_const_type PackDevice::obtain_data(cursor_type& cur, const PackInfo& info, bool allow_cache) 
 {
-	PackCache& cache = m_pack.cache();
-	counted_char_ptr_const_type cdata;
-	if (cache.is_available() && (cdata = cache.cache_at(ofs)).get() != nullptr) {
-		return cdata;
-	}
-
-	counted_char_type* pddata(new counted_char_type[nb]);
-	decompress_some(cur, ofs+rofs, *pddata, nb);
+	if (allow_cache) {
+		PackCache& cache = m_pack.cache();
+		counted_char_ptr_const_type cdata;
+		if (cache.is_available() && (cdata = cache.cache_at(info.ofs)).get() != nullptr) {
+			return cdata;
+		}
 	
-	if (cache.is_available()) {
-		cache.set_cache_at(ofs, nb, pddata);
+		counted_char_type* pddata(new counted_char_type[info.size]);
+		decompress_some(cur, info.ofs+info.rofs, *pddata, info.size);
+		
+		if (cache.is_available()) {
+			cache.set_cache_at(info.ofs, info.type, info.size, pddata);
+		}
+		return counted_char_ptr_const_type(pddata);
+	} else {
+		counted_char_type* pddata(new counted_char_type[info.size]);
+		decompress_some(cur, info.ofs+info.rofs, *pddata, info.size);
+		return counted_char_ptr_const_type(pddata);
 	}
-	return counted_char_ptr_const_type(pddata);
 }
 
 void PackDevice::unpack_data(cursor_type& cur, const PackInfo& info)

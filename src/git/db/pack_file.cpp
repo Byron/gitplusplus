@@ -136,7 +136,7 @@ size_t PackCache::collect(size_t bytes_to_free)
 	for (CacheInfo* pinfo = m_head->next; bf < bytes_to_free && pinfo != m_tail; pinfo = pinfo->next) {
 		if (pinfo->size > 0) {
 			bf += pinfo->size;
-			set_data(*pinfo, 0, 0, nullptr);
+			set_data(*pinfo, 0, PackedObjectType::Bad, 0, nullptr);
 		}
 	}
 	
@@ -148,7 +148,7 @@ size_t PackCache::collect(size_t bytes_to_free)
 	return bf;
 }
 
-PackCache::counted_char_ptr_const_type PackCache::cache_at(uint64 offset) const 
+PackCache::counted_char_ptr_const_type PackCache::cache_at(uint64 offset, PackedObjectType* out_type, size_type* out_size) const 
 {
 	static const counted_char_ptr_const_type nullp;
 	const uint32 entry = offset_to_entry(offset);
@@ -165,10 +165,16 @@ PackCache::counted_char_ptr_const_type PackCache::cache_at(uint64 offset) const
 #ifdef DEBUG
 	m_hits += !!info.pdata;
 #endif
+	if (out_size) {
+		*out_size = info.size;
+	}
+	if (out_type) {
+		*out_type = info.type;
+	}
 	return info.pdata;
 }
 
-void PackCache::set_data(CacheInfo& info, uint64 offset, size_type size, counted_char_const_type* pdata)
+void PackCache::set_data(CacheInfo& info, uint64 offset, PackedObjectType type, size_type size, counted_char_const_type* pdata)
 {
 	gMemory -= m_mem;
 	m_mem -= info.size;
@@ -176,6 +182,7 @@ void PackCache::set_data(CacheInfo& info, uint64 offset, size_type size, counted
 	gMemory += m_mem;
 	bool was_set = (bool)info.size;
 	info.pdata = pdata;
+	info.type = type;
 	info.size = size;
 	info.offset = offset;
 	
@@ -195,7 +202,7 @@ void PackCache::set_data(CacheInfo& info, uint64 offset, size_type size, counted
 	// Otherwise just keep the entry if the data/offset changes
 }
 
-bool PackCache::set_cache_at(uint64 offset, size_type size, counted_char_const_type* pdata) 
+bool PackCache::set_cache_at(uint64 offset, PackedObjectType type, size_type size, counted_char_const_type* pdata) 
 {
 	// refuse to cache items which are too large !
 	if (size*2 > gMemoryLimit) {
@@ -211,7 +218,7 @@ bool PackCache::set_cache_at(uint64 offset, size_type size, counted_char_const_t
 	}
 	
 	// store data unconditionally
-	set_data(m_info[offset_to_entry(offset)], offset, size, pdata);
+	set_data(m_info[offset_to_entry(offset)], offset, type, size, pdata);
 	return true;
 }
 

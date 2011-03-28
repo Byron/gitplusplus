@@ -147,9 +147,10 @@ protected:
 	//! \param ofs absolute offset to the beginning of this objects header
 	//! \param rofs relative offset to the absolute offset offset at which the zlib stream begins
 	//! \param nb amount of bytes to read. The amount is assumed to be the target size of the fully 
+	//! \param allow_cache if true, the cache will be queried and set, otherwise the object will always be decompressed
 	//! decompressed zstream.
 	//! \return managed_ptr_array with the data. It will deal with the deallocation of the included pointer as needed
-	inline counted_char_ptr_const_type obtain_data(cursor_type& cur, stream_offset ofs, uint32 rofs, size_type nb);
+	inline counted_char_ptr_const_type obtain_data(cursor_type& cur, const PackInfo& info, bool allow_cache);
 	
 	//! Decompress all bytes from the cursor (it must be set to the correct first byte)
 	//! and continue decompression until the end of the stream or until our destination buffer

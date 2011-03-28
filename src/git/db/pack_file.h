@@ -390,6 +390,7 @@ protected:
 		
 		uint64								offset;			//! offset at which the entry resides
 		size_type							size;			//! amount of bytes we store
+		PackedObjectType					type;			//! type of the object represented by data
 		counted_char_ptr_const_type			pdata;			//! stored inflated data
 	};
 	
@@ -417,7 +418,7 @@ protected:
 	inline uint32 offset_to_entry(uint64 offset) const;
 	
 	//! sets data, handling our memory counter correctly
-	inline void set_data(CacheInfo& info, uint64 offset, size_type size, counted_char_const_type* data);
+	inline void set_data(CacheInfo& info, uint64 offset, PackedObjectType type, size_type size, counted_char_const_type* data);
 	
 	//! free at least the given amount of memory. Try to be smart by keeping old objects which were useful often.
 	//! We basically remove all generations below a required minimum, to keep the runs short and effective
@@ -474,8 +475,10 @@ public:
 	
 	//! \return data pointer to the decompressed cache matching the given offset, or 0
 	//! if there is no such cache entry
+	//! \param out_size if not null, the size of the obtained data will be returned.
+	//! \param out_type if not null, contains the type of the object stored in the cache
 	//! \note behaviour undefined if !is_available()
-	counted_char_ptr_const_type cache_at(uint64 offset) const;
+	counted_char_ptr_const_type cache_at(uint64 offset, PackedObjectType* out_type = nullptr, size_type* out_size = nullptr) const;
 	
 	//! provide cache information for the given offset
 	//! \param offset at which the data should be set
@@ -486,7 +489,7 @@ public:
 	//! \note has no effect if the cache entry is already set
 	//! \return true if the data is used by the cache and false if it was rejected as a memory limit was hit
 	//! if the cache was rejected, you remain responsible for your data
-	bool set_cache_at(uint64 offset, size_type size, counted_char_const_type* pdata);
+	bool set_cache_at(uint64 offset, PackedObjectType type, size_type size, counted_char_const_type* pdata);
 	
 	//! Print user-readable usage information into the given output stream
 	void cache_info(std::ostream& out) const;
