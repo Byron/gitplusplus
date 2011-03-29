@@ -79,10 +79,8 @@ PackCache::CacheInfo::CacheInfo()
 
 void PackCache::initialize(const PackIndexFile &index, uint64 pack_size, gtl::cache_access_mode mode)
 {
-	if (is_available() && mode == m_mode){
-		return;
-	}
-	
+	// always reinitialize the cache ! The free memory could change, so our index allocation has 
+	// to change as well.
 	if (mode == gtl::cache_access_mode::unspecified) {
 		mode = gtl::cache_access_mode::random;
 	}
@@ -107,16 +105,21 @@ void PackCache::initialize(const PackIndexFile &index, uint64 pack_size, gtl::ca
 	// In sequencial mode, the optimal entry size depends on the average delta chain depth and the average
 	// object size. We want to store as many objects as possible without hitting the memory limit. Instead, we want
 	// to just replace one cache by another
+	const uint32 min_entries = 256;
 	if (mode == gtl::cache_access_mode::sequencial) {
 		// lets make a rough estimate: the more free memory we have, the more entries we can effort without
 		// collecting too often
 		const size_t avg_obj_size = std::max((size_t)1, pack_size / index.num_entries());
-		ne = std::max((size_t)256, (memavail / avg_obj_size) / (100+40));	// make it a little smaller to reduce entries
+		ne = std::max((size_t)min_entries, (memavail / avg_obj_size) / (100+40));	// make it a little smaller to reduce entries
 	} else {
 		ne = std::min(
 					  (uint32)(memavail * 0.1f / (float)sizeof(CacheInfo)), 
 					  (uint32)(index.num_entries() * 0.75f));
-		ne = std::max(ne, std::max(256u, ne));
+		ne = std::max(min_entries, ne);
+	}
+	// happens if there are less than 256 pack entries
+	if (ne > index.num_entries()) {
+		ne = index.num_entries();
 	}
 	
 	m_info.resize(ne);
@@ -125,7 +128,7 @@ void PackCache::initialize(const PackIndexFile &index, uint64 pack_size, gtl::ca
 	// initialize the doubly linked list
 	m_head = &m_info[0];
 	m_tail = &*(m_info.end()-1);
-	
+
 	assert(m_head != m_tail);
 	m_head->next = m_tail;
 	m_head->prev = nullptr;
@@ -139,7 +142,8 @@ void PackCache::initialize(const PackIndexFile &index, uint64 pack_size, gtl::ca
 	const size_t kb = 1000;
 	std::cerr << "INITIALIZE mode (1=random,2=sequencial): " 
 			<< (int)mode << ", Num Entries: " << ne 
-			<< ", Memory free/max [kb]" << (gMemoryLimit - gMemory) / kb<< "/" << gMemoryLimit / kb << std::endl;
+	        << ", memory consumption [kb]: " << gMemory / kb
+			<< ", Memory free/max [kb]" << ((int64_t)gMemoryLimit - (int64_t)gMemory) / (int64_t)kb<< "/" << gMemoryLimit / kb << std::endl;
 #endif
 }
 
@@ -257,11 +261,12 @@ bool PackCache::set_cache_at(uint64 offset, PackedObjectType type, size_type siz
 	
 	// Collect first to assure we have enough memory.
 	CacheInfo& info = m_info[offset_to_entry(offset)];
-	uint32 diff = static_cast<uint32>(std::min((size_type)0, size - info.size));
-	if (diff + gMemory > gMemoryLimit) {
-		collect(size);
-		if (size + gMemory > gMemoryLimit) {
-			return false;
+	if (info.size < size) {
+		if ((size - info.size) + gMemory > gMemoryLimit) {
+			collect(size);
+			if (size + gMemory > gMemoryLimit) {
+				return false;
+			}
 		}
 	}
 	

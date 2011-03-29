@@ -625,6 +625,7 @@ BOOST_FIXTURE_TEST_CASE(packed_db_test_db_test, GitPackedODBFixture)
 	// reset to 0 to disable the cache and free all memory 
 	podb.set_cache_memory_limit(0);
 	BOOST_REQUIRE(podb.cache_memory_limit() == 0);
+	BOOST_REQUIRE(podb.cache_memory() == 0);
 	
 	// TODO: Verify invalid pack reading/handling
 }
