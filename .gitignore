@@ -8,7 +8,7 @@ CTestTestfile.cmake
 Testing/
 bin/
 lib/
-doc/
+doc/html
 Doxyfile
 src/git/config.h
 

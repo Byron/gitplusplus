@@ -12,7 +12,7 @@
 
 namespace fs = boost::filesystem;
 
-/** \file fixture.hpp
+/** \file git/fixture.hpp
   * \brief contains fixture classes and utilties to be used within testcases
   */
 

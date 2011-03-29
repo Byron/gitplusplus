@@ -356,20 +356,11 @@ public:
 
 
 
-/** \brief cache containing decompressed delta streams and base objects
+/** \brief cache containing decompressed delta streams and base objects.
   * During decompression of extremely deltified packs, the actual decompression takes the most
   * time in the process. Hence it is viable to cache decompressed deltas and bases as defined by 
-  * certain limits.
-  * The cache, once initialized, contains one entry per index entry which keeps the data and a hit
-  * count to signal importance. Also you can quickly map an offset to the respective index, as we maintain
-  * an offset-sorted list we can bisect in. The index of the offset denotes the entry at which we can find
-  * additional information.
-  * The client, before decompressing anything, queries the cache for decompressed data. If it exists, it will
-  * be used. Otherwise, it decompresses the data itself and afterwards calls the cache to take a copy of the 
-  * decompressed data so it may be found in future.
-  * The type uses a global counter to set shared (global) memory limits. If the limit is reached, we prune 
-  * out least recently used items, and advance all others to the next generation, increasing our own generation
-  * gap.
+  * certain limits, or full undeltified objects.
+  * The cache operates in sequencial or random access mode, adjusting its properties accordingly.
   * By default, the cache is deactivated
   */ 
 class PackCache
