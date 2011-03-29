@@ -269,14 +269,14 @@ PackDevice::counted_char_ptr_const_type PackDevice::unpack_object_recursive(curs
 		PackCache::size_type tmp_size;
 		PackedObjectType tmp_type;
 		PackCache& cache = m_pack.cache();
-		bool sequencial_caching = cache.mode() == gtl::cache_access_mode::sequencial;
+		bool sequential_caching = cache.mode() == gtl::cache_access_mode::sequential;
 		
 		// It makes not much sense to keep a cache in random access mode, as the only chance 
 		// we have to make good use of the cache is to store as many objects as possible, hence
 		// storing the uncompressed delta's is using the limited cache more efficiently.
-		// In sequencial mode, we know that our base is going to be used more orderly, hence we can 
+		// In sequential mode, we know that our base is going to be used more orderly, hence we can 
 		// gain a lot of performance if we can just keep a level 50 delta instead of reapplying 50 cached deltas.
-		if (sequencial_caching) {
+		if (sequential_caching) {
 			if (cache.is_available() && (base_data = cache.cache_at(info.ofs, &tmp_type, &tmp_size)).get() != nullptr) {
 				assert(tmp_type != PackedObjectType::Bad 
 					   && tmp_type != PackedObjectType::RefDelta 
@@ -300,8 +300,8 @@ PackDevice::counted_char_ptr_const_type PackDevice::unpack_object_recursive(curs
 		info_at_offset(cur, next_info);
 		// See if we have the full base stored already
 		base_data = unpack_object_recursive(cur, next_info, out_size);
-		// store the delta in non-sequencial mode
-		counted_char_ptr_const_type ddata(obtain_data(cur, info, !sequencial_caching));		// delta memory
+		// store the delta in non-sequential mode
+		counted_char_ptr_const_type ddata(obtain_data(cur, info, !sequential_caching));		// delta memory
 		const char_type* cpddata = *ddata; //!< const pointer to delta data
 		
 		uint64 base_size = msb_len(cpddata);
@@ -318,9 +318,9 @@ PackDevice::counted_char_ptr_const_type PackDevice::unpack_object_recursive(curs
 		// Allocate memory to keep the destination and apply delta
 		counted_char_type* dest = new counted_char_type[out_size];
 		apply_delta(*base_data, *dest, cpddata, info.size - (cpddata - *ddata));
-		// in sequencial mode, we store the result using our offset as key. Otherwise we use
+		// in sequential mode, we store the result using our offset as key. Otherwise we use
 		// our offset to store the decompressed delta.
-		if (sequencial_caching) {
+		if (sequential_caching) {
 			cache.set_cache_at(info.ofs, static_cast<PackedObjectType>(m_type), out_size, dest);
 		}
 		return counted_char_ptr_const_type(dest);

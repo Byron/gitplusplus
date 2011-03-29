@@ -102,11 +102,11 @@ void PackCache::initialize(const PackIndexFile &index, uint64 pack_size, gtl::ca
 	
 	// The optimial amount of entries depends on the caching mode. In Random access mode, more slots 
 	// are better, but too many don't make things better as we are using a hash function which clashes.
-	// In sequencial mode, the optimal entry size depends on the average delta chain depth and the average
+	// In sequential mode, the optimal entry size depends on the average delta chain depth and the average
 	// object size. We want to store as many objects as possible without hitting the memory limit. Instead, we want
 	// to just replace one cache by another
 	const uint32 min_entries = 256;
-	if (mode == gtl::cache_access_mode::sequencial) {
+	if (mode == gtl::cache_access_mode::sequential) {
 		// lets make a rough estimate: the more free memory we have, the more entries we can effort without
 		// collecting too often
 		const size_t avg_obj_size = std::max((size_t)1, pack_size / index.num_entries());
@@ -140,7 +140,7 @@ void PackCache::initialize(const PackIndexFile &index, uint64 pack_size, gtl::ca
 	
 #ifdef DEBUG
 	const size_t kb = 1000;
-	std::cerr << "INITIALIZE mode (1=random,2=sequencial): " 
+	std::cerr << "INITIALIZE mode (1=random,2=sequential): " 
 			<< (int)mode << ", Num Entries: " << ne 
 	        << ", memory consumption [kb]: " << gMemory / kb
 			<< ", Memory free/max [kb]" << ((int64_t)gMemoryLimit - (int64_t)gMemory) / (int64_t)kb<< "/" << gMemoryLimit / kb << std::endl;
@@ -159,14 +159,14 @@ uint32 PackCache::offset_to_entry(uint64 offset) const
 size_t PackCache::collect(size_t bytes_to_free)
 {
 	size_t bf = 0;	// bytes freed
-	bool sequencial_mode = m_mode == gtl::cache_access_mode::sequencial;
+	bool sequential_mode = m_mode == gtl::cache_access_mode::sequential;
 	// In random mode, we are better off getting rid of a lot of data at once to cut down
 	// the amount of collects on possibly large amount of entries. As access is random, no entry is
 	// more valuable than the other.
-	// In sequencial mode, we want to be done as fast as possible. Cutting away the first entries
+	// In sequential mode, we want to be done as fast as possible. Cutting away the first entries
 	// is the right thing to do and allowed by the linked list implementation of the entries.
 	// Also, we try to be done faster by focussing on the blobs first
-	if (!sequencial_mode) {
+	if (!sequential_mode) {
 		bytes_to_free = std::max(bytes_to_free, (size_t)(m_mem * 0.5f));
 	}
 	
@@ -176,7 +176,7 @@ size_t PackCache::collect(size_t bytes_to_free)
 	// std::cerr << "Have Collect: " << m_mem / mb << "mb - bytes to free " << bytes_to_free / mb << "mb";
 #endif
 	
-	if (sequencial_mode) {
+	if (sequential_mode) {
 		for (CacheInfo* pinfo = m_head->next; bf < bytes_to_free && pinfo != m_tail; pinfo = pinfo->next) {
 			if (pinfo->type == PackedObjectType::Blob) {
 				bf += pinfo->size;

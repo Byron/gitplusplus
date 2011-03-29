@@ -360,7 +360,7 @@ public:
   * During decompression of extremely deltified packs, the actual decompression takes the most
   * time in the process. Hence it is viable to cache decompressed deltas and bases as defined by 
   * certain limits, or full undeltified objects.
-  * The cache operates in sequencial or random access mode, adjusting its properties accordingly.
+  * The cache operates in sequential or random access mode, adjusting its properties accordingly.
   * By default, the cache is deactivated
   */ 
 class PackCache

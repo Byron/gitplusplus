@@ -228,7 +228,7 @@ struct odb_pack_traits : public odb_file_traits<typename ObjectTraits::key_type,
 enum class cache_access_mode : uchar {
 	unspecified = 0,		//!< it doesn't matter which mode to take
 	random,					//!< optimize cache for random access
-	sequencial				//!< optimize cache for sequencial access
+	sequential				//!< optimize cache for sequential access
 };
 
 /** \brief Implements a database which reads objects from highly compressed packs.

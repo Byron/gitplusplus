@@ -69,7 +69,7 @@ BOOST_AUTO_TEST_CASE(read_pack)
 	}
 	BOOST_REQUIRE(max_size);
 	
-	size_t min_cache_size = 16 * mb;	// same as git, everthing else slows down sequencial mode
+	size_t min_cache_size = 16 * mb;	// same as git, everthing else slows down sequential mode
 	std::vector<size_t> cache_sizes = {std::max((size_t)(max_size * 0.25f), min_cache_size), 
 	                                   std::max(size_t(max_size), min_cache_size), 
 	                                   0};
@@ -79,7 +79,7 @@ BOOST_AUTO_TEST_CASE(read_pack)
 		std::cerr << "CACHE SIZE == " << *cache_size / mb << " mb" << std::endl;
 		std::cerr << "########################################" << std::endl;
 		
-		static const std::array<gtl::cache_access_mode, 2> modes = {{gtl::cache_access_mode::sequencial, gtl::cache_access_mode::random}};
+		static const std::array<gtl::cache_access_mode, 2> modes = {{gtl::cache_access_mode::sequential, gtl::cache_access_mode::random}};
 		
 		{
 			for (auto mit = modes.begin(); mit < modes.end(); ++mit) {
