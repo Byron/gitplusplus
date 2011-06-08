@@ -404,7 +404,7 @@ public:
 					
 					// we want to honor the maximum mapped memory size, and as we extend 
 					// the window to the window size (if possible) we have to claim it here too
-					m_manager->collect_one_lru_region(m_manager->window_size());
+					m_manager->collect_lru_region(m_manager->window_size());
 					
 					// we assume the list remains sorted by offset
 					region_const_iterator insertpos;
@@ -483,18 +483,16 @@ public:
 						if (regions.size() && insertpos != rend) {
 							const_cast<region&>(*insertpos).client_count() += 1;
 						}
-						try {
-							while (true) {
-								m_manager->collect_one_lru_region(0);
-							}
-						} catch (const lru_failure&) {}
+						
+						m_manager->collect_lru_region(0);
+						
 						if (regions.size() && insertpos != rend) {
 							const_cast<region&>(*insertpos).client_count() -= 1;
 						}
 						m_region = new region(m_rlist->path(), mid.ofs, mid.size);
 					}
 
-					m_manager->m_handles += 1;
+					m_manager->m_handle_count += 1;
 					m_manager->m_memory_size += m_region->size();
 					regions.insert(insertpos, *m_region);
 				} else {
@@ -542,6 +540,16 @@ public:
 		inline stream_offset ofs_begin() const {
 			assert(is_valid());
 			return m_region->ofs_begin() + m_ofs;
+		}
+		
+		//! \note unsigned version of ofs_begin()
+		inline size_type uofs_begin() const {
+			return static_cast<size_type>(ofs_begin());
+		}
+		
+		//! \note unsigned version of ofs_end()
+		inline size_type uofs_end() const {
+			return static_cast<size_type>(ofs_end());
 		}
 		
 		//! \return offset to one beyond the last byte into the file
@@ -614,55 +622,59 @@ protected:
 	const uint32			m_max_handles;		//! maximum amount of handles to keep open
 	
 	size_type				m_memory_size;		//! currently allocated memory size
-	uint32					m_handles;			//! amount of currently allocated handles
+	uint32					m_handle_count;			//! amount of currently allocated file handles
 	
 protected:
 	//! Unmap the region which was least-recently used and has no client
-	//! \param size of the region we want to map next (assuming its not already mapped paritally or fully
-	//! if 0, we try to free any available region
+	//! \param size of the region we want to map next (assuming its not already mapped partally or fully
+	//! if 0, we try to free all available regions. In that case it is no failure if we found none
+	//! \note its not guaranteed that actually allocating memory of size will not overshoot your budget
+	//! as we can only release resources of these are unused.
 	//! \throw lru_failure
 	//! \todo implement a case where all unused regions are dicarded efficiently. Currently its all brute force
-	//! \todo implement size handling non-recursively
-	inline void collect_one_lru_region(size_type size) {
-		if ((size != 0) & (m_memory_size+size < m_max_memory_size)) {
-			return;
-		}
-		// find least recently used (or least often used) region
-		typedef typename file_regions::region_dlist::iterator region_iterator;
-		
-		const region_iterator no_region;		//!< point to no region
-		region_iterator lru_region(no_region);	//!< the actual most recently used region
-		typename file_regions::region_dlist* lru_list=nullptr;		//! ptr to the list containing the lru_region iterator
-		auto fend = m_files.end();
-		
-		for (auto fiter = m_files.begin(); fiter != fend; ++fiter) {
-			auto& rlist = fiter->list();
-			region_iterator rbeg(rlist.begin());
-			const region_iterator rend(rlist.end());
-			for (; rbeg != rend; ++rbeg) {
-				if (rbeg->client_count() == 0 && 
-				    (lru_region == no_region || rbeg->usage_count() < lru_region->usage_count())) {
-					lru_region = rbeg;
-					lru_list = &rlist;
+	//! mainly because we have to find the least recently used
+	inline void collect_lru_region(size_type size) 
+	{
+		size_type num_found = 0;
+		while ((size == 0) | (m_memory_size+size > m_max_memory_size)) {
+			// find least recently used (or least often used) region
+			typedef typename file_regions::region_dlist::iterator region_iterator;
+			
+			const region_iterator no_region;		//!< point to no region
+			region_iterator lru_region(no_region);	//!< the actual most recently used region
+			typename file_regions::region_dlist* lru_list=nullptr;		//! ptr to the list containing the lru_region iterator
+			auto fend = m_files.end();
+			
+			// search through all regions to find a one with the lowest usage count
+			for (auto fiter = m_files.begin(); fiter != fend; ++fiter) {
+				auto& rlist = fiter->list();
+				region_iterator rbeg(rlist.begin());
+				const region_iterator rend(rlist.end());
+				
+				for (; rbeg != rend; ++rbeg) {
+					if (rbeg->client_count() == 0 && 
+						(lru_region == no_region || rbeg->usage_count() < lru_region->usage_count())) {
+						lru_region = rbeg;
+						lru_list = &rlist;
+					}
+				}// for each region
+			}// for each file regions manager
+			
+			// only raise if we couldn't find any one at all
+			if (lru_region == no_region) {
+				if (num_found == 0 && size != 0) {
+					throw lru_failure();
 				}
-			}// for each region
-		}// for each file regions manager
-		
-		if (lru_region == no_region) {
-			throw lru_failure();
-		}
-		
-		region* r = &*lru_region;
-		lru_list->erase(lru_region);
-		m_memory_size -= r->size();
-		m_handles -= 1;
-		delete r;
-		
-		// still not enough memory freed ? Enter recursion. This could be troublesome for small 
-		// window sizes and large amount of memory to be freed
-		if ((size != 0) & (m_memory_size+size > m_max_memory_size)) {
-			collect_one_lru_region(size);
-		}
+				break;
+			}
+			
+			num_found += 1;
+			region* r = &*lru_region;
+			lru_list->erase(lru_region);
+			m_memory_size -= r->size();
+			m_handle_count -= 1;
+			delete r;
+		}// end while collection is necessary
 	}
 	
 public:
@@ -678,7 +690,7 @@ public:
 	mapped_memory_manager(size_type window_size = 0, size_type max_memory_size = 0, uint32 max_open_handles = ~0) 
 	    : m_max_handles(max_open_handles)
 	    , m_memory_size(0)
-	    , m_handles(0)
+	    , m_handle_count(0)
 	    
 	{
 		m_max_window_size = window_size != 0 ? window_size : 
@@ -718,7 +730,7 @@ public:
 	
 	//! \return amount of file handles used. Each mapped region uses one file handle
 	uint32 num_file_handles() const {
-		return m_handles;
+		return m_handle_count;
 	}
 	
 	//! \return maximum amount of concurrently open file handles
