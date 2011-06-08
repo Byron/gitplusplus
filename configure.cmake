@@ -44,7 +44,7 @@ find_package(Boost 1.45.0 COMPONENTS date_time filesystem system unit_test_frame
 
 if(NOT Boost_FOUND)
 	message(SEND_FAILURE "Require boost libraries")
-endif(NOT Boost_FOUND)
+endif()
 
 # setup compiler
 if(UNIX)
@@ -52,17 +52,17 @@ if(UNIX)
 	# use c++0x features
 	# make throw() semantically equivalent to noexcept (std::exception uses throw() for instance)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}\ -Wall -std=c++0x -fnothrow-opt")
-endif(UNIX)
+endif()
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug" OR "${CMAKE_BUILD_TYPE}" STREQUAL "Profile")
 	add_definitions(-DDEBUG)
-endif("${CMAKE_BUILD_TYPE}" STREQUAL "Debug" OR "${CMAKE_BUILD_TYPE}" STREQUAL "Profile")
+endif()
 
 if(DOXYGEN)
 	include(UseDoxygen.cmake)
 else(DOXYGEN)
 	message(WARNING "Doxygen was not found - documentation will not be built")
-endif(DOXYGEN)
+endif()
 
 include(fun.cmake)
 

@@ -380,6 +380,9 @@ void odb_pack<TraitsType>::update_cache()
 	dir_iter_type iter(this->m_root);
 	const dir_iter_type dir_end;
 	
+	// TODO: sort packs by modification date (maybe size as well) and the locality. remote packs
+	// take longer to access
+	
 	for (; iter != dir_end; ++iter) {
 		// skip packs we already have 
 		const path_type& path = iter->path();

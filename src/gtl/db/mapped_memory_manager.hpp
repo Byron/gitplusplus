@@ -99,15 +99,17 @@ protected:
 		//! if possible, but don't make yourself larger than max_size
 		inline void extend_left_to(const window& w, size_type max_size) {
 			assert(w.ofs_end() <= ofs);
-			const stream_offset size_left = std::min(size, max_size);
-			ofs = std::max(w.ofs_end(), ofs-size_left);
+			size_type rofs = ofs - w.ofs_end();
+			const size_type nsize = rofs + size;
+			rofs -= nsize - std::min(nsize, max_size);
+			ofs -= rofs;
+			size += rofs;
 		}
 		//! Adjust the size to make our window end where the right window begins, but don't
 		//! get larger than max_size
 		inline void extend_right_to(const window& w, size_type max_size) {
 			assert(ofs <= w.ofs);
-			const size_type size_left = std::min(size, max_size);
-			size = size + ((std::min(static_cast<stream_offset>(ofs_end()+size_left), w.ofs) - ofs_end()));
+			size = std::min(static_cast<size_type>(size + (w.ofs - ofs_end())), max_size);
 		}
 	};
 	
@@ -119,7 +121,7 @@ protected:
 	private:
 		stream_offset			_b;		//!< beginning of the mapping
 		mapped_file_source		_mf;	//!< mapped file
-		size_type				_nc;	//!< number of clients using this particular window
+		size_type				_nc;	//!< number of clients using this particular region
 		size_type				_uc;	//!< total amount of usages
 		
 	private:
@@ -291,7 +293,7 @@ public:
 	class cursor
 	{
 		this_type*		m_manager;	//! pointer to our parent type
-		file_regions*	m_regions;	//! item holding our regions
+		file_regions*	m_rlist;	//! item holding our regions
 		region*			m_region;	//! region we are currently looking at
 		stream_offset	m_ofs;		//! relative offset from the actually mapped area to our start area
 		size_type		m_size;		//! maximum size we should provide
@@ -299,7 +301,7 @@ public:
 		//! a freely accessible copy constructor
 		inline void copy_from(const cursor& rhs) {
 			m_manager = rhs.m_manager;
-			m_regions = rhs.m_regions;
+			m_rlist = rhs.m_rlist;
 			m_region = rhs.m_region;
 			m_ofs = rhs.m_ofs;
 			m_size = rhs.m_size;
@@ -308,21 +310,21 @@ public:
 				m_region->client_count() += 1;
 				m_region->usage_count() += 1;
 			}
-			if (m_regions) {
-				m_regions->client_count() += 1;
+			if (m_rlist) {
+				m_rlist->client_count() += 1;
 			}
 		}
 		
 	public:
 		cursor(this_type* manager=nullptr, file_regions* regions=nullptr)
 		    : m_manager(manager)
-		    , m_regions(regions)
+		    , m_rlist(regions)
 		    , m_region(nullptr)
 		    , m_ofs(0)
 		    , m_size(0)
 		{
-			if (m_regions) {
-				m_regions->client_count() += 1;
+			if (m_rlist) {
+				m_rlist->client_count() += 1;
 			}
 		}
 		
@@ -341,11 +343,11 @@ public:
 			unuse_region();
 			
 			// if our region is empty, remove it
-			if (m_regions) {
-				m_regions->client_count() -= 1;
-				if (m_regions->client_count() == 0 && m_regions->list().size() == 0) {
-					m_manager->m_files.erase(*m_regions);
-					delete m_regions;
+			if (m_rlist) {
+				m_rlist->client_count() -= 1;
+				if (m_rlist->client_count() == 0 && m_rlist->list().size() == 0) {
+					m_manager->m_files.erase(*m_rlist);
+					delete m_rlist;
 				}
 			}
 		}
@@ -362,7 +364,7 @@ public:
 		//! either the file has reached its end, or the map was created between two existing regions
 		cursor& use_region(stream_offset offset, size_type size) {
 			assert(m_manager);
-			assert(m_regions);
+			assert(m_rlist);
 			bool need_region = true;
 			
 			// clamp size to window size
@@ -389,7 +391,7 @@ public:
 				}
 				
 				// find an existing region
-				auto& regions = m_regions->list();
+				auto& regions = m_rlist->list();
 				auto rend = regions.end();
 				auto rbeg = regions.begin();
 				auto it = std::find_if(rbeg, rend, 
@@ -398,7 +400,7 @@ public:
 					// adjust windows to be at optimal start, and maximium end
 					window left(0, 0);
 					window mid(offset, size);
-					window right(m_regions->file_size(), 0);
+					window right(m_rlist->file_size(), 0);
 					
 					// we want to honor the maximum mapped memory size, and as we extend 
 					// the window to the window size (if possible) we have to claim it here too
@@ -472,7 +474,7 @@ public:
 						if (m_manager->num_file_handles() >= m_manager->max_file_handles()) {
 							throw std::exception();
 						}
-						m_region = new region(m_regions->path(), mid.ofs, mid.size);
+						m_region = new region(m_rlist->path(), mid.ofs, mid.size);
 					} catch (const std::exception&) {
 						// apparently, we are out of system resources. As many more operations
 						// are likely to fail in that condition (like reading a file from disk, etc)
@@ -489,7 +491,7 @@ public:
 						if (regions.size() && insertpos != rend) {
 							const_cast<region&>(*insertpos).client_count() -= 1;
 						}
-						m_region = new region(m_regions->path(), mid.ofs, mid.size);
+						m_region = new region(m_rlist->path(), mid.ofs, mid.size);
 					}
 
 					m_manager->m_handles += 1;
@@ -533,7 +535,7 @@ public:
 		
 		//! \return true if we are associated with a specific file already
 		inline bool is_associated() const {
-			return m_regions != nullptr;
+			return m_rlist != nullptr;
 		}
 		
 		//! \return offset to first byte into the file
@@ -542,20 +544,10 @@ public:
 			return m_region->ofs_begin() + m_ofs;
 		}
 		
-		//! \note unsigned version of ofs_begin()
-		inline size_type uofs_begin() const {
-			return static_cast<size_type>(ofs_begin());
-		}
-		
 		//! \return offset to one beyond the last byte into the file
 		inline stream_offset ofs_end() const {
 			assert(is_valid());
 			return ofs_begin() + m_size;
-		}
-		
-		//! \note unsigned version of ofs_end()
-		inline size_type uofs_end() const {
-			return static_cast<size_type>(ofs_end());
 		}
 		
 		//! \return first byte we point to, mapped into our process memory
@@ -575,7 +567,7 @@ public:
 			return m_size;
 		}
 		
-		//! \return read-only mapped region which defines the underlying memory frme
+		//! \return read-only mapped region which defines the underlying memory frame
 		//! \note the internal region may not be set yet, a nullptr can be returned
 		//! \note as region is protected, you can only use it directly after the call
 		//! or store a pointer using auto
@@ -594,15 +586,15 @@ public:
 		
 		//! \return total size of the unerlying mapped file
 		size_type file_size() const {
-			assert(m_regions);
-			return m_regions->file_size();
+			assert(m_rlist);
+			return m_rlist->file_size();
 		}
 		
 		//! \return file path our cursor maps
 		//! \note undefined behaviour if is_associated() is false
 		const path_type& path() const {
-			assert(m_regions);
-			return m_regions->path();
+			assert(m_rlist);
+			return m_rlist->path();
 		}
 		
 		//! @} end interface
@@ -617,7 +609,7 @@ private:
 
 protected:
 	file_regions_set		m_files;			//! set of file regions with all mappings
-	size_type				m_window_size;		//! size of the window for allocations
+	size_type				m_max_window_size;		//! size of the window for allocations
 	 size_type				m_max_memory_size;	//! maximum amount of memory we may allocate
 	const uint32			m_max_handles;		//! maximum amount of handles to keep open
 	
@@ -689,7 +681,7 @@ public:
 	    , m_handles(0)
 	    
 	{
-		m_window_size = window_size != 0 ? window_size : 
+		m_max_window_size = window_size != 0 ? window_size : 
 								sizeof(void*) < 8 ? 32 * 1024 * 1024	// moderate sizes on 32 bit systems
 		                                          : 1024 * 1024 * 1024;	// go for it on 64 bit, we have plenty of address space
 		m_max_memory_size = max_memory_size != 0 ? max_memory_size : 
@@ -736,7 +728,7 @@ public:
 	
 	//! \return desired size each window should have upon allocation
 	size_type window_size() const {
-		return m_window_size;
+		return m_max_window_size;
 	}
 	
 	//! \return amount of bytes currently mapped in total
