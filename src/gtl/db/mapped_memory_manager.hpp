@@ -90,8 +90,12 @@ protected:
 			return ofs+size;
 		}
 		
+		//! Assures the old window area is contained in the new one, after alignment
 		inline void align() {
-			ofs = this_type::align(ofs, false);
+			static_assert(std::numeric_limits<stream_offset>::is_signed, "Require signed offset type");
+			const stream_offset nofs = this_type::align(ofs, false);
+			size += ofs - nofs;	// keep size constant
+			ofs = nofs;
 			size = this_type::align(size, true);
 		}
 		
@@ -400,7 +404,7 @@ public:
 					// adjust windows to be at optimal start, and maximium end
 					window left(0, 0);
 					window mid(offset, size);
-					window right(m_rlist->file_size(), 0);
+					window right(file_size(), 0);
 					
 					// we want to honor the maximum mapped memory size, and as we extend 
 					// the window to the window size (if possible) we have to claim it here too
@@ -413,7 +417,7 @@ public:
 					case 0: 
 					{// insert as first item
 						insertpos = rend;
-						break;	
+						break;
 					}
 					case 1:
 					{// insert before existing item ?
@@ -438,33 +442,25 @@ public:
 							right = insertpos;
 						}
 						// handles empty list case too, as begin() == end()
-					}
-					else {
+					} else {
 						// empty case was handled above
 						assert(regions.size()>0);
-						region_const_iterator onebefore(insertpos);
-						--onebefore;
 						if (insertpos != rend) {
 							right = insertpos;
 						}
-						left = onebefore;
+						left = --region_const_iterator(insertpos);
 					}// handle windows
 					
 					mid.extend_left_to(left, m_manager->window_size());
 					mid.extend_right_to(right, m_manager->window_size());
 					mid.align();
-					// it may be that the alignment causes the offset we should contain to move out of bounds
-					// This happens as we extend to the left before to the right, but could possibly happen
-					// if we did it the other way round as well. Hence we extend it by one page size to include
-					// it once again
-					if (mid.ofs_end() <= offset) {
-						mid.size += this_type::page_size();
-					}
+					
 					// It can happen that we align above the boundary of the file, so it gets larger
 					// than it may actually be.
 					if (mid.ofs_end() > right.ofs) {
 						mid.size = right.ofs - mid.ofs;
 					}
+					
 					assert(mid.ofs_end() > offset);
 					assert(left.ofs_end() <= mid.ofs);
 					assert(mid.ofs_end() <= right.ofs);
@@ -474,21 +470,27 @@ public:
 						if (m_manager->num_file_handles() >= m_manager->max_file_handles()) {
 							throw std::exception();
 						}
+						// This can throw !
 						m_region = new region(m_rlist->path(), mid.ofs, mid.size);
 					} catch (const std::exception&) {
 						// apparently, we are out of system resources. As many more operations
 						// are likely to fail in that condition (like reading a file from disk, etc)
 						// we free up as much as possible
 						// Make sure our insert position doesn't get collected !
-						if (regions.size() && insertpos != rend) {
+						if (insertpos != rend) {
 							const_cast<region&>(*insertpos).client_count() += 1;
 						}
 						
 						m_manager->collect_lru_region(0);
 						
-						if (regions.size() && insertpos != rend) {
+						// using the end() method here in case regions changed and changed the end iterator.
+						// In a linked list I would assume its something like null, so this is not really required. But
+						// be sure ... .
+						if (insertpos != regions.end()) {
 							const_cast<region&>(*insertpos).client_count() -= 1;
 						}
+						
+						// if this should fail again, we fail ungracefully as this would be truly exceptional
 						m_region = new region(m_rlist->path(), mid.ofs, mid.size);
 					}
 
@@ -617,9 +619,9 @@ private:
 
 protected:
 	file_regions_set		m_files;			//! set of file regions with all mappings
-	size_type				m_max_window_size;		//! size of the window for allocations
+	size_type				m_window_size;		//! size of the window for allocations
 	 size_type				m_max_memory_size;	//! maximum amount of memory we may allocate
-	const uint32			m_max_handles;		//! maximum amount of handles to keep open
+	const uint32			m_max_handle_count;		//! maximum amount of handles to keep open
 	
 	size_type				m_memory_size;		//! currently allocated memory size
 	uint32					m_handle_count;			//! amount of currently allocated file handles
@@ -688,12 +690,12 @@ public:
 	//! the amount is only limited by the system itself. If a system or soft limit is hit, the manager will free
 	//! as many handles as possible
 	mapped_memory_manager(size_type window_size = 0, size_type max_memory_size = 0, uint32 max_open_handles = ~0) 
-	    : m_max_handles(max_open_handles)
+	    : m_max_handle_count(max_open_handles)
 	    , m_memory_size(0)
 	    , m_handle_count(0)
 	    
 	{
-		m_max_window_size = window_size != 0 ? window_size : 
+		m_window_size = window_size != 0 ? window_size : 
 								sizeof(void*) < 8 ? 32 * 1024 * 1024	// moderate sizes on 32 bit systems
 		                                          : 1024 * 1024 * 1024;	// go for it on 64 bit, we have plenty of address space
 		m_max_memory_size = max_memory_size != 0 ? max_memory_size : 
@@ -735,12 +737,12 @@ public:
 	
 	//! \return maximum amount of concurrently open file handles
 	uint32 max_file_handles() const {
-		return m_max_handles;
+		return m_max_handle_count;
 	}
 	
-	//! \return desired size each window should have upon allocation
+	//! \return size each window should have upon allocation
 	size_type window_size() const {
-		return m_max_window_size;
+		return m_window_size;
 	}
 	
 	//! \return amount of bytes currently mapped in total
