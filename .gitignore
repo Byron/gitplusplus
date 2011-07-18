@@ -1,14 +1,3 @@
-*.o
 *.user*
-CMakeCache.txt
-CMakeFiles
-Makefile
-cmake_install.cmake
-CTestTestfile.cmake
-Testing/
-bin/
-lib/
 doc/html
-Doxyfile
-src/git/config.h
 

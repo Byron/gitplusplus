@@ -17,18 +17,18 @@ if(CMAKE_CONFIGURATION_TYPES)
 		FORCE)
 endif()
 
-SET( CMAKE_CXX_FLAGS_PROFILE "-O3 -DNDEBUG -pg" CACHE STRING
+set( CMAKE_CXX_FLAGS_PROFILE "-O3 -DNDEBUG -pg" CACHE STRING
     "Flags used by the C++ compiler during PROFILE builds."
     FORCE )
-SET( CMAKE_EXE_LINKER_FLAGS_PROFILE
+set( CMAKE_EXE_LINKER_FLAGS_PROFILE
     "-pg" CACHE STRING
     "Flags used for linking binaries during PROFILE builds."
     FORCE )
-SET( CMAKE_SHARED_LINKER_FLAGS_PROFILE
+set( CMAKE_SHARED_LINKER_FLAGS_PROFILE
     "-pg" CACHE STRING
     "Flags used by the shared libraries linker during PROFILE builds."
     FORCE )
-MARK_AS_ADVANCED(
+mark_as_advanced(
     CMAKE_CXX_FLAGS_PROFILE
     CMAKE_EXE_LINKER_FLAGS_PROFILE
     CMAKE_SHARED_LINKER_FLAGS_PROFILE )
@@ -36,14 +36,14 @@ MARK_AS_ADVANCED(
 #CMAKE SETUP AND CONFIGURATION
 ###############################
 # setup modules
-include(FindDoxygen DOXYGEN_SKIP_DOT)
+include(FindDoxygen)
 
 set(Boost_USE_STATIC_LIBS        ON)
 
 find_package(Boost 1.45.0 COMPONENTS date_time filesystem system unit_test_framework) 
 
 if(NOT Boost_FOUND)
-	message(SEND_FAILURE "Require boost libraries")
+	message(SEND_ERROR "Require boost libraries")
 endif()
 
 # setup compiler
@@ -68,8 +68,9 @@ include(fun.cmake)
 
 
 # CONFIGURE INCLUDE
-####################
-include_directories(src test SYSTEM)
+###################
+include_directories(${CMAKE_BINARY_DIR}/src src test ${Boost_INCLUDE_DIR} SYSTEM)
+link_directories(${Boost_LIBRARY_DIRS})
 configure_file(src/git/config.h.in src/git/config.h)
 
 # CONFIGURE LIBRARIES
